@@ -1,0 +1,318 @@
+---
+title: "DataEditor"
+---
+## Basic Usage
+
+### HTML/CSS Prerequisites
+
+Currently the Grid depends on there being a root level "portal" div in your HTML. Insert this snippet as the last child of your `<body>` tag:
+
+```html
+<div id="portal" style="position: fixed; left: 0; top: 0; z-index: 9999;" />
+```
+
+Once you've got that done, the easiest way to use the Data Grid is to give it a fixed size:
+
+```jsx
+<DataEditor width={500} height={300} {...props} />
+```
+
+### Changes to your data
+
+The Grid will never change any of your underlying data. You have to do so yourself when one of the callbacks is invoked. For example, when the user edits the value in a cell, the Grid will invoke the `onCellEdited` callback. If you don't implement that callback, or if it doesn't change the undelying data to the new value, the Grid will keep displaying the old value.
+
+### Definition
+
+```typescript
+interface DataEditorProps {
+    allowedFillDirections?: "horizontal" | "vertical" | "orthogonal" | "any",
+    className?: string;
+    coercePasteValue?: ((val, cell) => undefined | GridCell);
+    columnSelect?: "none" | "single" | "multi";
+    columnSelectionBlending?: SelectionBlending;
+    columns: readonly GridColumn[];
+    copyHeaders?: boolean;
+    customRenderers?: readonly CustomRenderer<any>[];
+    drawCell?: DrawCellCallback;
+    drawFocusRing?: boolean;
+    drawHeader?: DrawHeaderCallback;
+    experimental?: {
+        disableAccessibilityTree?: boolean;
+        disableMinimumCellWidth?: boolean;
+        enableFirefoxRescaling?: boolean;
+        hyperWrapping?: boolean;
+        isSubGrid?: boolean;
+        kineticScrollPerfHack?: boolean;
+        paddingBottom?: number;
+        paddingRight?: number;
+        renderStrategy?: "single-buffer" | "double-buffer" | "direct";
+        scrollbarWidthOverride?: number;
+        strict?: boolean;
+    };
+    fillHandle?: boolean;
+    fixedShadowX?: boolean;
+    fixedShadowY?: boolean;
+    freezeColumns?: number;
+    freezeTrailingRows?: number;
+    getCellContent: ((cell) => GridCell);
+    getCellsForSelection?: true | ((selection, abortSignal) => GetCellsThunk | CellArray);
+    getGroupDetails?: GroupDetailsCallback;
+    getRowThemeOverride?: GetRowThemeCallback;
+    gridSelection?: GridSelection;
+    groupHeaderHeight?: number;
+    headerHeight?: number;
+    headerIcons?: SpriteMap;
+    height?: string | number;
+    highlightRegions?: readonly Highlight[];
+    imageEditorOverride?: ImageEditorType;
+    imageWindowLoader?: ImageWindowLoader;
+    initialSize?: readonly [number, number];
+    isDraggable?: boolean | "header" | "cell";
+    isOutsideClick?: ((e) => boolean);
+    keybindings?: Partial<Keybinds>;
+    markdownDivCreateNode?: ((content) => DocumentFragment);
+    maxColumnAutoWidth?: number;
+    maxColumnWidth?: number;
+    minColumnWidth?: number;
+    onCellActivated?: ((cell) => void);
+    onCellClicked?: ((cell, event) => void);
+    onCellContextMenu?: ((cell, event) => void);
+    onCellEdited?: ((cell, newValue) => void);
+    onCellsEdited?: ((newValues) => boolean | void);
+    onColumnMoved?: ((startIndex, endIndex) => void);
+    onColumnResize?: ((column, newSize, colIndex, newSizeWithGrow) => void);
+    onColumnResizeEnd?: ((column, newSize, colIndex, newSizeWithGrow) => void);
+    onColumnResizeStart?: ((column, newSize, colIndex, newSizeWithGrow) => void);
+    onDelete?: ((selection) => boolean | GridSelection);
+    onDragLeave?: (() => void);
+    onDragOverCell?: ((cell, dataTransfer) => void);
+    onDragStart?: ((args) => void);
+    onDrop?: ((cell, dataTransfer) => void);
+    onFillPattern?: ((event) => void);
+    onFinishedEditing?: ((newValue, movement) => void);
+    onGridSelectionChange?: ((newSelection) => void);
+    onGroupHeaderClicked?: ((colIndex, event) => void);
+    onGroupHeaderContextMenu?: ((colIndex, event) => void);
+    onGroupHeaderRenamed?: ((groupName, newVal) => void);
+    onHeaderClicked?: ((colIndex, event) => void);
+    onHeaderContextMenu?: ((colIndex, event) => void);
+    onHeaderMenuClick?: ((col, screenPosition) => void);
+    onItemHovered?: ((args) => void);
+    onKeyDown?: ((event) => void);
+    onKeyUp?: ((event) => void);
+    onMouseMove?: ((args) => void);
+    onPaste?: boolean | ((target, values) => boolean);
+    onRowAppended?: (() => void | Promise<undefined | number | "bottom" | "top">);
+    onRowMoved?: ((startIndex, endIndex) => void);
+    onSearchClose?: (() => void);
+    onSearchResultsChanged?: ((results, navIndex) => void);
+    onSearchValueChange?: ((newVal) => void);
+    onSelectionCleared?: (() => void);
+    onVisibleRegionChanged?: ((range, tx, ty, extras) => void);
+    overscrollX?: number;
+    overscrollY?: number;
+    preventDiagonalScrolling?: boolean;
+    provideEditor?: ProvideEditorCallback<GridCell>;
+    rangeSelect?: "rect" | "none" | "cell" | "multi-cell" | "multi-rect";
+    rangeSelectionBlending?: SelectionBlending;
+    rightElement?: ReactNode;
+    rightElementProps?: {
+        fill?: boolean;
+        sticky?: boolean;
+    };
+    rowHeight?: number | ((index) => number);
+    rowMarkerStartIndex?: number;
+    rowMarkerTheme?: Partial<Theme>;
+    rowMarkerWidth?: number;
+    rowMarkers?: "number" | "none" | "checkbox" | "both" | "checkbox-visible" | "clickable-number";
+    rowSelect?: "none" | "single" | "multi";
+    rowSelectionBlending?: SelectionBlending;
+    rowSelectionMode?: "auto" | "multi";
+    rows: number;
+    scaleToRem?: boolean;
+    scrollOffsetX?: number;
+    scrollOffsetY?: number;
+    searchResults?: readonly Item[];
+    searchValue?: string;
+    showSearch?: boolean;
+    smoothScrollX?: boolean;
+    smoothScrollY?: boolean;
+    spanRangeBehavior?: "default" | "allowPartial";
+    theme?: Partial<Theme>;
+    trailingRowOptions?: {
+        addIcon?: string;
+        hint?: string;
+        sticky?: boolean;
+        targetColumn?: number | GridColumn;
+        tint?: boolean;
+    };
+    validateCell?: ((cell, newValue, prevValue) => boolean | ValidatedGridCell);
+    verticalBorder?: boolean | ((col) => boolean);
+    width?: string | number;
+}
+```
+
+### Required Props
+
+All data grids must set these props. These props are the bare minimum required to set up a functional data grid. Not all features will function with only these props but basic functionality will be present.
+
+| Name                                                               | Description                                             |
+| ------------------------------------------------------------------ | ------------------------------------------------------- |
+| [columns](/docs/api/dataeditor/required-props#columns)               | All columns in the data grid.                           |
+| [getCellContent](/docs/api/dataeditor/required-props#getcellcontent) | A callback to get the content of a given cell location. |
+| [rows](/docs/api/dataeditor/required-props#rows)                     | The number of rows in the data-grid.                    |
+
+### Important Props
+
+Most data grids will want to set the majority of these props one way or another.
+
+
+
+| Name | Description |
+| --- | --- |
+| [fixedShadowX](/docs/api/dataeditor/important-props#fixedshadow) | Enable/disable a shadow behind fixed columns on the X axis. |
+| [fixedShadowY](/docs/api/dataeditor/important-props#fixedshadow) | Enable/disable a shadow behind the header(s) on the Y axis. |
+| [freezeColumns](/docs/api/dataeditor/important-props#freezecolumns) | The number of columns which should remain in place when scrolling horizontally. The row marker column, if enabled is always frozen and is not included in this count. |
+| [freezeTrailingRows](/docs/api/dataeditor/important-props#freezetrailingrows) | The number of rows which should remain in place at the bottom of the grid when scrolling. |
+| [getCellsForSelection](/docs/api/dataeditor/important-props#getcellsforselection) | Used to fetch large amounts of cells at once. Used for copy/paste, if unset copy will not work. |
+| height | Overrides the height of the grid. |
+| [markdownDivCreateNode](/docs/api/dataeditor/important-props#markdowndivcreatenode) | If specified, it will be used to render Markdown, instead of the default Markdown renderer used by the Grid. You'll want to use this if you need to process your Markdown for security purposes, or if you want to use a renderer with different Markdown features. |
+| [onVisibleRegionChanged](/docs/api/dataeditor/important-props#onvisibleregionchanged) | Emits whenever the visible rows/columns changes. |
+| [provideEditor](/docs/api/dataeditor/important-props#provideeditor) | Callback for providing a custom editor for a cell. |
+| [rowHeight](/docs/api/dataeditor/important-props#rowheight) | Callback or number used to specify the height of a given row. |
+| [smoothScrollX](/docs/api/dataeditor/important-props#smoothscroll) | Enable/disable smooth scrolling on the X axis. |
+| [smoothScrollY](/docs/api/dataeditor/important-props#smoothscroll) | Enable/disable smooth scrolling on the Y axis. |
+| width | Overrides the width of the grid. |
+
+
+
+### Search
+
+| Name                                                                       | Description                                                                           |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [onSearchClose](/docs/api/dataeditor/search#onsearchclose)                   | Emitted when the search interface close button is clicked.                            |
+| [onSearchResultsChanged](/docs/api/dataeditor/search#onsearchresultschanged) | Emitted when the search results change.                                               |
+| [onSearchValueChange](/docs/api/dataeditor/search#onsearchvaluechange)       | Emitted when the user types a new value into the search box.                          |
+| [searchResults](/docs/api/dataeditor/search#searchresults)                   | Overrides the search results and highlights all items for the user to enumerate over. |
+| [searchValue](/docs/api/dataeditor/search#searchvalue)                       | Sets the search value for the search box.                                             |
+| [showSearch](/docs/api/dataeditor/search#showsearch)                         | Show/hide the search interface.                                                       |
+
+### Row Markers
+
+| Name                                                                      | Description                                                                                   |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [rowMarkers](/docs/api/dataeditor/row-markers#rowmarkers)                   | Enable/disable row marker column on the left. Can show row numbers, selection boxes, or both. |
+| [rowMarkerStartIndex](/docs/api/dataeditor/row-markers#rowmarkerstartindex) | The index of the first element in the grid                                                    |
+| [rowMarkerTheme](/docs/api/dataeditor/row-markers#rowmarkertheme)           | Overrides the theme for row markers                                                           |
+| [rowMarkerWidth](/docs/api/dataeditor/row-markers#rowmarkerwidth)           | The width of the row markers.                                                                 |
+
+### Styling
+
+| Name                                                                  | Description                                                             |
+| --------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| [getGroupDetails](/docs/api/dataeditor/styling#getgroupdetails)         | Callback to provide additional details for group headers such as icons. |
+| [getRowThemeOverride](/docs/api/dataeditor/styling#getrowthemeoverride) | Callback to provide theme override for any row.                         |
+| [groupHeaderHeight](/docs/api/dataeditor/styling#groupheaderheight)     | The height in pixels of the column group headers.                       |
+| [headerHeight](/docs/api/dataeditor/styling#headerheight)               | The height in pixels of the column headers.                             |
+| [headerIcons](/docs/api/dataeditor/styling#headericons)                 | Additional header icons for use by `GridColumn`.                        |
+| [overscrollX](/docs/api/dataeditor/styling#overscroll)                  | Allows overscrolling the data grid horizontally by a set amount.        |
+| [overscrollY](/docs/api/dataeditor/styling#overscroll)                  | Allows overscrolling the data grid vertically by a set amount.          |
+| [rightElement](/docs/api/dataeditor/styling#rightelement)               | A node which will be placed at the right edge of the data grid.         |
+| [rightElementProps](/docs/api/dataeditor/styling#rightelement)          | Changes how the right element renders.                                  |
+| [scaleToRem](/docs/api/dataeditor/styling#scaletorem)                   | Scales most elements in the theme to match rem scaling automatically    |
+| [verticalBorder](/docs/api/dataeditor/styling#verticalborder)           | Enable/disable vertical borders for any `GridColumn`                    |
+
+### Selection Handling
+
+| Name                                                                                               | Description                                                                                             |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| allowedFillDirections                                                                              | Controls which directions fill is allowed in while using the fill handle.                               |
+| [columnSelect](/docs/api/dataeditor/selection-handling#column-range-rowselect)                       | Controls if multiple columns can be selected at once.                                                   |
+| [columnSelectionBlending](/docs/api/dataeditor/selection-handling#column-range-rowselectionblending) | Controls how column selections may be mixed with other selection types.                                 |
+| [drawFocusRing](/docs/api/dataeditor/selection-handling#drawfocusring)                               | Determins if the focus ring should be drawn by the grid.                                                |
+| [fillHandle](/docs/api/dataeditor/selection-handling#fillhandle)                                     | Controls the presence of the fill indicator                                                             |
+| [gridSelection](/docs/api/dataeditor/selection-handling#gridselection)                               | The current selection active in the data grid. Includes both the selection cell and the selected range. |
+| [highlightRegions](/docs/api/dataeditor/selection-handling#highlightregions)                         | Adds additional highlights to the data grid for showing contextually important cells.                   |
+| [onGridSelectionChange](/docs/api/dataeditor/selection-handling#ongridselectionchange)               | Emitted whenever the `gridSelection` should change.                                                     |
+| [onSelectionCleared](/docs/api/dataeditor/selection-handling#onselectioncleared)                     | Emitted when the selection is explicitly cleared.                                                       |
+| [rangeSelect](/docs/api/dataeditor/selection-handling#column-range-rowselect)                        | Controls if multiple ranges can be selected at once.                                                    |
+| [rangeSelectionBlending](/docs/api/dataeditor/selection-handling#column-range-rowselectionblending)  | Controls how range selections may be mixed with other selection types.                                  |
+| [rowSelect](/docs/api/dataeditor/selection-handling#column-range-rowselect)                          | Controls if multiple rows can be selected at aonce.                                                     |
+| [rowSelectionBlending](/docs/api/dataeditor/selection-handling#column-range-rowselectionblending)    | Controls how row selections may be mixed with other selection types.                                    |
+| [spanRangeBehavior](/docs/api/dataeditor/selection-handling#spanrangebehavior)                       | Determines if the `gridSelection` should allow partial spans or not.                                    |
+
+### Editing
+
+| Name                                                                    | Description                                                                                                                         |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [coercePasteValue](/docs/api/dataeditor/editing#coercepastevalue)         | Allows coercion of pasted values.                                                                                                   |
+| [imageEditorOverride](/docs/api/dataeditor/editing#imageeditoroverride)   | Used to provide an override to the default image editor for the data grid. `provideEditor` may be a better choice for most people.  |
+| [onCellEdited](/docs/api/dataeditor/editing#oncelledited)                 | Emitted whenever a cell edit is completed.                                                                                          |
+| [onCellsEdited](/docs/api/dataeditor/editing#oncelledited)                | Emitted whenever a cell edit is completed and provides all edits inbound as a single batch.                                         |
+| [onDelete](/docs/api/dataeditor/editing#ondelete)                         | Emitted whenever the user has requested the deletion of the selection.                                                              |
+| [onFillPattern](/docs/api/dataeditor/editing#onfillpattern)               | Emitted when the fill handle is used to replace the contents of a region of the grid.                                               |
+| [onFinishedEditing](/docs/api/dataeditor/editing#onfinishedediting)       | Emitted when editing has finished, regardless of data changing or not.                                                              |
+| [onGroupHeaderRenamed](/docs/api/dataeditor/editing#ongroupheaderrenamed) | Emitted whe the user wishes to rename a group.                                                                                      |
+| [onPaste](/docs/api/dataeditor/editing#onpaste)                           | Emitted any time data is pasted to the grid. Allows controlling paste behavior.                                                     |
+| [onRowAppended](/docs/api/dataeditor/editing#trailingrowoptions)          | Emitted whenever a row append operation is requested. Append location can be set in callback.                                       |
+| [trailingRowOptions](/docs/api/dataeditor/editing#trailingrowoptions)     | Controls the built in trailing row to allow appending new rows.                                                                     |
+| trapFocus                                                               | Setting to true will cause the grid to prevent focus leaving the grid during caret browsing or pressing tab.                        |
+| [validateCell](/docs/api/dataeditor/editing#validatecell)                 | When returns false indicates to the user the value will not be accepted. When returns a new GridCell the value is coerced to match. |
+
+### Input Interaction
+
+| Name                                                                                      | Description                                                                                                       |
+| ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [keybindings](/docs/api/dataeditor/input-interaction#keybindings)                           | Controls which keybindings are enabled while the grid is selected.                                                |
+| [maxColumnAutoWidth](/docs/api/dataeditor/input-interaction#maxcolumnautowidth)             | Sets the maximum width a column can be auto-sized to.                                                             |
+| [maxColumnWidth](/docs/api/dataeditor/input-interaction#maxcolumnwidth)                     | Sets the maximum width the user can resize a column to.                                                           |
+| [minColumnWidth](/docs/api/dataeditor/input-interaction#maxcolumnwidth)                     | Sets the minimum width the user can resize a column to.                                                           |
+| [onCellActivated](/docs/api/dataeditor/input-interaction#oncellactivated)                   | Emitted when a cell is activated, by pressing Enter, Space or double clicking it.                                 |
+| [onCellClicked](/docs/api/dataeditor/input-interaction#oncellclicked)                       | Emitted when a cell is clicked.                                                                                   |
+| [onCellContextMenu](/docs/api/dataeditor/input-interaction#oncellcontextmenu)               | Emitted when a cell should show a context menu. Usually right click.                                              |
+| [onColumnMoved](/docs/api/dataeditor/input-interaction#oncolumnmoved)                       | Emitted when a column has been dragged to a new location.                                                         |
+| onColumnProposeMove                                                                       | Called when the user is dragging a column and proposes to move it to a new location. Return `false` to prevent    |
+| [onColumnResize](/docs/api/dataeditor/input-interaction#oncolumnresize)                     | Emitted when a column has been resized to a new size.                                                             |
+| [onColumnResizeEnd](/docs/api/dataeditor/input-interaction#oncolumnresizeend)               | Emitted when a column has been resized to a new size and the user has stopped interacting wtih the resize handle. |
+| [onColumnResizeStart](/docs/api/dataeditor/input-interaction#oncolumnresizestart)           | Emitted when a column resize operation begins.                                                                    |
+| [onGroupHeaderClicked](/docs/api/dataeditor/input-interaction#ongroupheaderclicked)         | Emitted when a group header is clicked.                                                                           |
+| [onGroupHeaderContextMenu](/docs/api/dataeditor/input-interaction#ongroupheadercontextmenu) | Emitted when a group header should show a context menu. Usually right click.                                      |
+| [onHeaderClicked](/docs/api/dataeditor/input-interaction#onheaderclicked)                   | Emitted when a column header is clicked.                                                                          |
+| [onHeaderContextMenu](/docs/api/dataeditor/input-interaction#onheadercontextmenu)           | Emitted when a column header should show a context menu. Usually right click.                                     |
+| [onHeaderMenuClick](/docs/api/dataeditor/input-interaction#onheadermenuclick)               | Emitted when the menu dropdown arrow on a column header is clicked.                                               |
+| [onItemHovered](/docs/api/dataeditor/input-interaction#onitemhovered)                       | Emitted when the hovered item changes.                                                                            |
+| onKeyDown                                                                                 | Emitted when a key is pressed.                                                                                    |
+| onKeyUp                                                                                   | Emitted when a key is released.                                                                                   |
+| [onMouseMove](/docs/api/dataeditor/input-interaction#onmousemove)                           | Emitted whenever the mouse moves. Be careful, can cause performance issues.                                       |
+| [onRowMoved](/docs/api/dataeditor/input-interaction#onrowmoved)                             | Emitted when a row has been dragged to a new location.                                                            |
+| [preventDiagonalScrolling](/docs/api/dataeditor/input-interaction#preventdiagonalscrolling) | Prevents diagonal scrolling                                                                                       |
+| [rowSelectionMode](/docs/api/dataeditor/input-interaction#rowselectionmode)                 | Determines if row selection requires a modifier key to enable multi-selection or not.                             |
+
+### Drag and Drop
+
+| Name                                                              | Description                                                   |
+| ----------------------------------------------------------------- | ------------------------------------------------------------- |
+| [onDragLeave](/docs/api/dataeditor/drag-and-drop#ondragleave)       | Emitted when an external drag event exits the drop region.    |
+| [onDragOverCell](/docs/api/dataeditor/drag-and-drop#ondragovercell) | Emitted when an external drag event is started over a cell.   |
+| [onDrop](/docs/api/dataeditor/drag-and-drop#ondrop)                 | Emitted when an external drag event is completed on the grid. |
+
+### Custom Cells
+
+| Name                                                               | Description                                            |
+| ------------------------------------------------------------------ | ------------------------------------------------------ |
+| [customRenderers](/docs/api/dataeditor/custom-cells#customrenderers) | FIXME                                                  |
+| [drawCell](/docs/api/dataeditor/custom-cells#drawcell)               | Callback used to override the rendering of any cell.   |
+| [drawHeader](/docs/api/dataeditor/custom-cells#drawheader)           | Callback used to override the rendering of any header. |
+
+### Rarely Used
+
+| Name              | Description                                                                                                                                         |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| experimental      | Contains experimental flags. Nothing in here is considered stable API and is mostly used for features that are not yet settled.                     |
+| imageWindowLoader | Replaces the default image window loader with an externally provided one. Useful for cases where images need to be loaded in a non-standard method. |
+| initialSize       | Passing this enables the grid to optimize its first paint and avoid a flicker. Only useful if the grid size is known ahead of time.                 |
+| isDraggable       | Makes the grid as a whole draggable. Disables many interactions.                                                                                    |
+| isOutsideClick    | Allows bypassing the default outside click handler for overlay editors.                                                                             |
+| onDragStart       | Emitted when a drag starts and `isDraggable` is true.                                                                                               |
+| scrollOffsetX     | Sets the initial scroll offset in the x direction.                                                                                                  |
+| scrollOffsetY     | Sets the initial scroll offset in the y direction.                                                                                                  |

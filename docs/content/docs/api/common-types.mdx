@@ -1,0 +1,163 @@
+---
+title: "Common Types"
+---
+| Name                            | Description                                                           |
+| ------------------------------- | --------------------------------------------------------------------- |
+| [GridColumn](#gridcolumn)       | A column description. Passed to the `columns` property.               |
+| [GridCell](#gridcell)           | The basic interface for defining a cell                               |
+| [GridSelection](#gridselection) | The most basic representation of the selected cells in the data grid. |
+| [Theme](#theme)                 | The theme used by the data grid to get all color and font information |
+
+### GridColumn
+
+Grid columns are the basic horizontal building block of the data grid. At their most basic level a `GridColumn` is just an object which contains a `title` and a `width` or `id`. Their type looks like:
+
+```ts
+interface BaseGridColumn {
+    readonly title: string;
+    readonly group?: string;
+    readonly icon?: GridColumnIcon | string;
+    readonly overlayIcon?: GridColumnIcon | string;
+    readonly hasMenu?: boolean;
+    readonly style?: "normal" | "highlight";
+    readonly grow?: number;
+    readonly themeOverride?: Partial<Theme>;
+    readonly trailingRowOptions?: {
+        readonly hint?: string;
+        readonly addIcon?: string;
+        readonly targetColumn?: number | GridColumn;
+        readonly themeOverride?: Partial<Theme>;
+        readonly disabled?: boolean;
+    };
+}
+
+interface SizedGridColumn extends BaseGridColumn {
+    readonly width: number;
+    readonly id?: string;
+}
+
+interface AutoGridColumn extends BaseGridColumn {
+    readonly id: string;
+}
+
+export type GridColumn = SizedGridColumn | AutoGridColumn;
+```
+
+| Property           | Description                                                                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| title              | The title of the column                                                                                                                  |
+| group              | The name of the group the column belongs to                                                                                              |
+| icon               | The icon the column belongs to. The icon must be either one of the predefined icons or an icon passed to the `headerIcons` prop          |
+| overlayIcon        | An icon which is painted on top offset bottom right of the `icon`. Must be a predefined icon or an icon passed to the `headerIcons` prop |
+| hasMenu            | Enables/disables the menu dropdown indicator. If not enabled, `onHeaderMenuClick` will not be emitted.                                   |
+| style              | Makes the column use the highlighted theming from the `Theme`. `themeOverride` can be used to perform the same effect.                   |
+| grow               | When set to a number > 0 the column will grow to consume extra available space according to the weight of its grow property.             |
+| themeOverride      | A `Partial<Theme>` which can be used to override the theming of the header as well as all cells within the column.                       |
+| trailingRowOptions | Overrides the `DataEditor` level prop for `trailingRowOptions` for this column                                                           |
+
+***
+
+### GridCell
+
+`GridCell` is the basic content building block of a data grid. There are many types of cells available out of the box and more available in additional packages.
+
+| Cell Kind | Description                                                                                                    |
+| --------- | -------------------------------------------------------------------------------------------------------------- |
+| Uri       | Displays uris. Can be edited.                                                                                  |
+| Text      | Displays arbitrary text.                                                                                       |
+| Image     | Displays one or more images.                                                                                   |
+| RowID     | Designed to show primary keys in data sources.                                                                 |
+| Number    | Displays numbers with formatting options and better editing support.                                           |
+| Bubble    | Displays lists of data in little bubbles.                                                                      |
+| Boolean   | Displays a checkbox which can be directly edited if desired.                                                   |
+| Loading   | Useful for when data is loading. Rendering is basically free.                                                  |
+| Markdown  | Displays markdown when opened.                                                                                 |
+| Drilldown | Similar to a bubble cell, but allows embedding text and images with each cell.                                 |
+| Protected | Displays stars instead of data. Useful for indicating that hidden data is present but unavailable to the user. |
+| Custom    | Has no rendering by default and must be provided via a custom renderer                                         |
+
+All grid cells support the following properties
+
+```ts
+interface BaseGridCell {
+    readonly allowOverlay: boolean;
+    readonly lastUpdated?: number;
+    readonly style?: "normal" | "faded";
+    readonly themeOverride?: Partial<Theme>;
+    readonly span?: readonly [number, number];
+    readonly contentAlign?: "left" | "right" | "center";
+    readonly cursor?: CSSProperties["cursor"];
+}
+```
+
+| Property      | Description                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| allowOverlay  | Determins if an overlay editor or previewer should be shown when activating this cell.                                                                  |
+| lastUpdated   | If set, the grid will render this cell with a highlighted background which fades out. Uses performance.now() instead of Date.now().                     |
+| style         | If set to `faded` the cell will draw with a transparent appearance.                                                                                     |
+| themeOverride | A partial theme override to use when drawing this cell.                                                                                                 |
+| span          | If set the `span` controls which horizontal span a cell belongs to. Spans are inclusive and must be correctly reported for all cells in the span range. |
+| contentAlign  | Changes the default text alignment for the cell.                                                                                                        |
+| cursor        | An override for the cell cursor when hovered.                                                                                                           |
+
+***
+
+### GridSelection
+
+`GridSelection` is the most basic representation of the selected cells, rows, and columns in the data grid. The `current` property accounts for the selected cell and the range of cells selected as well. It is the selection which is modified by keyboard and mouse interaction when clicking on the cells themselves.
+
+The `rows` and `columns` properties both account for the columns or rows which have been explicitly selected by the user. Selecting a range which encompases the entire set of cells within a column/row does not implicitly set it into this part of the collection. This allows for distinguishing between cases when the user wishes to delete all contents of a row/column and delete the row/column itself.
+
+```ts
+interface GridSelection {
+    readonly current?: {
+        readonly cell: Item;
+        readonly range: Readonly<Rectangle>;
+        readonly rangeStack: readonly Readonly<Rectangle>[];
+    };
+    readonly columns: CompactSelection;
+    readonly rows: CompactSelection;
+}
+```
+
+The `cell` is the \[col, row] formatted cell which will have the focus ring drawn around it. The `range` should always include the `cell` and represents additional cells which can be edited via copy, delete and other events. The `range` may or may not include partial spans depending on the `spanRangeBehavior` set.
+
+***
+
+### Theme
+
+The data grid uses the `Theme` provided to the DataEditer in the `theme` prop. This is used to style editors as well as the grid itself. The theme interface is flat. The data grid comes with a built in theme which it will use to fill in any missing values.
+
+| Property              | Type                | CSS Variable                  | Description                                                                                       |
+| --------------------- | ------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| accentColor           | string              | --gdg-accent-color            | The primary accent color of the grid. This will show up in focus rings and selected rows/headers. |
+| accentFg              | string              | --gdg-accent-fg               | A foreground color which works well on top of the accent color.                                   |
+| accentLight           | string              | --gdg-accent-light            | A lighter version of the accent color used to hint selection.                                     |
+| textDark              | string              | --gdg-text-dark               | The standard text color.                                                                          |
+| textMedium            | string              | --gdg-text-medium             | A lighter text color used for non-editable data in some cases.                                    |
+| textLight             | string              | --gdg-text-light              | An even lighter text color                                                                        |
+| textBubble            | string              | --gdg-text-bubble             | The text color used in bubbles                                                                    |
+| bgIconHeader          | string              | --gdg-bg-icon-header          | The background color for header icons                                                             |
+| fgIconHeader          | string              | --gdg-fg-icon-header          | The foreground color for header icons                                                             |
+| textHeader            | string              | --gdg-text-header             | The header text color                                                                             |
+| textGroupHeader       | string \| undefined | --gdg-text-group-header       | The group header text color, if none provided the `textHeader` is used instead.                   |
+| textHeaderSelected    | string              | --gdg-text-header-selected    | The text color used for selected headers                                                          |
+| bgCell                | string              | --gdg-bg-cell                 | The primary background color of the data grid.                                                    |
+| bgCellMedium          | string              | --gdg-bg-cell-medium          | Used for disabled or otherwise off colored cells.                                                 |
+| bgHeader              | string              | --gdg-bg-header               | The header background color                                                                       |
+| bgHeaderHasFocus      | string              | --gdg-bg-header-has           | The header background color when its column contains the selected cell                            |
+| bgHeaderHovered       | string              | --gdg-bg-header-hovered       | The header background color when it is hovered                                                    |
+| bgBubble              | string              | --gdg-bg-bubble               | The background color used in bubbles                                                              |
+| bgBubbleSelected      | string              | --gdg-bg-bubble-selected      | The background color used in bubbles when the cell is selected                                    |
+| bgSearchResult        | string              | --gdg-bg-search-result        | The background color used for cells which match the search string                                 |
+| borderColor           | string              | --gdg-border-color            | The color of all vertical borders and horizontal borders if a horizontal override is not provided |
+| horizontalBorderColor | string \| undefined | --gdg-horizontal-border-color | The horizontal border color override                                                              |
+| drilldownBorder       | string              | --gdg-drilldown-border        | The ring color of a drilldown cell                                                                |
+| linkColor             | string              | --gdg-link-color              | What color to render links                                                                        |
+| cellHorizontalPadding | number              | --gdg-cell-horizontal-padding | The internal horizontal padding size of a cell.                                                   |
+| cellVerticalPadding   | number              | --gdg-cell-vertical-padding   | The internal vertical padding size of a cell.                                                     |
+| headerFontStyle       | string              | --gdg-header-font-style       | The font style of the header. e.g. `bold 15px`                                                    |
+| baseFontStyle         | string              | --gdg-base-font-style         | The font style used for cells by default, e.g. `13px`                                             |
+| fontFamily            | string              | --gdg-font-family             | The font family used by the data grid.                                                            |
+| editorFontSize        | string              | --gdg-editor-font-size        | The font size used by overlay editors.                                                            |
+| lineHeight            | number              | None                          | A unitless scaler which defines the height of a line of text relative to the ink size.            |

@@ -1,0 +1,49 @@
+---
+title: "Required Props"
+---
+```typescript
+interface DataEditorProps {
+    
+    // ... other props
+
+    columns: readonly GridColumn[];
+    getCellContent: ((cell) => GridCell);
+    rows: number;
+    
+    // ... other props
+}
+```
+
+***
+
+### columns
+
+```ts
+columns: readonly GridColumn[];
+```
+
+`columns` is an array of objects of type `GridColumn` describing the column headers. The length of the array is the number of columns to display.&#x20;
+
+> 💡 This value should be memoized so as to avoid extraneous rerendering.
+
+***
+
+### rows
+
+```ts
+rows: number;
+```
+
+`rows` is the number of rows to display.
+
+***
+
+### getCellContent
+
+```ts
+getCellContent: (cell: Item) => GridCell;
+```
+
+`getCellContent` returns an object of type `GridCell` describing the contents for the cell at the given coordinates.
+
+> 💡 This value should be memoized so as to avoid extraneous rerendering. This is usually done using `React.useCallback`. Failure to ensure proper memoization will result in slow path rendering at all times.

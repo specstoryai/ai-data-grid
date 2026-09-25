@@ -1,0 +1,30 @@
+---
+title: "TextCell"
+---
+The text cell renders text. It can also render multiple lines of text.
+
+```typescript
+export interface TextCell extends BaseGridCell {
+    readonly kind: GridCellKind.Text;
+    readonly displayData: string;
+    readonly data: string;
+    readonly readonly?: boolean;
+    readonly allowWrapping?: boolean;
+}
+```
+
+### displayData
+
+The text to display to the user when the overlay editor is closed. Usually the same as `data` unless formatting is needed.
+
+### data
+
+The text to display to the user when the overlay editor is open.
+
+### readonly
+
+Determines if the cell will accept edit events.
+
+### allowWrapping
+
+If enabled the cell will render with text top aligned and will allow for rendering multiple lines of text. By default the text cell only renders a single line of text.

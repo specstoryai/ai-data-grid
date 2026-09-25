@@ -1,0 +1,323 @@
+---
+title: "Input Interaction"
+---
+```typescript
+interface DataEditorProps {
+    
+    // ...other props
+    
+    keybindings?: Partial<Keybinds>;
+    maxColumnAutoWidth?: number;
+    maxColumnWidth?: number;
+    minColumnWidth?: number;
+    onCellActivated?: ((cell) => void);
+    onCellClicked?: ((cell, event) => void);
+    onCellContextMenu?: ((cell, event) => void);
+    onColumnMoved?: ((startIndex, endIndex) => void);
+    onColumnResize?: ((column, newSize, colIndex, newSizeWithGrow) => void);
+    onColumnResizeEnd?: ((column, newSize, colIndex, newSizeWithGrow) => void);
+    onColumnResizeStart?: ((column, newSize, colIndex, newSizeWithGrow) => void);
+    onGroupHeaderClicked?: ((colIndex, event) => void);
+    onGroupHeaderContextMenu?: ((colIndex, event) => void);
+    onGroupHeaderRenamed?: ((groupName, newVal) => void);
+    onHeaderClicked?: ((colIndex, event) => void);
+    onHeaderContextMenu?: ((colIndex, event) => void);
+    onHeaderMenuClick?: ((col, screenPosition) => void);
+    onItemHovered?: ((args) => void);
+    onKeyDown?: ((event) => void);
+    onKeyUp?: ((event) => void);
+    onMouseMove?: ((args) => void);
+    onRowMoved?: ((startIndex, endIndex) => void);
+    preventDiagonalScrolling?: boolean;
+    rowSelectionMode?: "auto" | "multi";
+    
+    // ...other props
+    
+}
+```
+
+***
+
+### keybindings
+
+```typescript
+keybindings?: Partial<{
+    // Legacy deprecated flags
+    readonly pageUp: boolean;
+    readonly pageDown: boolean;
+    readonly first: boolean;
+    readonly last: boolean;
+
+    // Non-rebindable
+    readonly copy: boolean;
+    readonly cut: boolean;
+    readonly paste: boolean;
+
+    readonly downFill: boolean | string;
+    readonly rightFill: boolean | string;
+    readonly clear: boolean | string;
+    readonly closeOverlay: boolean | string;
+    readonly acceptOverlayDown: boolean | string;
+    readonly acceptOverlayUp: boolean | string;
+    readonly acceptOverlayLeft: boolean | string;
+    readonly acceptOverlayRight: boolean | string;
+    readonly search: boolean | string;
+    readonly delete: boolean | string;
+    readonly activateCell: boolean | string;
+    readonly scrollToSelectedCell: boolean | string;
+
+    // Navigation
+    readonly goToFirstColumn: boolean | string;
+    readonly goToLastColumn: boolean | string;
+    readonly goToFirstCell: boolean | string;
+    readonly goToLastCell: boolean | string;
+    readonly goToFirstRow: boolean | string;
+    readonly goToLastRow: boolean | string;
+    readonly goToNextPage: boolean | string;
+    readonly goToPreviousPage: boolean | string;
+
+    readonly goUpCell: boolean | string;
+    readonly goDownCell: boolean | string;
+    readonly goLeftCell: boolean | string;
+    readonly goRightCell: boolean | string;
+
+    readonly goUpCellRetainSelection: boolean | string;
+    readonly goDownCellRetainSelection: boolean | string;
+    readonly goLeftCellRetainSelection: boolean | string;
+    readonly goRightCellRetainSelection: boolean | string;
+
+    // Selectiona
+    readonly selectToFirstColumn: boolean | string;
+    readonly selectToLastColumn: boolean | string;
+    readonly selectToFirstCell: boolean | string;
+    readonly selectToLastCell: boolean | string;
+    readonly selectToFirstRow: boolean | string;
+    readonly selectToLastRow: boolean | string;
+
+    readonly selectGrowUp: boolean | string;
+    readonly selectGrowDown: boolean | string;
+    readonly selectGrowLeft: boolean | string;
+    readonly selectGrowRight: boolean | string;
+
+    readonly selectAll: boolean | string;
+    readonly selectRow: boolean | string;
+    readonly selectColumn: boolean | string;
+}>;
+```
+
+
+
+| Key Combo | Default | Flag | Description |
+| --- | --- | --- | --- |
+| Arrow | ✔️ | N/A | Moves the currently selected cell and clears other selections |
+| Shift + Arrow | ✔️ | N/A | Extends the current selection range in the direction pressed. |
+| Alt + Arrow | ✔️ | N/A | Moves the currently selected cell and retains the current selection |
+| Ctrl/Cmd + Arrow \| Home/End | ✔️ | N/A | Move the selection as far as possible in the direction pressed. |
+| Ctrl/Cmd + Shift + Arrow | ✔️ | N/A | Extends the selection as far as possible in the direction pressed. |
+| Shift + Home/End | ✔️ | N/A | Extends the selection as far as possible in the direction pressed. |
+| Ctrl/Cmd + A | ✔️ | `selectAll` | Selects all cells. |
+| Shift + Space | ✔️ | `selectRow` | Selecs the current row. |
+| Ctrl + Space | ✔️ | `selectCol` | Selects the current col. |
+| PageUp/PageDown | ✔️ | `pageUp`/`pageDown` | Moves the current selection up/down by one page. |
+| Escape | ✔️ | `clear` | Clear the current selection. |
+| Ctrl/Cmd + D | ❌ | `downFill` | Data from the first row of the range will be down filled into the rows below it |
+| Ctrl/Cmd + R | ❌ | `rightFill` | Data from the first column of the range will be right filled into the columns next to it |
+| Ctrl/Cmd + C | ✔️ | `copy` | Copies the current selection. |
+| Ctrl/Cmd + V | ✔️ | `paste` | Pastes the current buffer into the grid. |
+| Ctrl/Cmd + F | ❌ | `search` | Opens the search interface. |
+| Ctrl/Cmd + Home/End | ✔️ | `first`/`last` | Move the selection to the first/last cell in the data grid. |
+| Ctrl/Cmd + Shift + Home/End | ✔️ | `first`/`last` | Extend the selection to the first/last cell in the data grid. |
+
+
+
+***
+
+### maxColumnWidth
+
+```ts
+maxColumnWidth?: number;
+minColumnWidth?: number;
+```
+
+If `maxColumnWidth` is set with a value greater than 50, then columns will have a maximum size of that many pixels. If the value is less than 50, it will be increased to 50. If it isn't set, the default value will be 500.
+
+***
+
+### maxColumnAutoWidth
+
+```ts
+maxColumnAutoWidth?: number;
+```
+
+Sets the maximum width that a column can be auto-sized to. Defaults to [`maxColumnWidth`](#maxcolumnwidth).
+
+***
+
+### onCellClicked
+
+```ts
+onCellClicked?: (cell: Item) => void;
+```
+
+`onCellClicked` is called whenever the user clicks a cell in the grid.
+
+***
+
+### onCellActivated
+
+```ts
+onCellActivated?: (cell: Item) => void;
+```
+
+`onCellActivated` is called whenever the user double clicks, taps Enter, or taps Space on a cell in the grid.
+
+***
+
+### onCellContextMenu
+
+***
+
+### onColumnMoved
+
+```ts
+onColumnMoved?: (startIndex: number, endIndex: number) => void;
+```
+
+`onColumnMoved` is called when the user finishes moving a column. `startIndex` is the index of the column that was moved, and `endIndex` is the index at which it should end up. Note that you have to effect the move of the column, and pass the reordered columns back in the `columns` property.
+
+***
+
+### onColumnResize
+
+```ts
+onColumnResize?: (column: GridColumn, newSize: number, columnIndex: number) => void;
+onColumnResizeEnd?: (column: GridColumn, newSize: number, columnIndex: number) => void;
+```
+
+`onColumnResize` is called when the user is resizing a column. `newSize` is the new size of the column. Note that you have change the size of the column in the `GridColumn` and pass it back to the grid in the `columns` property. `onColumnReizeEnd` is called with the same arguments, but only once the user ceases interaction with the resize handle.
+
+### onColumnResizeStart
+
+```ts
+onColumnResizeStart?: (column: GridColumn, newSize: number, columnIndex: number) => void;
+```
+
+`onColumnResizeStart` is called when the user starts resizing a column. `newSize` is the new size of the column.
+
+### onColumnResizeEnd
+
+```ts
+onColumnResizeEnd?: (column: GridColumn, newSize: number, columnIndex: number) => void;
+```
+
+`onColumnResize` is called when the user ends resizing a column. `newSize` is the new size of the column.
+
+***
+
+### onGroupHeaderClicked
+
+```ts
+onGroupHeaderClicked?: (colIndex: number, event: GroupHeaderClickedEventArgs) => void;
+```
+
+Emitted whenever a group header is clicked.
+
+***
+
+### onGroupHeaderContextMenu
+
+```ts
+onGroupHeaderContextMenu?: (colIndex: number, event: GroupHeaderClickedEventArgs) => void
+```
+
+Emitted whenever a group header's context menu should be presented, usually right click.
+
+***
+
+### onHeaderClicked
+
+```ts
+onHeaderClicked?: (colIndex: number, event: HeaderClickedEventArgs) => void;
+```
+
+Emitted whenever a header is clicked.
+
+***
+
+### onHeaderContextMenu
+
+```ts
+onHeaderContextMenu?: (colIndex: number, event: HeaderClickedEventArgs) => void;
+```
+
+Emitted whenever a column header's context menu should be presented, usually right click.
+
+***
+
+### onHeaderMenuClick
+
+```ts
+onHeaderMenuClick?: (col: number, screenPosition: Rectangle) => void;
+```
+
+`onHeaderMenuClick` is called when the user clicks the menu button on a column header. `col` is the column index, and `screenPosition` is the bounds of the column header. You are responsible for drawing and handling the menu.
+
+***
+
+### onItemHovered
+
+```ts
+onItemHovered?: (args: GridMouseEventArgs) => void;
+```
+
+`onItemHovered` is called when the user hovers over a cell, a header, or outside the grid.
+
+***
+
+### onMouseMove
+
+```ts
+onMouseMove?: (args: GridMouseEventArgs) => void;
+```
+
+Emitted any time the mouse moves. Most behaviors relying on this should be debounced for performance reasons.
+
+***
+
+### onRowMoved
+
+```ts
+onRowMoved?: (startIndex: number, endIndex: number) => void;
+```
+
+Called whenever a row re-order operation is completed. Setting the callback enables re-ordering by dragging the first column of a row.
+
+***
+
+### preventDiagonalScrolling
+
+```ts
+preventDiagonalScrolling?: booling;
+```
+
+Set to true to prevent any diagonal scrolling.
+
+***
+
+### rowSelectionMode
+
+```ts
+rowSelectionMode?: "auto" | "multi";
+```
+
+`rowSelectionMode` changes how selecting a row marker behaves. In auto mode it adapts to touch or mouse environments automatically, in multi-mode it always acts as if the multi key (Ctrl) is pressed.
+
+***
+
+### validateCell
+
+```ts
+readonly validateCell?: (cell: Item, newValue: EditableGridCell) => boolean | EditableGridCell;
+```
+
+When returns false indicates to the user the value will not be accepted. When returns a new GridCell the value is coerced to match.

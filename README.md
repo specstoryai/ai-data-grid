@@ -106,9 +106,11 @@ function getData([col, row]: Item): GridCell {
 
 The Storybook at https://ai-data-grid-storybook.vercel.app has live demos of the grid, the extra cells and the data source hooks. It is built from `main`, so it shows the latest unreleased code. You can also run it locally from a clone (see [CONTRIBUTING.md](CONTRIBUTING.md#running-storybook)).
 
-## Full API documentation
+## Documentation
 
-The API reference, including the HTML/CSS prerequisites, is in [packages/core/API.md](packages/core/API.md).
+The full documentation (quickstart guide, API reference, guides and FAQ) is at **https://ai-data-grid-docs.vercel.app**. The documentation is converted from the original Glide Data Grid GitBook documentation.
+
+The API reference, including the HTML/CSS prerequisites, is also in this repository at [packages/core/API.md](packages/core/API.md).
 
 ## Migrating from 6.x
 

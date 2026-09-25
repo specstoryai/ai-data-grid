@@ -1,0 +1,81 @@
+---
+title: "Custom Cells"
+---
+```typescript
+interface DataEditorProps {
+
+    // ...other props
+    
+    customRenderers?: readonly CustomRenderer<any>[];
+    drawCell?: DrawCellCallback;
+    drawHeader?: DrawHeaderCallback;
+ 
+    // ...other props
+    
+}
+```
+
+***
+
+### customRenderers
+
+```typescript
+customRenderers?: readonly CustomRenderer<any>[];
+```
+
+Adds custom renderers to the `DataEditor`. Each renderer provides its own drawing functionality and editor. See [Implementing Custom Cells](/docs/guides/implementing-custom-cells) for more information.
+
+
+
+<Card title="Implementing Custom Cells" icon="book" href="/docs/guides/implementing-custom-cells" />
+
+
+
+### drawCell
+
+```ts
+drawCell?: (
+    args: {
+        ctx: CanvasRenderingContext2D;
+        cell: GridCell;
+        theme: Theme;
+        rect: Rectangle;
+        col: number;
+        row: number;
+        hoverAmount: number;
+        hoverX: number | undefined;
+        hoverY: number | undefined;
+        highlighted: boolean;
+        imageLoader: ImageWindowLoader;
+    },
+    drawContent: () => void
+) => void;
+```
+
+The `drawCell` property enables custom rendering of cells in the Grid. This function is called for each cell during the rendering process and is provided with a comprehensive set of parameters. These parameters include the drawing context (`ctx`), cell data (`cell`), theming details (`theme`), the cell's rectangle (`rect`), column and row indices (`col`, `row`), hover state information (`hoverAmount`, `hoverX`, `hoverY`), a highlight flag (`highlighted`), and an image loader (`imageLoader`).
+
+Additionally, `drawCell` provides a `drawContent` method, which, when called, immediately draws the default content of the cell onto the canvas. This design offers flexibility in how you render each cell. For instance, you can first draw a custom background, then call `drawContent` to render the cell's standard contents, and finally add an overlay or additional embellishments. This approach allows for layered rendering, where you can seamlessly integrate custom graphics or styles with the grid's inherent rendering logic.
+
+***
+
+### drawHeader
+
+```ts
+drawHeader?: (args: {
+        ctx: CanvasRenderingContext2D;
+        column: GridColumn;
+        columnIndex: number;
+        theme: Theme;
+        rect: Rectangle;
+        hoverAmount: number;
+        isSelected: boolean;
+        isHovered: boolean;
+        hasSelectedCell: boolean;
+        spriteManager: SpriteManager;
+        menuBounds: Rectangle;
+    },
+    drawContent: () => void
+) => void;
+```
+
+`drawHeader` may be specified to override the rendering of a header. The grid will call this for every header it needs to render. Header rendering is not as well optimized because they do not redraw as often, but very heavy drawing methods can negatively impact horizontal scrolling performance.

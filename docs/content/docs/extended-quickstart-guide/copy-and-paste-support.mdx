@@ -1,0 +1,41 @@
+---
+title: "Copy and paste support"
+---
+Copy and Paste support is built in to AI Data Grid. It is not enabled by default to ensure developers are expecting its behavior.
+
+### Copy
+
+By default copy is not enabled, to enabled copy implement the `getCellsForSelection` callback. The callback returns results as row-major ordering.
+
+> `getCellsForSelection` is used instead of `getCellContent` to allow optimization when fetching large amounts of data outside of the visible region.
+
+This example uses the built in generic function which simply calls `getContent`, which is inefficient but fine for a local data source.
+
+```tsx
+return <DataEditor {...rest} getCellsForSelection={true} />
+```
+
+Congratulations. Copy now works! You may wish to implement [`getCellsForSelection` ](/docs/api/dataeditor/important-props#getcellsforselection)with a more efficient means that lots of calls to `getCellContent`. It is also worth knowing that normally `getCellContent` is only called for cells within the current view. Once you pass `true` to `getCellsForSelection` this promise no longer holds. This is another reason an implementor may choose to handle this callback directly.
+
+### Paste
+
+The easiest way to enable paste is to set `onPaste` to true when `onCellEdited` is already working. The AI Data Grid will automatically parse the paste buffer and send cell update events.
+
+```tsx
+return <DataEditor {...rest} onCellEdited={onCellEdited} onPaste={true} />
+```
+
+If desired, paste events can be handled manually. Passing a callback to `onPaste` will instead receive a parsed verison of the pasted data. Returning `true` from the callback will cause the paste event to be handled the same as before, emitting `onCellEdited`. Returning `false` will prevent the edit callback from being emitted.
+
+```tsx
+return <DataEditor
+    {...rest}
+    onCellEdited={onCellEdited}
+    onPaste={(target, value) => {
+        window.alert(JSON.stringify({ target, value }));
+        return false;
+    }}
+/>
+```
+
+Paste, like copy, has an efficiency gain to be had. Instead of listening to `onCellEdited` an implementor may choose to implement `onCellsEdited`. This receives the entire paste buffer at once for all cells pasted and allows more efficient writes to the backend without having to manually handle paste buffer parsing.

@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-11 round 2, merging `main` (WP1 and WP2) into PR #13)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), and Storybook hosting on Vercel (WP3, SPST-5 / PR #13). The docs site (WP4) is documented when it lands.
+**Last updated:** 2026-09-25 (SPST-7 round 4: the docs site's pre-release note, React 19 migration wording and Storybook links, PR #11 at `aca129ec`)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), and the documentation site in `docs/` (WP4, SPST-3 / PR #11).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -67,7 +67,7 @@ This is unchanged from upstream apart from the names.
 
 - Four `LICENSE` files (root, `packages/core`, `packages/cells`, `packages/source`) keep the MIT text and `Copyright (c) 2021 typeguard, Inc.`, with `Copyright (c) 2026 ai-data-grid contributors` on the next line. `npm pack --dry-run` lists `LICENSE` in all three packages.
 - `THIRD_PARTY_NOTICES.md` lists Glide Data Grid (full MIT text), the `dequal` port by Luke Edwards (`packages/core/src/common/support.ts`) and the `use-callback-ref` pattern by Anton Korzunov (`packages/core/src/data-editor/use-initial-scroll-offset.ts`). The in-code attribution comments stay at both sites.
-- The READMEs carry "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed." The only other uses of the old names in the READMEs are the 6.x → 7.0.0 migration tables.
+- The READMEs carry "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed." The only other uses of the old names in the READMEs are the 6.x → 7.0.0 migration tables and the root README's note that the docs site is converted from the Glide Data Grid GitBook docs.
 
 ## Toolchain and lockfile
 
@@ -202,6 +202,68 @@ WP3 adds no files to the repository. Everything is Vercel project configuration,
 - **Build.** About 75–80 s on Vercel (`npm ci` takes most of it), about 12 MB of static output.
 - **Smoke test.** `scripts/smoke-storybook.mjs` serves only a local `storybook-build/`; it takes no URL or bypass header. The WP3 preview was checked with an ad-hoc variant of the same allowlist logic plus the bypass header: 113 stories, 0 unexpected failures.
 
+## Docs site
+
+### Topology
+
+```
+GitBook (docs.grid.glideapps.com)
+   │  llms.txt index + <page-url>.md
+   ▼
+docs/scripts/import-gitbook.mjs  ──►  docs/content/docs/**/*.mdx, meta.json
+                                      docs/public/images/*.png
+   ▼
+docs/ (unmint: Next.js 16 + Fumadocs + React 19)
+   │  git push → Vercel (Root Directory docs, ignoreCommand in docs/vercel.json)
+   ▼
+Vercel project ai-data-grid-docs (team spec-story)
+   ├─ production: https://ai-data-grid-docs.vercel.app   (from main, public)
+   └─ previews:   ai-data-grid-docs-<hash>-spec-story.vercel.app  (other branches, protected)
+```
+
+### App
+
+- `docs/` is a standalone Next.js app, scaffolded with `npx create-unmint@latest docs -y` (create-unmint 1.4.0). It has its own `package.json` (name `ai-data-grid-docs`, private) and `package-lock.json`. It is not listed in the root `package.json` `workspaces`, and it doesn't depend on the grid packages.
+- Routes: `/` redirects to `/docs` (`docs/app/page.tsx`). `/docs/[[...slug]]` renders the MDX pages and is statically generated at build time. `/api/search` and `/api/og` are dynamic. `/llms.txt` and `/llms-full.txt` are static.
+- Content source: `docs/source.config.ts` reads `content/docs`, and `docs/lib/docs-source.ts` mounts it at `/docs`. Code blocks are highlighted by `rehypeCode` (github-light/github-dark themes).
+- `docs/next.config.mjs` sets `agentRules: false`, so `next dev` doesn't generate Next.js 16's `AGENTS.md` / `CLAUDE.md` agent-rule files in `docs/`.
+- `docs/tsconfig.json` sets `"types": ["node"]`. Without it, tsc also loads `@types/*` from the repo root's `node_modules` (for example the `@types/prosemirror-*` packages), and `npm run build` fails its type check when the root dependencies are installed.
+- Site name, footer and theme are set in `docs/lib/theme-config.ts`. The footer carries the attribution "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed."
+- License: `docs/LICENSE` keeps unmint's MIT text (`Copyright (c) 2024 Unmint Contributors`) and adds `Copyright (c) 2026 ai-data-grid contributors`.
+
+### Content and importer
+
+- There are 37 pages: the 36 GitBook pages plus the hand-maintained `about.mdx`. The GitBook welcome page is mapped to `index.mdx`, which is hand-maintained. Sections: Extended QuickStart Guide, FAQ, API (DataEditor, DataEditorCore, DataEditorRef, Cells, Common Types) and Guides.
+- `docs/scripts/import-gitbook.mjs` does the following:
+  - parses `https://docs.grid.glideapps.com/llms.txt` and fetches each `<page-url>.md`;
+  - converts GitBook and HTML syntax to MDX: figures and images, HTML tables to Markdown tables, `{% content-ref %}` to unmint `<Card>`;
+  - rewrites absolute GitBook links to `/docs/...` and `@glideapps/*` imports to `@specstory/*`, and escapes `{`, `}` and `<` in prose;
+  - downloads the 17 GitBook-hosted images to `docs/public/images/`;
+  - rewrites every `meta.json` in llms.txt order, with About listed last.
+- Pre-7.0.0-release content:
+  - An unmint `<Note title="Not on npm yet">` follows the `npm i @specstory/ai-data-grid` command on the welcome page's Quick Start (`index.mdx`) and in step 1 of `extended-quickstart-guide/index.mdx`. It says 7.0.0 isn't on npm yet and links to the root README's [Installing before the npm release](README.md#installing-before-the-npm-release) section on GitHub instead of repeating the tarball steps.
+  - The welcome page's intro says to migrate by upgrading to React 19 first, then changing the package names and imports, matching the README's "Migrating from 6.x".
+- Links to the hosted Storybook (https://ai-data-grid-storybook.vercel.app): the welcome page ("Lots of fun examples are in our Storybook"), and two FAQ answers in `faq.mdx`: search (story `ai-data-grid-docs--search`) and custom rendering (story `ai-data-grid-dataeditor-demos--custom-drawing`).
+- The importer never writes `index.mdx` or `about.mdx` (`HAND_MAINTAINED` in the script). It overwrites all other pages. The rebrand edits that replace "Glide Data Grid" in generated prose are manual. A re-import on 2026-09-25 reverted them in five pages (`api/cells/index`, `extended-quickstart-guide/index`, `extended-quickstart-guide/copy-and-paste-support`, `extended-quickstart-guide/working-with-selections`, `faq`). The "Not on npm yet" note in `extended-quickstart-guide/index.mdx` and the two Storybook links in `faq.mdx` are hand edits to generated pages too, and a re-import removes them the same way.
+
+### Build and deploy
+
+- Vercel project `ai-data-grid-docs` (ID `prj_OG2EFwjOBe2SvtjtRWXtckG0k9UH`) in team `spec-story` is git-connected to `specstoryai/ai-data-grid`. Settings: Root Directory `docs`, framework Next.js, Node 24.x, production branch `main`. The build and install commands are the defaults.
+- The Ignored Build Step is `ignoreCommand` in `docs/vercel.json`, not a project setting:
+  ```
+  [ -n "$VERCEL_GIT_PREVIOUS_SHA" ] || exit 1; git diff --quiet "$VERCEL_GIT_PREVIOUS_SHA" "$VERCEL_GIT_COMMIT_SHA" -- ':(top)docs/' || exit 1; exit 0
+  ```
+  Exit 0 skips the build. The command builds (exit 1) when there is no previous deployment SHA, when `docs/` changed, or when `git diff` errors.
+- Protection is set by `ssoProtection: all_except_custom_domains` (Vercel's default Standard Protection). Preview deployment URLs redirect to Vercel SSO. The production domain `ai-data-grid-docs.vercel.app` is public. A *Protection Bypass for Automation* secret exists so verification tools can reach previews. It is read from the Vercel API and is never written to the repo.
+- Production serves only once `docs/` is on `main`, that is after PR #11 merges. Until then the production URL returns 404 `DEPLOYMENT_NOT_FOUND`.
+
+### Tests
+
+- `docs/__tests__/`: vitest with happy-dom (`docs/vitest.config.ts`). There are 5 files and 27 tests, covering the unmint components (callout, card, tabs), `lib/theme-config` and `lib/utils`. They don't test the content or the importer.
+- `npm run build` in `docs/` is the content check: it fails when an MDX page doesn't compile.
+- `npm run lint` in `docs/` runs `eslint .` with the flat config `docs/eslint.config.mjs`: `eslint-config-next/core-web-vitals`, ignoring `.next/`, `.source/`, `out/`, `node_modules/` and `next-env.d.ts`. No rules are disabled.
+- Root CI and the root check commands don't cover `docs/`. Vercel builds are the only automated check on it.
+
 ## Known limitations and risks
 
 - **`@toast-ui/react-editor` is unmaintained and declares a `react ^17.0.1` peer.** npm warns on install of `-cells` (see [above](#toast-uireact-editor-cells-article-editor)). Fallback if React breaks it: a wrapper around `@toast-ui/editor`.
@@ -209,8 +271,10 @@ WP3 adds no files to the repository. Everything is Vercel project configuration,
 - **`check-test-project.mjs` counts React versions, not copies.** Two copies of the same React version would pass.
 - **`@glideapps/ts-helper` is still a core devDependency** (with its dependencies `@glideapps/graphs` and `@glideapps/ts-necessities` in the lockfile). It's the external tool behind `cycle-check`, not shipped code.
 - **Emitted `.d.ts` files aren't byte-for-byte reproducible, in all three packages.** The parallel esm and cjs `tsc` runs write the same declaration directory: `dist/dts-tmp` in core and cells, `dist/dts` in source. Whichever run finishes last wins, so the `//# sourceMappingURL` trailer is present in some builds and missing in others. In repeated builds on 2026-09-25 the number of `.d.ts` files with the trailer varied: core 40, 87 and 0 of 87; cells 0, 17, 17, 5 and 0 of 17; source's `index.d.ts` had it in 1 of 4 builds. Pre-existing.
-- **Failing `Vercel` status on PRs without `docs/`.** The docs Vercel project (WP4) builds every branch, and fails on branches that don't contain `docs/`. It stops once WP4 is on `main` and branches have merged it.
-- **The Storybook project fails on `spst-3-docs` (PR #11).** That branch still has the fork-point lockfile, which `npm ci` rejects. It clears when WP4 merges `main`.
+- **Failing `Vercel` status on branches without `docs/`.** The docs project's Root Directory is `docs`, so every push to a branch that doesn't contain `docs/` (for example old Dependabot branches) creates an ERROR deployment and a failing `Vercel – ai-data-grid-docs` status on its PR. It stops once `docs/` is on `main` and those branches have merged `main`. Accepted as non-blocking.
+- **Re-importing the docs loses the hand edits** to generated pages: the rebrand edits, the "Not on npm yet" note in the Extended QuickStart Guide and the FAQ's Storybook links (see [Content and importer](#content-and-importer)). The importer doesn't apply any of them itself.
+- **The docs site's "Not on npm yet" notes link to the README on GitHub, and the repository is private.** Readers of the public docs site without repository access get GitHub's 404 there, so they can't see the tarball steps.
+- **The docs content describes Glide Data Grid 6.x behaviour**, with package names rewritten to `@specstory/*`. It is only as accurate as the upstream GitBook docs.
 - **The Storybook ignore step compares only `HEAD^` and `HEAD`.** A branch push of several commits whose last commit touches only `docs/` skips the preview, even if earlier commits changed code. Push another commit or redeploy by hand. Production isn't affected: `main` moves only by merge commits, whose `HEAD^` is the previous `main`.
 - **Storybook project settings aren't in the repository.** Changes to them don't show up in PRs or git history; this file is the record.
 - **The core tarball ships source, tests and stories** because core has no `files` field (see above).
@@ -248,12 +312,27 @@ WP3 adds no files to the repository. Everything is Vercel project configuration,
 | 2026-09-25 | SPST-5 / PR #13 | Skip builds with a compact Ignored Build Step that exits 0 only when the latest commit changes files and all are under `docs/`. | Vercel limits the setting to 256 characters. Requiring a change under `docs/` makes empty commits and branches without `docs/` still build. |
 | 2026-09-25 | SPST-6 (assumption A5), SPST-5 / PR #13 | Use Vercel's default Standard Protection: public production URL, protected previews, plus a Protection Bypass for Automation secret for verification. | The Storybook is meant to be public, previews of unmerged work are not. The bypass lets automated checks reach previews without sharing a login. |
 | 2026-09-25 | SPST-11 | Link the hosted Storybook from the root README only. The package READMEs stay unchanged. | The package READMEs don't point readers to examples or demos. |
+| 2026-09-25 | SPST-6 (Phase 1 plan), SPST-3 | Build the docs site with unmint (Next.js + Fumadocs) and host it on Vercel under team `spec-story` on the default `*.vercel.app` domain. | Project standard. It replaces the upstream GitBook and GitHub Pages hosting. No custom domain yet. |
+| 2026-09-25 | SPST-3, PR #11 | `docs/` is a standalone app with its own lockfile and is not a root npm workspace. | Keeps Next.js 16 and its dependency tree out of the library's install, build and tests, and keeps root `npm ci` independent of the docs. |
+| 2026-09-25 | SPST-3, PR #11 | Import the content with a re-runnable script (`docs/scripts/import-gitbook.mjs`) from GitBook's `llms.txt` and per-page `.md`. Keep `index.mdx` and `about.mdx` hand-maintained. | The conversion can be reproduced and audited. The welcome page and license page need AI Data Grid wording that the importer must not overwrite. |
+| 2026-09-25 | SPST-3, PR #11 | Reuse the GitBook text and images, with attribution on the welcome page, the About & License page and the footer. | The upstream docs are MIT-licensed project material. The standing rule requires crediting the origin. |
+| 2026-09-25 | SPST-3, PR #11 | Make the welcome page the `/docs` landing page, and redirect `/` to `/docs`. | There is a single entry point, and the site has no separate marketing home page. |
+| 2026-09-25 | SPST-3, PR #11 | Put the Ignored Build Step in `docs/vercel.json` (`ignoreCommand`), not in the Vercel project settings. | The rule is versioned and reviewed with the code, and it is visible to contributors. |
+| 2026-09-25 | SPST-3, PR #11 | Make the ignore step fail-safe: build when there is no previous SHA or when `git diff` errors, and skip only on a clean "no change under `docs/`". | The first deploy, and any environment where the diff can't run, must still produce a deployment rather than silently skip. |
+| 2026-09-25 | SPST-3, PR #11 | Keep Vercel's default protection: protected previews and a public production domain. Verification uses a Protection Bypass for Automation secret. | Standing hosting rule. Previews of unmerged work stay private. |
+| 2026-09-25 | SPST-3, PR #11 | Accept ERROR `Vercel` statuses on branches without `docs/` until they merge `main`. | This is temporary and only affects branches that predate the docs site. Working around it (for example by disconnecting git) would cost preview deploys. |
+| 2026-09-25 | SPST-3, PR #11 (`df5948a`) | Lint `docs/` with the ESLint CLI (`eslint .`, flat config extending `eslint-config-next/core-web-vitals`). Set `agentRules: false` in `docs/next.config.mjs`. Restrict `docs/tsconfig.json` to `"types": ["node"]`. | Next.js 16 removed `next lint`, so the scaffold's lint script was broken. `next dev` otherwise leaves untracked agent-rule files. Without the `types` restriction, the build type-check picks up the root library's broken `@types` packages. |
+| 2026-09-25 | SPST-3 / PR #11 (`aca129ec`) | The docs site's "Not on npm yet" notes link to the README's "Installing before the npm release" section instead of copying the tarball steps. The FAQ's custom-rendering answer links the Custom Drawing story (`ai-data-grid-dataeditor-demos--custom-drawing`) in place of the GitBook's `draw-custom-cells` story, which no longer exists. | The tarball steps stay in one place and are removed in one place at the first npm publish. Custom Drawing shows canvas `drawCell` / `drawHeader` painting, which is what that answer is about. |
 
 ## Open follow-ups
 
 - Optionally make the Storybook ignore step compare against `VERCEL_GIT_PREVIOUS_SHA` instead of `HEAD^`, so multi-commit pushes ending in a docs-only commit still build.
 - Optionally let `scripts/smoke-storybook.mjs` target a deployed URL (with the bypass header read from the environment), so previews can be smoke-tested without an ad-hoc script.
-- Docs site (WP4, SPST-3), then link it from the READMEs.
+- Add the docs build, test and lint to CI, if wanted. Today, Vercel builds are the only automated check on `docs/`.
+- Move the product-name replacement into the docs importer, so re-imports don't lose the rebrand edits.
+- Confirm that https://ai-data-grid-docs.vercel.app/docs serves publicly, with the footer attribution, after PR #11 merges.
+- At the first npm publish, remove the docs site's "Not on npm yet" notes (`docs/content/docs/index.mdx` and `docs/content/docs/extended-quickstart-guide/index.mdx`) together with the README's "Installing before the npm release" section and its "Not on npm yet" note.
+- Custom domains for Storybook and the docs site (not planned for Phase 1).
 - Rename the `glide-*` runtime identifiers in 8.0.
 - Fix the open `npm audit` findings.
 - Make `ci.yml` a required check on `main`.

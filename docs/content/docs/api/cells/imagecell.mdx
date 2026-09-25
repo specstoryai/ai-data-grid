@@ -1,0 +1,30 @@
+---
+title: "ImageCell"
+---
+Renders one or more images.
+
+```typescript
+export interface ImageCell extends BaseGridCell {
+    readonly kind: GridCellKind.Image;
+    readonly data: string[];
+    readonly rounding?: number;
+    readonly displayData?: string[];
+    readonly readonly?: boolean;
+}
+```
+
+### displayData
+
+Reduced size image URLs for display in the grid. It is advisable to pass pre-scaled images to the grid to reduce scrolling and network overhead.
+
+### data
+
+Full size image URLs.
+
+### readonly
+
+Determines if the cell will accept new images.
+
+### rounding
+
+Controls the amount of rounding applied to the images. If set to 0, no rounding will be applied.

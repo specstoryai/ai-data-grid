@@ -1,0 +1,107 @@
+---
+title: "DataEditorRef"
+description: "The data editor ref allows imperative interaction with the data editor."
+---
+The data editor ref allows imperative interaction with the data editor.
+
+```typescript
+export interface DataEditorRef {
+    appendRow: (col: number, openOverlay?: boolean) => Promise<void>;
+    updateCells: (cells: DamageUpdateList) => void;
+    getBounds: (col?: number, row?: number) => Rectangle | undefined;
+    focus: () => void;
+    emit: (eventName: EmitEvents) => Promise<void>;
+    scrollTo: (
+        col: number | { amount: number; unit: "cell" | "px" },
+        row: number | { amount: number; unit: "cell" | "px" },
+        dir?: "horizontal" | "vertical" | "both",
+        paddingX?: number,
+        paddingY?: number,
+        options?: {
+            hAlign?: "start" | "center" | "end";
+            vAlign?: "start" | "center" | "end";
+        }
+    ) => void;
+    remeasureColumns: (cols: CompactSelection) => void;
+}
+```
+
+### appendRow
+
+```ts
+appendRow: (col: number, openOverlay: boolean = true) => Promise<void>;
+```
+
+Appends a row to the data grid.
+
+***
+
+### emit
+
+```ts
+type EmitEvents = "copy" | "paste" | "delete" | "fill-right" | "fill-down";
+
+emit: (eventName: EmitEvents) => Promise<void>;
+```
+
+Emits the event into the data grid as if the user had pressed the keyboard shortcut.
+
+***
+
+### focus
+
+```ts
+focus: () => void;
+```
+
+Causes the data grid to become focused.
+
+***
+
+### getBounds
+
+```ts
+getBounds: (col?: number, row?: number) => Rectangle | undefined;
+```
+
+`getBounds` returns the current bounding box of a cell. This does not need to be a currently rendered cell. If called with `col` and `row` as undefined, the bounding box of the entire data grid scroll area is returned.
+
+***
+
+### remeasureColumns
+
+```typescript
+remeasureColumns: (cols: CompactSelection) => void;
+```
+
+`remeasureColumns` causes the columns in the selection to have their natural sizes recomputed and re-emitted as a resize event. This is useful if data has changed and it is desireable to force auto-columns to recompute their sizes.
+
+> 💡 This is fairly expensive and will cause slowdowns if called frequently.
+
+***
+
+### scrollTo
+
+```ts
+scrollTo: (
+        col: number,
+        row: number,
+        dir?: "horizontal" | "vertical" | "both",
+        paddingX?: number,
+        paddingY?: number
+    ) => void;
+```
+
+Requests the data grid to scroll to a particular location. If only one direction is requested it will get as close as it can without scrolling the off axis. Padding can be applied to inset the cell by a certain amount.
+
+***
+
+### updateCells
+
+Example usage:
+
+```ts
+dataGridRef.current.updateCells([{ cell: [10, 10] }, { cell: [11, 10] }, { cell: [12, 10] }]);
+```
+
+Causes the data grid to rerender these specific cells. Rerendering a single cell is significantly faster than invalidating the `getCellContent` callback as in the latter case all cells must be redrawn.

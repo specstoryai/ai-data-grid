@@ -1,0 +1,20 @@
+---
+title: "DrilldownCell"
+---
+Renders text and images in rounded rectangles. Always read only.
+
+```typescript
+export interface DrilldownCellData {
+    readonly text: string;
+    readonly img?: string;
+}
+
+export interface DrilldownCell extends BaseGridCell {
+    readonly kind: GridCellKind.Drilldown;
+    readonly data: readonly DrilldownCellData[];
+}
+```
+
+### data
+
+A collection of text/image tuples.

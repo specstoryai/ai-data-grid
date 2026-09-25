@@ -1,0 +1,47 @@
+---
+title: "BaseGridCell"
+---
+The `BaseGridCell` represents the common set of items all cells have. A cell is that which is generated from the [`getCellContent`](/docs/api/dataeditor/required-props#getcellcontent) callback and is the common language of communication in the `DataEditor`.
+
+```typescript
+export interface BaseGridCell {
+    readonly allowOverlay: boolean;
+    readonly lastUpdated?: number;
+    readonly style?: "normal" | "faded";
+    readonly themeOverride?: Partial<Theme>;
+    readonly span?: readonly [start: number, end: number];
+    readonly contentAlign?: "left" | "right" | "center";
+    readonly cursor?: CSSProperties["cursor"];
+    readonly copyData?: string;
+}
+```
+
+### allowOverlay
+
+This enables or disables the overlay popup normally triggered by double clicking a cell. Disabling this does not prevent editing. Many cells have a `readonly` property for that.
+
+### lastUpdated
+
+A `performance.now()` relative timestamp that indicates when the cell was last updated. This triggers the `DataEditor` to render a flash of the cells background color indicating an update has happened.
+
+### themeOverride
+
+Overrides the theme of the cell. It is advisable to set your theme overries as high as possible in the tree. Overriding the cell theme is more expensive than a row theme, which is more expensive than a column theme.
+
+### style
+
+`faded` causes the cell to render with a slight transparency.
+
+### contentAlign
+
+A hint to the cell on where to align content. Not all cells respect this yet.
+
+### cursor
+
+An override of the cursor when the mouse is over the cell.
+
+### copyData
+
+Overrides the data the cell will copy into the paste buffer when the user tries to copy the cell.
+
+###

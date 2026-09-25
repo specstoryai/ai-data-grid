@@ -1,0 +1,162 @@
+---
+title: "Editing"
+---
+In general editing in the `DataEditor` is handled by listening to the `onCellEdited` or `onCellsEdited` events and updating your data source. Once an edit is complete the `DataEditor` will automatically re-render those cells. If the edits to the data source are synchronous, meaning subsequent calls to `getCellContent` return the edited values, the `DataEditor` will automatically reflect the new values.
+
+Additional events are available for specialty purposes.
+
+```typescript
+interface DataEditorProps {
+
+    // ...other props
+
+    coercePasteValue?: ((val, cell) => undefined | GridCell);
+    imageEditorOverride?: ImageEditorType;
+    onCellEdited?: ((cell, newValue) => void);
+    onCellsEdited?: ((newValues) => boolean | void);
+    onDelete?: ((selection) => boolean | GridSelection);
+    onFillPattern?: ((event) => void);
+    onFinishedEditing?: ((newValue, movement) => void);
+    onGroupHeaderRenamed?: ((groupName, newVal) => void);
+    onPaste?: boolean | ((target, values) => boolean);
+    onRowAppended?: (() => void | Promise<undefined | number | "bottom" | "top">);
+    trailingRowOptions?: {
+        addIcon?: string;
+        hint?: string;
+        sticky?: boolean;
+        targetColumn?: number | GridColumn;
+        tint?: boolean;
+    };
+    validateCell?: ((cell, newValue, prevValue) => boolean | ValidatedGridCell);
+    
+    // ...other props
+    
+}
+```
+
+### onDelete
+
+```ts
+onDelete?: (selection: GridSelection) => GridSelection | boolean;
+```
+
+`onDelete` is called when the user deletes one or more rows. `gridSelection` is current selection. If the callback returns false, deletion will not happen. If it returns true, all cells inside all selected rows, columns and ranges will be deleted. If the callback returns a GridSelection, the newly returned selection will be deleted instead.
+
+***
+
+### imageEditorOverride
+
+```ts
+imageEditorOverride?: ImageEditorType;
+```
+
+If `imageEditorOverride` is specified, then it will be used instead of the default image editor overlay, which is what the user sees when they double-click on an image cell.
+
+***
+
+### onCellEdited
+
+```ts
+onCellEdited?: (cell: Item, newValue: EditableGridCell) => void;
+onCellsEdited?: (newValues: readonly { location: Item; value: EditableGridCell }[]) => boolean | void;
+```
+
+`onCellEdited` is called when the user finishes editing a cell. Note that you are responsible for setting the new value of the cell.
+
+`onCellsEdited` is called whenever a batch of cells is about to be edited. If the callback returns `true`, `onCellEdited` will not be called for an cells in the event.
+
+***
+
+### onDeleteRows
+
+```ts
+onDeleteRows?: (rows: readonly number[]) => void;
+```
+
+`onDeleteRows` is called when the user deletes one or more rows. `rows` is an array with the absolute indexes of the deletes rows. Note that it is on you to actually effect the deletion of those rows.
+
+***
+
+### onFillPattern
+
+```typescript
+interface FillPatternEventArgs extends PreventableEvent {
+    patternSource: Rectangle;
+    fillDestination: Rectangle;
+}
+
+onFillPattern?: ((event: FillPatternEventArgs ) => void);
+```
+
+Emitted whenever the user uses the `fillHandle` to fill other cells with data. The `patternSource` represents the selection from which the fill started, and the `fillDestination` represents the region to be filled using the pattern as a template. `event.preventDefault()` may be called in order to prevent the standard fill behavior from happening.
+
+***
+
+### onFinishedEditing
+
+```ts
+onFinishedEditing?: (newValue: GridCell | undefined, movement: Item) => void;
+```
+
+Emitted whenever the data grid exits edit mode. The movement indicates which direction the user requested the selection move towards. `-1` is left/up, `1` is right/down.
+
+***
+
+### onGroupHeaderRenamed
+
+```ts
+onGroupHeaderRenamed?: (groupName: string, newVal: string) => void
+```
+
+If provided group headers will have an icon allowing users to rename them. When a user renames a group header this event will be emitted. It is up to the developer to actually rename the header.
+
+***
+
+### onPaste
+
+```ts
+onPaste?: ((target: Item, values: readonly (readonly string[])[]) => boolean) | boolean;
+```
+
+`onPaste` is called when data is pasted into the grid. If left undefined, the `DataEditor` will operate in a fallback mode and attempt to paste the text buffer into the current cell assuming the current cell is not readonly and can accept the data type. If `onPaste` is set to false or the function returns false, the grid will simply ignore paste. If `onPaste` evaluates to true the grid will attempt to split the data by tabs and newlines and paste into available cells.
+
+The grid will not attempt to add additional rows if more data is pasted then can fit. In that case it is advisable to simply return false from onPaste and handle the paste manually.
+
+***
+
+### coercePasteValue
+
+```ts
+coercePasteValue?: (val: string, cell: GridCell) => GridCell | undefined;
+```
+
+This callback allows coercion of pasted values before they are passed to edit functions. `val` contains the pasted value and `cell` is the target of the paste. Returning `undefined` will accept the default behavior of the grid, or a `GridCell` may be returned which will be used for paste instead.
+
+***
+
+### trailingRowOptions
+
+```ts
+trailingRowOptions?: {
+    readonly tint?: boolean; // DataEditor level only
+    readonly sticky?: boolean; // DataEditor level only
+    readonly hint?: string;
+    readonly addIcon?: string;
+    readonly targetColumn?: number | GridColumn;
+    readonly themeOverride?: Partial<Theme>; // GridColumn only
+    readonly disabled?: boolean; // GridColumn only
+}
+onRowAppended?: () => void;
+```
+
+`onRowAppended` controls adding new rows at the bottom of the Grid. If `onRowAppended` is defined, an empty row will display at the bottom. When the user clicks on one of its cells, `onRowAppended` is called, which is responsible for appending the new row. The appearance of the blank row can be configured using `trailingRowOptions`.
+
+***
+
+### validateCell
+
+```ts
+readonly validateCell?: (cell: Item, newValue: EditableGridCell) => boolean | EditableGridCell;
+```
+
+When returns false indicates to the user the value will not be accepted. When returns a new GridCell the value is coerced to match.

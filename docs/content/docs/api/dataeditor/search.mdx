@@ -1,0 +1,79 @@
+---
+title: "Search"
+---
+```typescript
+interface DataEditorProps {
+
+    // ...other props
+    
+    onSearchClose?: (() => void);
+    onSearchResultsChanged?: ((results, navIndex) => void);
+    onSearchValueChange?: ((newVal) => void);
+    searchResults?: readonly Item[];
+    searchValue?: string;
+    showSearch?: boolean;
+    
+    // ...other props
+    
+}
+```
+
+***
+
+### onSearchClose
+
+```ts
+onSearchClose?: () => void;
+```
+
+If `onSearchClose` is not provided and `showSearch` is set to true, the search box will be shown but there will be no close button. Providing an `onSearchClose` callback enables the close button and the event will emit when it is clicked.
+
+***
+
+### onSearchResultsChanged
+
+```ts
+readonly onSearchResultsChanged?: (results: readonly Item[], navIndex: number) => void;
+```
+
+This event handler is called when there is a change in the search results of the data grid's search field. It provides two parameters: `results` and `navIndex`. The `results` parameter is an array of `Item` objects, each representing a cell or row that matches the current search query. The `navIndex` parameter is the index of the currently selected or highlighted search result within the `results` array.
+
+***
+
+### onSearchValueChange
+
+```ts
+readonly onSearchValueChange?: (newVal: string) => void;
+```
+
+This event is emitted whenever the search value in the data grid changes. The handler `onSearchValueChange` is provided with a single argument `newVal`, which is the updated string value entered in the search field. Implementing this event allows you to execute custom actions in response to changes in the search input. This can include triggering search operations based on the new value, updating the user interface elements to reflect the change, or any other related functionality that needs to respond to updates in the search term within your data grid.
+
+***
+
+### searchResults
+
+```ts
+readonly searchResults?: readonly Item[];
+```
+
+This property allows you to specify the search results to be displayed in the data grid. If `searchResults` is not provided, the grid will use its internal search provider to determine and display search results. By setting the `searchResults` property, you can override the default search behavior and supply a custom array of `Item` objects as the search results. These `Item` objects typically refer to the cells or rows in the grid that match a custom search criterion. This is particularly useful if you need to implement a specialized search functionality that differs from the built-in search capabilities of the grid.
+
+***
+
+### searchValue
+
+```ts
+readonly searchValue?: string;
+```
+
+This property is used to set the current search value in the data grid. It accepts a string that represents the term or phrase to be used for searching within the grid. By setting `searchValue`, you can programmatically control the search value.
+
+***
+
+### showSearch
+
+```ts
+showSearch?: boolean;
+```
+
+`showSearch` causes the search box built into the data grid to become visible. The data grid does not provide an in-built way to show the search box, so it is suggested to hook into the ctrl/cmd+f accelerator or add a button to your apps chrome.

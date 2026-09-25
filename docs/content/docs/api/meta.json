@@ -1,0 +1,11 @@
+{
+  "title": "API",
+  "pages": [
+    "index",
+    "dataeditor",
+    "dataeditorcore",
+    "cells",
+    "common-types",
+    "dataeditorref"
+  ]
+}

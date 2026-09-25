@@ -1,0 +1,20 @@
+---
+title: "MarkdownCell"
+---
+Renders markdown in the overlay editor.
+
+```typescript
+export interface MarkdownCell extends BaseGridCell {
+    readonly kind: GridCellKind.Markdown;
+    readonly data: string;
+    readonly readonly?: boolean;
+}
+```
+
+### data
+
+Markdown.
+
+### readonly
+
+Determines if the cell will accept edit events.

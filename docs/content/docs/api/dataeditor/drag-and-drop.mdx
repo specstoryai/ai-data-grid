@@ -1,0 +1,42 @@
+---
+title: "Drag and Drop"
+---
+```typescript
+interface DataEditorProps {
+    onDragLeave?: (() => void);
+    onDragOverCell?: ((cell: Item, dataTransfer: DataTransfer | null) => void);
+    onDrop?: ((cell: Item, dataTransfer: DataTransfer | null) => void);
+}
+```
+
+***
+
+### onDragLeave
+
+```typescript
+onDragLeave?: (() => void);
+```
+
+Emitted when the external drag event leaves the data editor.
+
+***
+
+### onDragOverCell
+
+```typescript
+onDragOverCell?: ((cell: Item, dataTransfer: DataTransfer | null) => void);
+```
+
+Emitted when the external drag event enters a new cell in the grid.
+
+***
+
+### onDrop
+
+```typescript
+onDrop?: ((cell: Item, dataTransfer: DataTransfer | null) => void);
+```
+
+Emitted when the external drag is dropped onto a valid target inside of the grid.
+
+***

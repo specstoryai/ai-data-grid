@@ -1,0 +1,26 @@
+---
+title: "BooleanCell"
+---
+Renders a quad-state checkbox.
+
+```typescript
+export interface BooleanCell extends BaseGridCell {
+    readonly kind: GridCellKind.Boolean;
+    readonly data: boolean | BooleanEmpty | BooleanIndeterminate;
+    readonly readonly?: boolean;
+    readonly allowOverlay: false;
+    readonly maxSize?: number;
+}
+```
+
+### data
+
+Determines if the boolean cell is checked, unchecked, or empty.
+
+### readonly
+
+Determines if the cell will accept edit events.
+
+### maxSize
+
+Controls the maximum size the checkbox will become. So long as this is smaller that the cell size this will also represent the final size of the checkbox.
