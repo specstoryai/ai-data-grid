@@ -176,7 +176,7 @@ Add `-p <port>` to the dev command to use another port. In the dev sandbox, run 
 
 - Pages are MDX in `docs/content/docs/`. `meta.json` files set the sidebar order.
 - `docs/content/docs/index.mdx` (the welcome page, served at `/docs`) and `docs/content/docs/about.mdx` (About & License) are hand-maintained.
-- Every other page is generated from the Glide Data Grid GitBook docs by the importer, then hand-edited to replace the product name. Images are in `docs/public/images/`.
+- Every other page is generated from the Glide Data Grid GitBook docs by the importer, then hand-edited: the product name is replaced, the Extended QuickStart Guide has a "Not on npm yet" note, and the FAQ links two Storybook stories. Images are in `docs/public/images/`.
 - Keep the attribution "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed." on the welcome page, on the About & License page and in the site footer (`docs/lib/theme-config.ts`).
 
 ### Re-running the GitBook importer
@@ -185,7 +185,7 @@ Add `-p <port>` to the dev command to use another port. In the dev sandbox, run 
 cd docs && node scripts/import-gitbook.mjs
 ```
 
-This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, downloads the 17 images again and rewrites every `meta.json`. It skips `index.mdx` and `about.mdx`, but it **overwrites every other page**. That undoes the hand edits that replaced "Glide Data Grid" with "AI Data Grid" (in five pages at the time of writing). After a re-import, review `git diff docs/content` and re-apply those edits before committing.
+This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, downloads the 17 images again and rewrites every `meta.json`. It skips `index.mdx` and `about.mdx`, but it **overwrites every other page**. That undoes the hand edits to those pages: "Glide Data Grid" replaced with "AI Data Grid" (in five pages at the time of writing), the "Not on npm yet" note in `extended-quickstart-guide/index.mdx`, and the Storybook links in `faq.mdx`. After a re-import, review `git diff docs/content` and re-apply those edits before committing.
 
 ### Deploys (Vercel)
 
@@ -202,7 +202,7 @@ This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, do
 ./update-version.sh 7.0.1
 ```
 
-With no argument it copies the current root version to the packages. It is also the root `version` script, so `npm version` runs it. Don't publish to npm; releases need the maintainer's explicit approval.
+With no argument it copies the current root version to the packages. It is also the root `version` script, so `npm version` runs it. Don't publish to npm; releases need the maintainer's explicit approval. The first publish also removes the pre-release notes: the README's "Not on npm yet" note and "Installing before the npm release" section, and the "Not on npm yet" notes in `docs/content/docs/index.mdx` and `docs/content/docs/extended-quickstart-guide/index.mdx`.
 
 ## Rules that must hold
 
