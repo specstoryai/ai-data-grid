@@ -18,14 +18,14 @@ fi
 
 update ".version = $VERSION" package.json
 
-for DIR in "cells" "source" "ai" "core"
+for DIR in "cells" "source" "core"
 do
     pushd packages/$DIR
     update ".version = $VERSION" package.json
     popd
 done
 
-for DIR in "cells" "source" "ai"
+for DIR in "cells" "source"
 do
     pushd packages/$DIR
     update ".dependencies.\"@specstory/ai-data-grid\" = $VERSION" package.json

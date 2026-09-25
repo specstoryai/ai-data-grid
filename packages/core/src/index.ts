@@ -80,6 +80,8 @@ export type {
 } from "./data-editor/row-grouping-api.js";
 export type { RowGroup, RowGroupingOptions } from "./data-editor/row-grouping.js";
 
+export * from "./ai-fill/index.js";
+
 /**
  * @category DataEditor
  * @hidden
