@@ -1,0 +1,135 @@
+---
+title: "Styling"
+---
+```typescript
+interface DataEditorProps {
+
+    // ...other props
+    
+    getGroupDetails?: GroupDetailsCallback;
+    getRowThemeOverride?: GetRowThemeCallback;
+    groupHeaderHeight?: number;
+    headerHeight?: number;
+    headerIcons?: SpriteMap;
+    overscrollX?: number;
+    overscrollY?: number;
+    rightElement?: ReactNode;
+    rightElementProps?: {
+        fill?: boolean;
+        sticky?: boolean;
+    };
+    scaleToRem?: boolean;
+    verticalBorder?: boolean | ((col) => boolean);
+    
+    // ...other props
+    
+}
+```
+
+***
+
+### getGroupDetails
+
+```ts
+getGroupDetails?: (groupName: string) => ({
+    name: string;
+    icon?: string;
+    overrideTheme?: Partial<Theme>;
+    actions?: {
+        title: string;
+        onClick: (e: GridMouseGroupHeaderEventArgs) => void;
+        icon: GridColumnIcon | string;
+    }[];
+});
+```
+
+`getGroupDetails` is invoked whenever a group header is rendered. The group details are used to provide a name override for the group as well as an icon, a list of actions which can be activated by the user, and an overrideTheme which will impact the rendering of all child cells of the group and all column headers in the group.
+
+***
+
+### getRowThemeOverride
+
+```ts
+getRowThemeOverride?: (row: number) => Partial<Theme> | undefined;
+```
+
+Whenever a row is rendered the row theme override is fetched if provided. This function should aim to be extremely fast as it may be invoked many times per render. All cells in the row have this theme merged into their theme prior to rendering.
+
+***
+
+### groupHeaderHeight
+
+```ts
+groupHeaderHeight?: number;
+```
+
+The height of the group headers in the data grid. If not provided this will default to the `headerHeight` value.
+
+***
+
+### headerHeight
+
+```ts
+headerHeight: number;
+```
+
+`headerHeight` is the height of the table header. It defaults to `36`.
+
+***
+
+### headerIcons
+
+```ts
+headerIcons?: Record<string, (spriteProps: { fgColor: string, bgColor: string }) => string>;
+```
+
+Providing custom header icons to the data grid must be done with a somewhat non-standard mechanism to allow theming and scaling. The `headerIcons` property takes a dictionary which maps icon names to functions which can take a foreground and background color and returns back a string representation of an svg. The svg should contain a header similar to this `<svg width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">` and interpolate the fg/bg colors into the string.
+
+We recognize this process is not fantastic from a graphics workflow standpoint, improvements are very welcome here.
+
+***
+
+### overscroll
+
+```ts
+overscrollX?: number;
+overscrollY?: number;
+```
+
+The overscroll properties are used to allow the grid to scroll past the logical end of the content by a fixed number of pixels. This is useful particularly on the X axis if you allow for resizing columns as it can make resizing the final column significantly easier.
+
+***
+
+### rightElement
+
+```ts
+rightElementProps?: {
+    readonly sticky?: boolean;
+    readonly fill?: boolean;
+};
+rightElement?: React.ReactNode;
+```
+
+The right element is a DOM node which can be inserted at the end of the horizontal scroll region. This can be used to create a right handle panel, make a big add button, or display messages. If `rightElementProps.sticky` is set to true the right element will be visible at all times, otherwise the user will need to scroll to the end to reveal it.
+
+If `rightElementProps.fill` is set, the right elements container will fill to consume all remaining space (if any) at the end of the grid. This does not play nice with growing columns.
+
+***
+
+### scaleToRem
+
+```ts
+readonly scaleToRem?: boolean;
+```
+
+This property is a boolean flag that enables automatic scaling of most elements in the data grid's theme to match the REM (Root EM) scaling. When set to `true`, it adjusts the sizing of various elements like fonts, paddings, and other dimensions to align with the REM units defined in your application's styles. This ensures that the data grid's appearance is consistent with the overall scaling and typography of your application, especially in responsive designs or when dealing with accessibility requirements. The default value of this property is `false`, meaning that without explicit activation, the grid's elements will not automatically scale based on REM units.
+
+***
+
+### verticalBorder
+
+```ts
+verticalBorder?: ((col: number) => boolean) | boolean;
+```
+
+Controls the drawing of the left hand vertical border of a column. If set to a boolean value it controls all borders. Defaults to `true`.

@@ -1,0 +1,31 @@
+---
+title: "API"
+---
+> ### A note on col/row values
+>
+> Grid always passes col/row coordinate pairs in the format \[col, row] and never \[row, col]. This is to more accurately match an \[x, y] world, even though most english speakers will tend to say "row col".
+
+## API Overview
+
+Details of each property can be found by clicking on it.
+
+### Types
+
+| Name                                                | Description                                                           |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| [GridColumn](/docs/api/common-types#gridcolumn)       | A column description. Passed to the `columns` property.               |
+| [GridCell](/docs/api/common-types#gridcell)           | The basic interface for defining a cell                               |
+| [GridSelection](/docs/api/common-types#gridselection) | The most basic representation of the selected cells in the data grid. |
+| [Theme](/docs/api/common-types#theme)                 | The theme used by the data grid to get all color and font information |
+
+### DataEditorRef
+
+| Name                                                       | Description                                                                                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [appendRow](/docs/api/dataeditorref#appendrow)               | Append a row to the data grid.                                                                               |
+| [emit](/docs/api/dataeditorref#emit)                         | Used to emit commands normally emitted by keyboard shortcuts.                                                |
+| [focus](/docs/api/dataeditorref#focus)                       | Focuses the data grid.                                                                                       |
+| [getBounds](/docs/api/dataeditorref#getbounds)               | Gets the current screen-space bounds of a desired cell.                                                      |
+| [remeasureColumns](/docs/api/dataeditorref#remeasurecolumns) | Causes the columns in the selection to have their natural sizes recomputed and re-emitted as a resize event. |
+| [scrollTo](/docs/api/dataeditorref#scrollto)                 | Tells the data-grid to scroll to a particular location.                                                      |
+| [updateCells](/docs/api/dataeditorref#updatecells)           | Invalidates the rendering of a list of passed cells.                                                         |

@@ -1,0 +1,35 @@
+---
+title: "UriCell"
+---
+Renders URIs (usually urls) with the optional direct interaction.
+
+```typescript
+export interface UriCell extends BaseGridCell {
+    readonly kind: GridCellKind.Uri;
+    readonly data: string;
+    readonly displayData?: string;
+    readonly readonly?: boolean;
+    readonly onClickUri?: (args: BaseGridMouseEventArgs & { readonly preventDefault: () => void }) => void;
+    readonly hoverEffect?: boolean;
+}
+```
+
+### displayData
+
+A formated version of the uri as a string.
+
+### data
+
+The uri
+
+### readonly
+
+Determines if the cell will accept edit events.
+
+### hoverEffect
+
+If set to true the uri will underline when hovered and receive a pointer cursor.
+
+### onClickUri
+
+If provided this will be called whenever the actual text of the uri cell is clicked. This can be used to open a url.

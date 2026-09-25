@@ -1,0 +1,45 @@
+---
+title: "NumberCell"
+---
+The number cell renders numbers and has a specialized editor for inputing numerical values.
+
+```typescript
+export interface NumberCell extends BaseGridCell {
+    readonly kind: GridCellKind.Number;
+    readonly displayData: string;
+    readonly data: number | undefined;
+    readonly readonly?: boolean;
+    readonly fixedDecimals?: number;
+    readonly allowNegative?: boolean;
+    readonly thousandSeparator?: boolean | string;
+    readonly decimalSeparator?: string;
+}
+```
+
+### displayData
+
+A formated version of the number as a string.
+
+### data
+
+The number value of the cell
+
+### readonly
+
+Determines if the cell will accept edit events.
+
+### fixedDecimals
+
+When provided, fixes the number of decimals used in the overlay editor to the number provided.
+
+### allowNegative
+
+When set to `false` negative numbers are not allowed to be entered.
+
+### thousandsSeparator
+
+Allows overiding or disabling of the thousands separator. False disables, true enables, and a string overrides it.
+
+### decimalSeparator
+
+Allows overiding the decimal separator, normally passing either "," or "."

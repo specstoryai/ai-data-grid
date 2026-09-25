@@ -1,0 +1,167 @@
+---
+title: "Important Props"
+---
+Most data grids will want to some of these props one way or another.
+
+
+
+```typescript
+interface DataEditorProps {
+
+    // ...other props
+    
+    fixedShadowX?: boolean;
+    fixedShadowY?: boolean;
+    freezeColumns?: number;
+    freezeTrailingRows?: number;
+    getCellsForSelection?: true | ((selection, abortSignal) => GetCellsThunk | CellArray);
+    height?: string | number;
+    markdownDivCreateNode?: ((content) => DocumentFragment);
+    onVisibleRegionChanged?: ((range, tx, ty, extras) => void);
+    provideEditor?: ProvideEditorCallback<GridCell>;
+    rowHeight?: number | ((index) => number);
+    smoothScrollX?: boolean;
+    smoothScrollY?: boolean;
+    width?: string | number;
+    
+    // ...other props
+    
+}
+```
+
+
+
+***
+
+### fixedShadow
+
+```ts
+fixedShadowX?: boolean;
+fixedShadowY?: boolean;
+```
+
+Controls shadows behind fixed columns and header rows. Defaults to `true`. This can make freeze columns hard to read if vertical borders are also disabled.
+
+***
+
+### freezeColumns
+
+```ts
+freezeColumns?: number;
+```
+
+Set to a positive number to freeze columns on the left side of the grid during horizontal scrolling.
+
+***
+
+### freezeTrailingRows
+
+Set to a positive number to freeze rows on the bottom of the grid during vertical scrolling.
+
+***
+
+### getCellsForSelection
+
+```ts
+type CellArray = readonly (readonly GridCell[])[];
+type GetCellsThunk = () => Promise<CellArray>;
+
+getCellsForSelection?: true | (selection: Rectangle) => CellArray | GetCellsThunk;
+```
+
+`getCellsForSelection` is called when the user copies a selection to the clipboard or the data editor needs to inspect data which may be outside the curently visible range. It must return a two-dimensional array (an array of rows, where each row is an array of cells) of the cells in the selection's rectangle. Note that the rectangle can include cells that are not currently visible.
+
+If `true` is passed instead of a callback, the data grid will internally use the `getCellContent` callback to provide a basic implementation of `getCellsForSelection`. This can make it easier to light up more data grid functionality, but may have negative side effects if your data source is not able to handle being queried for data outside the normal window.
+
+If `getCellsForSelection` returns a thunk, the data may be loaded asynchronously, however the data grid may be unable to properly react to column spans when performing range selections. Copying large amounts of data out of the grid will depend on the performance of the thunk as well.
+
+***
+
+### markdownDivCreateNode
+
+```ts
+markdownDivCreateNode?: (content: string) => DocumentFragment;
+```
+
+If `markdownDivCreateNode` is specified, then it will be used to render Markdown, instead of the default Markdown renderer used by the Grid. You'll want to use this if you need to process your Markdown for security purposes, or if you want to use a renderer with different Markdown features.
+
+***
+
+### onVisibleRegionChanged
+
+```ts
+onVisibleRegionChanged?: (
+    range: Rectangle,
+    tx: number,
+    ty: number,
+    extras: { selected?: Item; freezeRegion?: Rectangle };
+) => void;
+```
+
+`onVisibleRegionChanged` is called whenever the visible region changed. The new visible region is passed as a `Rectangle`. The x and y transforms of the cell region are passed as `tx` and `ty`. The current selection and frozen region are passed in the `extras` object.
+
+***
+
+### provideEditor
+
+```ts
+export type ProvideEditorComponent<T extends InnerGridCell> = React.FunctionComponent<{
+    readonly onChange: (newValue: T) => void;
+    readonly onFinishedEditing: (newValue?: T, movement?: readonly [-1 | 0 | 1, -1 | 0 | 1]) => void;
+    readonly isHighlighted: boolean;
+    readonly value: T;
+    readonly initialValue?: string;
+    readonly validatedSelection?: SelectionRange;
+    readonly imageEditorOverride?: ImageEditorType;
+    readonly markdownDivCreateNode?: (content: string) => DocumentFragment;
+    readonly target: Rectangle;
+    readonly forceEditMode: boolean;
+    readonly isValid?: boolean;
+}>;
+
+export type ProvideEditorCallbackResult<T extends InnerGridCell> =
+    | (ProvideEditorComponent<T> & {
+          disablePadding?: boolean;
+          disableStyling?: boolean;
+      })
+    | ObjectEditorCallbackResult<T>
+    | undefined;
+
+export type ProvideEditorCallback<T extends InnerGridCell> = (cell: T) => ProvideEditorCallbackResult<T>;
+
+provideEditor?: ProvideEditorCallback<GridCell>;
+```
+
+When provided the `provideEditor` callbacks job is to be a constructor for functional components which have the correct properties to be used by the data grid as an editor. The editor must implement `onChange` and `onFinishedEditing` callbacks as well support the `isHighlighted` flag which tells the editor to begin with any editable text pre-selected so typing will immediately begin to overwrite it.
+
+***
+
+### rowHeight
+
+```ts
+rowHeight: number | ((index: number) => number);
+```
+
+`rowHeight` is the height of a row in the table. It defaults to `34`. By passing a function instead of a number you can give different heights to each row. The `index` is the zero-based absolute row index.
+
+***
+
+### smoothScroll
+
+```ts
+smoothScrollX?: boolean;
+smoothScrollY?: boolean;
+```
+
+Controls smooth scrolling in the data grid. Defaults to `false`. If smooth scrolling is not enabled the grid will always be cell aligned in the non-smooth scrolling axis.
+
+***
+
+### width/height
+
+```typescript
+width?: string | number;
+height?: string | number;
+```
+
+`width` and `height` override the default size of the grid. These accept any valid width/height string. If a number is provided it is interpreted as pixels.

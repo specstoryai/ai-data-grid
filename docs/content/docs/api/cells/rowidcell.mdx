@@ -1,0 +1,20 @@
+---
+title: "RowIDCell"
+---
+Renders a faded out text representation of a RowID
+
+```typescript
+export interface RowIDCell extends BaseGridCell {
+    readonly kind: GridCellKind.RowID;
+    readonly data: string;
+    readonly readonly?: boolean;
+}
+```
+
+### data
+
+The string representation of the RowID
+
+### readonly
+
+Determines if the cell will accept edit events.

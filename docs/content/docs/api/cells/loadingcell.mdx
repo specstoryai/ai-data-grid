@@ -1,0 +1,25 @@
+---
+title: "LoadingCell"
+---
+Loading cells are for rendering content that is still loading from the server. They have no additional properties.
+
+```typescript
+export interface LoadingCell extends BaseGridCell {
+    readonly kind: GridCellKind.Loading;
+    readonly skeletonWidth?: number;
+    readonly skeletonHeight?: number;
+    readonly skeletonWidthVariability?: number;
+}
+```
+
+### skeletonWidth
+
+Determines the width in pixels of the skeleton to be drawn. If set to 0 no skeleton will draw.
+
+### skeletonHeight
+
+Determines the height in pixels of the skeleton to be drawn. If set to 0 no skeleton will draw.
+
+### skeletonWidthVariability
+
+The skeleton variability is a width in pixels that is multiplied by a random number between 0 and 1 and added to the skeleton width to produce the final skeleton width.

@@ -1,0 +1,57 @@
+---
+title: "Working with selections"
+---
+AI Data Grid selections are controlled via the [`gridSelection`](/docs/api/dataeditor/selection-handling#gridselection) and [`onGridSelectionChanged`](/docs/api/dataeditor/selection-handling#ongridselectionchange) properties. To respond to selection changes the gridSelection must be controlled.
+
+```tsx
+const [selection, setSelection] = React.useState<GridSelection>({
+    columns: CompactSelection.empty(),
+    rows: CompactSelection.empty(),
+});
+
+return <DataEditor
+    {...otherProps}
+    gridSelection={selection}
+    onGridSelectionChange={setSelection}
+/>
+```
+
+The [`GridSelection`](/docs/api/common-types#gridselection) contains three different elements. The current selection, the selected rows, and the selected columns.
+
+```tsx
+interface GridSelection {
+    readonly current?: {
+        readonly cell: Item;
+        readonly range: Readonly<Rectangle>;
+        readonly rangeStack: readonly Readonly<Rectangle>[];
+    };
+    readonly columns: CompactSelection;
+    readonly rows: CompactSelection;
+}
+```
+
+The `current` part of the selection contains the selected `cell`. This is the item which will be drawn with a focus ring. The `range` represents the selected region around the cell that may be edited by certain commands such as delete. Finally, the `rangeStack` are additional ranges that the user has selected when [`multi-rect`](/docs/api/dataeditor/selection-handling#column-range-rowselect) selection mode is enabled.
+
+`rows` and `columns` are both a `CompactSelection`. A compact selection is a sparse array designed to efficiently hold spans of selected elements. They have the following interface:
+
+```typescript
+export class CompactSelection 
+    static empty(): CompactSelection;
+    static fromSingleSelection(selection: number | Slice): CompactSelection;
+    
+    public offset(amount: number): CompactSelection;
+    public add(selection: number | Slice): CompactSelection;
+    public remove(selection: number | Slice): CompactSelection;
+    public first(): number | undefined;
+    public last(): number | undefined;
+    public hasIndex(index: number): boolean;
+    public hasAll(index: Slice): boolean;
+    public some(predicate: (index: number) => boolean): boolean;
+    public equals(other: CompactSelection): boolean;
+    public toArray(): number[];
+    get length(): number;
+    *[Symbol.iterator]()
+}
+```
+
+In general, it is advisable not to call `toArray`. Iterating over the `CompactSelection` using a `for ... of` loop is significantly more efficient.

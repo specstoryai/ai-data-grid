@@ -1,0 +1,71 @@
+---
+title: "Grid Columns"
+---
+### Basic usage
+
+> 💡 The `GridColumn[]` passed to the `DataEditor` in the `columns` property should be memoized to avoid excessive re-rendering. These samples may not do this for the sake of brevity.
+
+There are only two mandatory properties for each `GridColumn`: `title` and `id`. The id should be a stable id and not the index of the column. Additionally a `width` property can be provided which represents the width of the column in pixels. If a width is provided the id may be omited. This may change in a future version.
+
+```typescript
+const columns: GridColumn[] = [
+    { title: "First", id: "first", width: 150 },
+    { title: "Second", id: "second", width: 150 }
+];
+
+<DataEditor {...rest} columns={columns} />
+```
+
+
+
+![](/images/extended-quickstart-guide-grid-columns-01.png)
+
+*Two beautiful identically sized columns.*
+
+
+### Header icons
+
+Default header icons are available. They can also be reaplced by passing a new map to the `headerIcons` property.
+
+```typescript
+const columns: GridColumn[] = [
+    { title: "Name", id: "name", width: 250, icon: GridColumnIcon.HeaderString, 
+      overlayIcon: GridColumnIcon.RowOwnerOverlay 
+    },
+    { title: "Age", id: "age", width: 100, icon: GridColumnIcon.HeaderNumber },
+    { title: "Avatar", id: "avatar", width: 80, icon: GridColumnIcon.HeaderImage },
+];
+
+<DataEditor {...rest} columns={columns} />
+```
+
+
+
+![](/images/extended-quickstart-guide-grid-columns-02.png)
+
+*Lovely icons!*
+
+
+### Header theming
+
+Headers can be provided with individual theme overrides which themes both the header and its column cells.
+
+```typescript
+const columns: GridColumn[] = [
+    { title: "Name", id="name", width: 250, icon: GridColumnIcon.HeaderString },
+    { title: "Age", id="age", width: 100, icon: GridColumnIcon.HeaderNumber, themeOverride: {
+        bgIconHeader: "#00967d",
+        textDark: "#00c5a4",
+        textHeader: "#00c5a4",
+    } },
+    { title: "Avatar", id="avatar", width: 80, icon: GridColumnIcon.HeaderImage },
+];
+
+<DataEditor {...rest} columns={columns} />
+```
+
+
+
+![](/images/extended-quickstart-guide-grid-columns-03.png)
+
+*Lovely teal colors*

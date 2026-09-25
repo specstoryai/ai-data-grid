@@ -1,0 +1,141 @@
+---
+title: "Selection Handling"
+---
+```typescript
+interface DataEditorProps {
+
+    // ...other props
+
+    columnSelect?: "none" | "single" | "multi";
+    columnSelectionBlending?: SelectionBlending;
+    drawFocusRing?: boolean;
+    fillHandle?: boolean;
+    gridSelection?: GridSelection;
+    highlightRegions?: readonly Highlight[];
+    onGridSelectionChange?: ((newSelection) => void);
+    onSelectionCleared?: (() => void);
+    rangeSelect?: "rect" | "none" | "cell" | "multi-cell" | "multi-rect";
+    rangeSelectionBlending?: SelectionBlending;
+    rowSelect?: "none" | "single" | "multi";
+    rowSelectionBlending?: SelectionBlending;
+    spanRangeBehavior?: "default" | "allowPartial";
+    
+    // ...other props
+    
+}
+```
+
+***
+
+### column/range/rowSelect
+
+```ts
+rangeSelect?: "none" | "cell" | "rect" | "multi-cell" | "multi-rect"; // default rect
+columnSelect?: "none" | "single" | "multi"; // default multi
+rowSelect?: "none" | "single" | "multi"; // default multi
+```
+
+Controls if multi-selection is allowed. If disabled, shift/ctrl/command clicking will work as if no modifiers are pressed.
+
+When range select is set to cell, only one cell may be selected at a time. When set to rect one one rect at a time. The multi variants allow for multiples of the rect or cell to be selected.
+
+***
+
+### column/range/rowSelectionBlending
+
+```ts
+rangeSelectionBlending?: "exclusive" | "mixed"; // default exclusive
+columnSelectionBlending?: "exclusive" | "mixed"; // default exclusive
+rowSelectionBlending?: "exclusive" | "mixed"; // default exclusive
+```
+
+Controls which types of selections can exist at the same time in the grid. If selection blending is set to exclusive, the grid will clear other types of selections when the exclusive selection is made. By default row, column, and range selections are exclusive.
+
+***
+
+### drawFocusRing
+
+```typescript
+drawFocusRing?: boolean;
+```
+
+Controls drawing of the focus ring. If disabled the user will not easily see the selection.
+
+***
+
+### highlightRegions
+
+```ts
+interface Highlight {
+    readonly color: string;
+    readonly range: Rectangle;
+}
+
+highlightRegions?: readonly Highlight[];
+```
+
+Highlight regions are regions on the grid which get drawn with a background color and a dashed line around the region. The color string must be css parseable and the opacity will be removed for the drawing of the dashed line. Opacity should be used to allow overlapping selections to properly blend in background colors.
+
+***
+
+### fillHandle
+
+```ts
+fillHandle?: boolean;
+```
+
+Controls the visibility of the fill handle used for filling cells with the mouse.
+
+***
+
+### gridSelection
+
+`GridSelection` is the most basic representation of the selected cells, rows, and columns in the data grid. The `current` property accounts for the selected cell and the range of cells selected as well. It is the selection which is modified by keyboard and mouse interaction when clicking on the cells themselves.
+
+The `rows` and `columns` properties both account for the columns or rows which have been explicitly selected by the user. Selecting a range which encompases the entire set of cells within a column/row does not implicitly set it into this part of the collection. This allows for distinguishing between cases when the user wishes to delete all contents of a row/column and delete the row/column itself.
+
+```ts
+interface GridSelection {
+    readonly current?: {
+        readonly cell: Item;
+        readonly range: Readonly<Rectangle>;
+        readonly rangeStack: readonly Readonly<Rectangle>[];
+    };
+    readonly columns: CompactSelection;
+    readonly rows: CompactSelection;
+}
+```
+
+The `cell` is the \[col, row] formatted cell which will have the focus ring drawn around it. The `range` should always include the `cell` and represents additional cells which can be edited via copy, delete and other events. The `range` may or may not include partial spans depending on the [`spanRangeBehavior`](#spanrangebehavior) set.
+
+***
+
+### onGridSelectionChange
+
+```typescript
+onGridSelectionChange?: ((newSelection) => void);
+```
+
+Emitted whenever the grid selection changes. This value must be passed back as the new [`gridSelection`](#gridselection) for the change to have any effect.
+
+***
+
+### onSelectionCleared
+
+```ts
+onSelectionCleared?: () => void;
+```
+
+Emitted when the current selection is cleared, usually when the user presses "Escape". `rowSelection`, `columnSelection`, and `gridSelection` should all be empty when this event is emitted. This event only emits when the user explicitly attempts to clear the selection.
+
+***
+
+### spanRangeBehavior
+
+```ts
+spanRangeBehavior?: "default" | "allowPartial";
+```
+
+If set to `default` the [`gridSelection`](#gridselection) will always be expanded to fully include any spans within it. This means in some cases the `range` of the selection may be inflated to the size of the entire sheet, however the user will be unable to highlight partial spans.
+
+If `allowPartial` is set no inflation behavior will be enforced.

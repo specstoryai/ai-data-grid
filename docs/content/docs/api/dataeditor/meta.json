@@ -1,0 +1,16 @@
+{
+  "title": "DataEditor",
+  "pages": [
+    "index",
+    "required-props",
+    "important-props",
+    "row-markers",
+    "editing",
+    "input-interaction",
+    "selection-handling",
+    "custom-cells",
+    "drag-and-drop",
+    "search",
+    "styling"
+  ]
+}

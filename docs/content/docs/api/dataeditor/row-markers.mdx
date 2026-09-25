@@ -1,0 +1,66 @@
+---
+title: "Row Markers"
+---
+Row markers display the current index of the row as well as provide a means to select and reorder rows when configured. Rows markers are always marked as freeze columns and will always display regardless of horizontal scroll position.
+
+
+
+![](/images/api-dataeditor-row-markers-01.png)
+
+*Row markers in action*
+
+
+```typescript
+interface DataEditorProps {
+    
+    // ...other props
+    
+    rowMarkers?: "number" | "none" | "checkbox" | "both" | "checkbox-visible" | "clickable-number";
+    rowMarkerStartIndex?: number;
+    rowMarkerTheme?: Partial<Theme>;
+    rowMarkerWidth?: number;
+     
+    // ...other props
+    
+}
+```
+
+***
+
+### rowMarkers
+
+```ts
+rowMarkers?: "checkbox" | "number" | "both" | "none";
+```
+
+`rowMarkers` determines whether to display the marker column on the very left. It defaults to `none`. Note that this column doesn't count as a table column, i.e. it has no index, and doesn't change column indexes.
+
+***
+
+### rowMarkerStartIndex
+
+```ts
+rowMarkerStartIndex?: number;
+```
+
+This property is used to set the starting index for row markers in a React component. The `rowMarkerStartIndex` accepts a numerical value that specifies the initial index from which the row markers in the data grid will begin counting. By default, this value is set to `1`. This property is particularly useful when you need the row numbering to start from a specific value other than the default, such as when displaying paginated data or aligning with an external data set's indexing.
+
+***
+
+### rowMarkerTheme
+
+```typescript
+rowMarkerTheme?: Partial<Theme>;
+```
+
+The `rowMarkerTheme` overrides the theme used for the row marker column. This is commonly used to tint the background of the row marker row and sometimes to fade them out a bit.
+
+***
+
+### rowMarkerWidth
+
+```ts
+rowMarkerWidth?: number;
+```
+
+`rowMarkerWidth` is the width of the marker column on the very left. By default, it adapts based on the number of rows in your data set.

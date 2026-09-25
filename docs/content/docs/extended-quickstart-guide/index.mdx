@@ -1,0 +1,102 @@
+---
+title: "Extended QuickStart Guide"
+---
+### Setting Up the Project
+
+**Prerequisites**
+
+* Node.js installed
+* A TypeScript project setup (since you're experienced, I'll skip the basic setup steps)
+
+**Installing AI Data Grid**
+
+1. In your project directory, run:
+
+   ```bash
+   npm install @specstory/ai-data-grid
+   ```
+2. You may also need to install the peer dependencies if you don't have them already:
+
+   ```shell
+   npm i lodash marked react-responsive-carousel
+   ```
+3. Don't forget to import mandatory CSS
+
+   ```ts
+   import "@specstory/ai-data-grid/dist/index.css";
+   ```
+
+### Getting started with data and columns
+
+AI Data Grid is a powerful but flexible library requiring very few concepts required to get started. The grid will need data, columns, and a `getCellContent` callback to convert our data into cells on demand. Because the callback is used, there is no need to pre-format the data in any particular way, so long as it can be transformed into a cell. This example uses a flat array of objects.
+
+```typescript
+const data = [
+    {
+      "name": "Hines Fowler",
+      "company": "BUZZNESS",
+      "email": "hinesfowler@buzzness.com",
+      "phone": "+1 (869) 405-3127"
+    },
+    ...rest
+]
+```
+
+The columns of the data grid may contain many options, including icons, menus, theme overrides, however at their most basic they only require a `title` and an `id`. The id is technically optional but it is best not to omit it.
+
+```typescript
+const columns: GridColumn[] = [
+    {
+        title: "Name",
+        id: "name"
+    },
+    {
+        title: "Company",
+        id: "company"
+    },
+    {
+        title: "Email",
+        id: "email"
+    },
+    {
+        title: "Phone",
+        id: "phone"
+    }
+]
+```
+
+Each column will automatically size based on its contents. If desired the sise of each column can be overridden by setting the width parameter.
+
+Finally the data grid requires a cell fetch callback. This callback should be memoized using `React.useCallback` or be a static function.
+
+```typescript
+const getCellContent = React.useCallback((cell: Item): GridCell => {
+    const [col, row] = cell;
+    const dataRow = data[row];
+    // dumb but simple way to do this
+    const indexes: (keyof DummyItem)[] = ["name", "company", "email", "phone"];
+    const d = dataRow[indexes[col]]
+    return {
+        kind: GridCellKind.Text,
+        allowOverlay: false,
+        displayData: d,
+        data: d,
+    };
+}, []);
+```
+
+> 💡 Avoid excessive changes to the identity of the `getCellContent` callback as the grid will re-render from scratch every time it changes.
+
+That is all the basic requirements put together, now the DataEditor can be rendered.
+
+```tsx
+return <DataEditor 
+        getCellContent={getCellContent} 
+        columns={columns} 
+        rows={data.length} 
+    />;
+```
+
+
+
+![](/images/extended-quickstart-guide-01.png)

@@ -1,0 +1,15 @@
+---
+title: "BubbleCell"
+---
+Renders text in bubbles. Always read only.
+
+```typescript
+export interface BubbleCell extends BaseGridCell {
+    readonly kind: GridCellKind.Bubble;
+    readonly data: string[];
+}
+```
+
+### data
+
+The text to display in bubbles.

@@ -1,0 +1,10 @@
+{
+  "title": "Extended QuickStart Guide",
+  "pages": [
+    "index",
+    "editing-data",
+    "working-with-selections",
+    "grid-columns",
+    "copy-and-paste-support"
+  ]
+}
