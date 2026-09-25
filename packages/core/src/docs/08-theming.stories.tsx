@@ -7,7 +7,7 @@ import { DocWrapper, Highlight, Marked, Wrapper } from "./doc-wrapper.js";
 import type { Theme } from "../common/styles.js";
 
 export default {
-    title: "Glide-Data-Grid/Docs",
+    title: "AI-Data-Grid/Docs",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -129,7 +129,7 @@ const data: DummyItem[] = [
     },
 ];
 
-export const Theming: React.VFC = () => {
+export const Theming: React.FC = () => {
     const getContent = React.useCallback((cell: Item): GridCell => {
         const [col, row] = cell;
         const dataRow = data[row];
@@ -227,7 +227,7 @@ export const Theming: React.VFC = () => {
                 {`
 # Theming
 
-Theming the Glide Data Grid is a cascaded through 5 levels
+Theming the AI Data Grid is a cascaded through 5 levels
 
 0. Default theme
 1. Global

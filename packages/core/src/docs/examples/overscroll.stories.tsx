@@ -10,7 +10,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -37,7 +37,7 @@ interface OverscrollProps {
     overscrollY: number;
 }
 
-export const Overscroll: React.VFC<OverscrollProps> = p => {
+export const Overscroll: React.FC<OverscrollProps> = p => {
     const { overscrollX, overscrollY } = p;
     const { cols, getCellContent } = useMockDataGenerator(20);
 

@@ -5,7 +5,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import { type Keybinds, type Keybind, keybindingDefaults } from "../../data-editor/data-editor-keybindings.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -15,7 +15,7 @@ export default {
     ],
 };
 
-export const CustomKeybindings: React.VFC = () => {
+export const CustomKeybindings: React.FC = () => {
     const { getCellContent, cols, setCellValue } = useMockDataGenerator(30, false);
 
     const keybindingStyle = {

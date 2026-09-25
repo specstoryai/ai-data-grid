@@ -1,11 +1,10 @@
 import { addons } from "storybook/manager-api";
 import { create } from "storybook/theming";
 
-const glideTheme = create({
+const aiDataGridTheme = create({
     base: "dark",
-    brandTitle: "Glide Data Grid",
-    brandUrl: "https://grid.glideapps.com",
-    brandImage: "https://res.cloudinary.com/glide/image/upload/c_scale,w_45/v1634058004/glidehq/glide-transparent.png",
+    brandTitle: "AI Data Grid",
+    brandUrl: "https://github.com/specstoryai/ai-data-grid",
 });
 
 addons.setConfig({
@@ -15,7 +14,7 @@ addons.setConfig({
     panelPosition: "right",
     enableShortcuts: true,
     isToolshown: false,
-    theme: glideTheme,
+    theme: aiDataGridTheme,
     selectedPanel: undefined,
     initialActive: "sidebar",
     sidebar: {

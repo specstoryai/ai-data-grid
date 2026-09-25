@@ -12,7 +12,7 @@ import { GridCellKind } from "../../internal/data-grid/data-grid-types.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -34,7 +34,7 @@ export default {
     ],
 };
 
-export const ValidateData: React.VFC = () => {
+export const ValidateData: React.FC = () => {
     const { cols, getCellContent, setCellValue } = useMockDataGenerator(60, false);
 
     return (

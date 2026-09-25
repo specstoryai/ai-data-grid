@@ -18,7 +18,7 @@ import { BeautifulWrapper } from "../../data-editor/stories/utils.js";
 import { Description } from "../doc-wrapper.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -154,7 +154,7 @@ function useAsyncData<TRowType>(
     };
 }
 
-export const ServerSideData: React.VFC = () => {
+export const ServerSideData: React.FC = () => {
     const ref = React.useRef<DataEditorRef | null>(null);
 
     const getRowData = React.useCallback(async (r: Item) => {
@@ -203,7 +203,7 @@ export const ServerSideData: React.VFC = () => {
             title="Server Side Data"
             description={
                 <Description>
-                    Glide data grid is fully ready to handle your server side data needs. This example condenses the
+                    AI Data Grid is fully ready to handle your server side data needs. This example condenses the
                     implementation into a single custom hook and loads in pages of 50. We are using 300ms sleeps, but
                     network transactions should work the same.
                 </Description>

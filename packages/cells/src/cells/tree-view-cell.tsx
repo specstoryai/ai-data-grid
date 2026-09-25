@@ -4,7 +4,7 @@ import {
     GridCellKind,
     getMiddleCenterBias,
     type Theme,
-} from "@glideapps/glide-data-grid";
+} from "@specstory/ai-data-grid";
 
 interface TreeViewCellProps {
     readonly kind: "tree-view-cell";

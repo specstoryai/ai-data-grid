@@ -11,7 +11,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -30,7 +30,7 @@ export default {
     ],
 };
 
-export const NewColumnButton: React.VFC = () => {
+export const NewColumnButton: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(10, true);
 
     const columns = React.useMemo(() => cols.map(c => ({ ...c, grow: 1 })), [cols]);

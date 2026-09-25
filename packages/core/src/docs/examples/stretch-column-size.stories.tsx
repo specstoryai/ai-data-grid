@@ -10,7 +10,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -30,7 +30,7 @@ export default {
     ],
 };
 
-export const StretchColumnSize: React.VFC = () => {
+export const StretchColumnSize: React.FC = () => {
     const { cols, getCellContent, onColumnResize } = useMockDataGenerator(5, true, true);
 
     const hasResized = React.useRef(new Set<number>());

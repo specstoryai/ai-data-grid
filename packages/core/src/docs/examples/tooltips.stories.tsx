@@ -13,7 +13,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import type { GridMouseEventArgs } from "../../internal/data-grid/event-args.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -44,7 +44,7 @@ const zeroBounds = {
     right: 0,
 };
 
-export const Tooltips: React.VFC = () => {
+export const Tooltips: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     const [tooltip, setTooltip] = React.useState<{ val: string; bounds: IBounds } | undefined>();

@@ -9,7 +9,7 @@ shopt -s globstar
 ## Delete the dist folder
 rm -rf dist
 
-echo -e "\033[0;36m🏗️ Building Glide Data Grid Source 🏗️\033[0m"
+echo -e "\033[0;36m🏗️ Building AI Data Grid Source 🏗️\033[0m"
 
 compile_esm() {
   tsc -p tsconfig.esm.json

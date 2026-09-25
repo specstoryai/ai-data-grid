@@ -12,7 +12,7 @@ import { SimpleThemeWrapper } from "../stories/story-utils.js";
 import { DocWrapper, Highlight, Marked, Wrapper } from "./doc-wrapper.js";
 
 export default {
-    title: "Glide-Data-Grid/Docs",
+    title: "AI-Data-Grid/Docs",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -29,7 +29,7 @@ interface DummyItem {
     email: string;
 }
 
-export const CopyPaste: React.VFC = () => {
+export const CopyPaste: React.FC = () => {
     const dataRef = React.useRef([
         {
             name: "Deidre Morris",
@@ -187,7 +187,7 @@ export const CopyPaste: React.VFC = () => {
                 {`
 # Copy Paste
 
-Copy and Paste support is built in to Glide Data Grid. It is not enabled by default to ensure developers are expecting its behavior.
+Copy and Paste support is built in to AI Data Grid. It is not enabled by default to ensure developers are expecting its behavior.
 
 ## Copy
 
@@ -220,7 +220,7 @@ Implementations may wish to use far more efficient mechanisms for fetching data.
 
 ## Paste
 
-The easiest way to enable paste is to set \`onPaste\` to true when \`onCellEdited\` is already working. The Glide Data Grid will automatically parse the paste buffer and send cell update events.`}
+The easiest way to enable paste is to set \`onPaste\` to true when \`onCellEdited\` is already working. The AI Data Grid will automatically parse the paste buffer and send cell update events.`}
             </Marked>
             <Highlight>
                 {`

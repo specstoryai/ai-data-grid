@@ -11,7 +11,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import { GridCellKind, type ProvideEditorCallback, type TextCell } from "../../index.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -70,7 +70,7 @@ const provideEditor: ProvideEditorCallback<TextCell> = cell => {
     return undefined;
 };
 
-export const CustomEditors: React.VFC = () => {
+export const CustomEditors: React.FC = () => {
     const { cols, getCellContent, setCellValue } = useMockDataGenerator(10, false);
 
     return (

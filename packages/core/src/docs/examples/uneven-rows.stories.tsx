@@ -10,7 +10,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -29,7 +29,7 @@ export default {
     ],
 };
 
-export const UnevenRows: React.VFC = () => {
+export const UnevenRows: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     return (

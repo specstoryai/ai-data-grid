@@ -5,7 +5,7 @@ import { GridCellKind } from "../../internal/data-grid/data-grid-types.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -26,7 +26,7 @@ export default {
     ],
 };
 
-export const RightToLeft: React.VFC = () => {
+export const RightToLeft: React.FC = () => {
     const { cols, getCellContent, setCellValue, onColumnResize } = useMockDataGenerator(60, false);
 
     const realCols = React.useMemo(() => {

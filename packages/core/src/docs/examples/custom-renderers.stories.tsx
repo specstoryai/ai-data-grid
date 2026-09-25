@@ -16,7 +16,7 @@ import {
 } from "../../index.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -36,7 +36,7 @@ export default {
     ],
 };
 
-export const OverrideMarkerRenderer: React.VFC = () => {
+export const OverrideMarkerRenderer: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100, true, true);
 
     const renderers = React.useMemo<readonly InternalCellRenderer<InnerGridCell>[]>(() => {

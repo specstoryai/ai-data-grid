@@ -13,7 +13,7 @@ import type { Rectangle } from "../../internal/data-grid/data-grid-types.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -24,7 +24,7 @@ export default {
     ],
 };
 
-export const ObserveVisibleRegion: React.VFC = () => {
+export const ObserveVisibleRegion: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100);
 
     const [visibleRegion, setVisibleRegion] = React.useState<Rectangle>({ x: 0, y: 0, width: 0, height: 0 });

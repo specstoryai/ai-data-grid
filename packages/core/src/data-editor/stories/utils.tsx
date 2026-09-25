@@ -712,7 +712,7 @@ function getColumnsForCellTypes(): GridColumnWithMockingInfo[] {
 Hello my name is *${faker.name.firstName()}*
 
 ## TODO:
-Try out [Glide](https://www.glideapps.com/)
+Try out [SpecStory](https://www.specstory.com/)
 `;
                 return {
                     kind: GridCellKind.Markdown,

@@ -12,7 +12,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -31,7 +31,7 @@ interface ImperativeScrollProps {
     behavior?: "smooth" | "instant" | "auto";
 }
 
-export const ImperativeScroll: React.VFC<ImperativeScrollProps> = p => {
+export const ImperativeScroll: React.FC<ImperativeScrollProps> = p => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const ref = React.useRef<DataEditorRef>(null);

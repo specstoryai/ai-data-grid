@@ -6,7 +6,7 @@ import { BeautifulWrapper, Description, defaultProps } from "../../data-editor/s
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -27,7 +27,7 @@ export default {
     ],
 };
 
-export const CustomEventTarget: React.VFC = () => {
+export const CustomEventTarget: React.FC = () => {
     // Create columns
     const [cols] = React.useState<GridColumn[]>(() => {
         return [

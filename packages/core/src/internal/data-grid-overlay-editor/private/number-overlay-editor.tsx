@@ -42,7 +42,7 @@ const NumberOverlayEditor: React.FunctionComponent<Props> = p => {
         decimalSeparator,
     } = p;
 
-    const inputRef = React.useRef<HTMLInputElement>();
+    const inputRef = React.useRef<HTMLInputElement>(undefined);
 
     React.useLayoutEffect(() => {
         if (validatedSelection !== undefined) {

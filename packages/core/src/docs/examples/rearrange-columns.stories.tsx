@@ -11,7 +11,7 @@ import type { Item, GridCell } from "../../internal/data-grid/data-grid-types.js
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -31,7 +31,7 @@ export default {
     ],
 };
 
-export const RearrangeColumns: React.VFC = () => {
+export const RearrangeColumns: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(60);
 
     // This is a dirty hack because the mock generator doesn't really support changing this. In a real data source

@@ -10,7 +10,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -30,7 +30,7 @@ export default {
     ],
 };
 
-export const FreezeColumns: React.VFC<any> = (p: { freezeColumns: number }) => {
+export const FreezeColumns: React.FC<any> = (p: { freezeColumns: number }) => {
     const { cols, getCellContent } = useMockDataGenerator(100);
 
     return (

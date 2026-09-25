@@ -11,7 +11,7 @@ import { CompactSelection } from "../../internal/data-grid/data-grid-types.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -22,7 +22,7 @@ export default {
     ],
 };
 
-export const SelectionSerialization: React.VFC = () => {
+export const SelectionSerialization: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(30, true, true);
 
     // Load selection from localStorage on mount
@@ -111,7 +111,7 @@ export const SelectionSerialization: React.VFC = () => {
     );
 };
 
-export const SelectionRoundTrip: React.VFC = () => {
+export const SelectionRoundTrip: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(30, true, true);
     
     const [originalSelection, setOriginalSelection] = React.useState<GridSelection>({

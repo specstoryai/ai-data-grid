@@ -13,7 +13,7 @@ import { DocWrapper, Highlight, Marked, Wrapper } from "./doc-wrapper.js";
 import { useLayer } from "react-laag";
 
 export default {
-    title: "Glide-Data-Grid/Docs",
+    title: "AI-Data-Grid/Docs",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -135,7 +135,7 @@ const data: DummyItem[] = [
     },
 ];
 
-export const Menus: React.VFC = () => {
+export const Menus: React.FC = () => {
     const getContent = React.useCallback((cell: Item): GridCell => {
         const [col, row] = cell;
         const dataRow = data[row];
@@ -209,7 +209,7 @@ export const Menus: React.VFC = () => {
                 {`
 # Menus
 
-Glide Data Grid doesn't come with built in menus. Instead it is evented and ready to work with whatever menus you want 
+AI Data Grid doesn't come with built in menus. Instead it is evented and ready to work with whatever menus you want 
 to use. Let's learn how to add basic menus using [react-laag](https://www.react-laag.com/). Adding menu drop down indicators to headers is as simple
 as passing a bool and listening to click events using \`onHeaderMenuClick\`.`}
             </Marked>

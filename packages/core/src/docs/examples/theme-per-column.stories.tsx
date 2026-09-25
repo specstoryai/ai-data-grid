@@ -4,7 +4,7 @@ import { BeautifulWrapper, Description, defaultProps, useAllMockedKinds } from "
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -25,7 +25,7 @@ export default {
     ],
 };
 
-export const ThemePerColumn: React.VFC = () => {
+export const ThemePerColumn: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const realCols = React.useMemo(() => {

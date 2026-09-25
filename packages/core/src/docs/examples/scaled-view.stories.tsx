@@ -4,7 +4,7 @@ import { BeautifulWrapper, Description, useMockDataGenerator, defaultProps } fro
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -20,7 +20,7 @@ export default {
     ],
 };
 
-export const ScaledView: React.VFC = () => {
+export const ScaledView: React.FC = () => {
     const { cols, getCellContent, onColumnResize } = useMockDataGenerator(60);
 
     return (

@@ -14,7 +14,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import type { DataEditorCoreProps } from "../../index.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -25,7 +25,7 @@ export default {
     ],
 };
 
-export const CellActivatedEvent: React.VFC<Pick<DataEditorCoreProps, "cellActivationBehavior">> = p => {
+export const CellActivatedEvent: React.FC<Pick<DataEditorCoreProps, "cellActivationBehavior">> = p => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const getCellContentMangled = React.useCallback(

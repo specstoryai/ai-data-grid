@@ -14,7 +14,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import type { GroupHeaderClickedEventArgs } from "../../internal/data-grid/event-args.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -83,7 +83,7 @@ function useCollapsableColumnGroups(cols: readonly GridColumn[]) {
     };
 }
 
-export const ColumnGroupCollapse: React.VFC = () => {
+export const ColumnGroupCollapse: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100, true, true);
 
     const groupHeaderArgs = useCollapsableColumnGroups(cols);

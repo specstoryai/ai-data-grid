@@ -11,7 +11,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import _ from "lodash";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -30,7 +30,7 @@ export default {
     ],
 };
 
-export const ScrollOffset: React.VFC<any> = () => {
+export const ScrollOffset: React.FC<any> = () => {
     const { cols, getCellContent } = useMockDataGenerator(100);
     const rows = 1000;
 

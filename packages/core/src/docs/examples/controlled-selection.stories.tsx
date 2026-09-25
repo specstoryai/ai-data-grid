@@ -12,7 +12,7 @@ import { CompactSelection } from "../../internal/data-grid/data-grid-types.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -23,7 +23,7 @@ export default {
     ],
 };
 
-export const ControlledSelection: React.VFC = () => {
+export const ControlledSelection: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(30, true, true);
 
     const [selection, setSelection] = React.useState<GridSelection>({

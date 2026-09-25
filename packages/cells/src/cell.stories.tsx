@@ -1,6 +1,6 @@
 import { styled } from "@linaria/react";
 import * as React from "react";
-import { DataEditor, type DataEditorProps, GridCellKind } from "@glideapps/glide-data-grid";
+import { DataEditor, type DataEditorProps, GridCellKind } from "@specstory/ai-data-grid";
 import { DropdownCell as DropdownRenderer, MultiSelectCell as MultiSelectRenderer, allCells } from "./index.js";
 import type { StarCell } from "./cells/star-cell.js";
 import type { SparklineCell } from "./cells/sparkline-cell.js";
@@ -15,7 +15,7 @@ import type { SpinnerCell } from "./cells/spinner-cell.js";
 import { useResizeDetector } from "react-resize-detector";
 
 import "@toast-ui/editor/dist/toastui-editor.css";
-import "@glideapps/glide-data-grid/dist/index.css";
+import "@specstory/ai-data-grid/dist/index.css";
 import type { DatePickerCell } from "./cells/date-picker-cell.js";
 import type { LinksCell } from "./cells/links-cell.js";
 import type { ButtonCell } from "./cells/button-cell.js";
@@ -168,7 +168,7 @@ const possibleTags = [
     },
 ];
 
-export const CustomCells: React.VFC = () => {
+export const CustomCells: React.FC = () => {
     return (
         <BeautifulWrapper title="Custom cells" description={<Description>Some of our extension cells.</Description>}>
             <DataEditor
@@ -458,13 +458,13 @@ export const CustomCells: React.VFC = () => {
                         const t: MultiSelectCell = {
                             kind: GridCellKind.Custom,
                             allowOverlay: true,
-                            copyData: ["glide", "data", "grid"].join(","),
+                            copyData: ["ai", "data", "grid"].join(","),
                             readonly: row % 2 === 0,
                             data: {
                                 kind: "multi-select-cell",
-                                values: ["glide", "data", "grid"],
+                                values: ["ai", "data", "grid"],
                                 options: [
-                                    { value: "glide", color: "#ffc38a" },
+                                    { value: "ai", color: "#ffc38a" },
                                     { value: "data", color: "#ebfdea" },
                                     { value: "grid", color: "teal" },
                                 ],
@@ -557,7 +557,7 @@ export const CustomCells: React.VFC = () => {
     },
 };
 
-export const CustomCellEditing: React.VFC = () => {
+export const CustomCellEditing: React.FC = () => {
     const data = React.useRef<any[][]>([[]]);
 
     return (
@@ -603,7 +603,7 @@ export const CustomCellEditing: React.VFC = () => {
                             },
                         } as DropdownCell;
                     } else if (col === 1) {
-                        const val = data.current?.[col]?.[row] ?? ["glide"];
+                        const val = data.current?.[col]?.[row] ?? ["ai"];
                         return {
                             kind: GridCellKind.Custom,
                             allowOverlay: true,
@@ -612,7 +612,7 @@ export const CustomCellEditing: React.VFC = () => {
                                 kind: "multi-select-cell",
                                 values: val,
                                 options: [
-                                    { value: "glide", color: "#ffc38a", label: "Glide" },
+                                    { value: "ai", color: "#ffc38a", label: "AI" },
                                     { value: "data", color: "#ebfdea", label: "Data" },
                                     { value: "grid", color: "teal", label: "Grid" },
                                 ],
@@ -621,7 +621,7 @@ export const CustomCellEditing: React.VFC = () => {
                             },
                         } as MultiSelectCell;
                     } else if (col === 2) {
-                        const val = data.current?.[col]?.[row] ?? ["glide data grid"];
+                        const val = data.current?.[col]?.[row] ?? ["ai data grid"];
                         return {
                             kind: GridCellKind.Custom,
                             allowOverlay: true,

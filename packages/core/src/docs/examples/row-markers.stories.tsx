@@ -11,7 +11,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -37,7 +37,7 @@ interface RowMarkersProps {
     headerDisabled: boolean;
 }
 
-export const RowMarkers: React.VFC<RowMarkersProps> = p => {
+export const RowMarkers: React.FC<RowMarkersProps> = p => {
     const { cols, getCellContent } = useMockDataGenerator(10, false);
 
     return (

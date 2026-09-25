@@ -12,7 +12,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import type { GridMouseEventArgs } from "../../internal/data-grid/event-args.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -32,7 +32,7 @@ export default {
     ],
 };
 
-export const RowHover: React.VFC = () => {
+export const RowHover: React.FC = () => {
     const { cols, getCellContent } = useAllMockedKinds();
 
     const [hoverRow, setHoverRow] = React.useState<number | undefined>(undefined);

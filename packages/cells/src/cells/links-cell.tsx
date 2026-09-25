@@ -5,7 +5,7 @@ import {
     getMiddleCenterBias,
     GridCellKind,
     blend,
-} from "@glideapps/glide-data-grid";
+} from "@specstory/ai-data-grid";
 import { styled } from "@linaria/react";
 import * as React from "react";
 
@@ -297,7 +297,7 @@ function ignoreTab(e: React.KeyboardEvent) {
     }
 }
 
-const LinkTitleEditor: React.VFC<LinkTitleEditorProps> = p => {
+const LinkTitleEditor: React.FC<LinkTitleEditorProps> = p => {
     const { link, onChange, title, onDelete, focus } = p;
     return (
         <div className="gdg-link-title-editor">

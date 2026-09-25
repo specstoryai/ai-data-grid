@@ -13,7 +13,7 @@ import type { Rectangle } from "../../internal/data-grid/data-grid-types.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -72,7 +72,7 @@ const SimpleMenu = styled.div`
     }
 `;
 
-export const HeaderMenus: React.VFC = () => {
+export const HeaderMenus: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const realCols = React.useMemo(() => {

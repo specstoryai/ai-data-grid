@@ -14,7 +14,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import { DataEditorAll } from "../../data-editor-all.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -30,7 +30,7 @@ function rand(): number {
     return (num = (num * 16_807) % 2_147_483_647);
 }
 
-export const RapidUpdates: React.VFC = () => {
+export const RapidUpdates: React.FC = () => {
     const { cols, getCellContent, setCellValueRaw } = useMockDataGenerator(100);
 
     const ref = React.useRef<DataEditorRef>(null);

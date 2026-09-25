@@ -11,7 +11,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -42,7 +42,7 @@ export default {
     ],
 };
 
-export const ObscuredDataGrid: React.VFC = () => {
+export const ObscuredDataGrid: React.FC = () => {
     const { cols, getCellContent, setCellValue } = useMockDataGenerator(60, false);
 
     return (

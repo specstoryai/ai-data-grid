@@ -1,36 +1,25 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/glideapps/glide-data-grid/master/media/icon.png" width="224px"/><br/>
-  <b>Glide Data Grid</b>
+  <b>AI Data Grid</b>
 </h1>
-<p align="center">A canvas-based data grid, supporting <b>millions</b> of rows, <b>rapid</b> updating, and <b>native scrolling</b>.</p>
+<p align="center">A canvas-based React data grid, supporting <b>millions</b> of rows, <b>rapid</b> updating, and <b>native scrolling</b>.</p>
 
-<p align="center">Built as the basis for the <a href="https://www.glideapps.com/data-editor" target="_blank">Glide Data Editor</a>. <a href="https://www.glideapps.com/jobs#open-positions" target="_blank">We're hiring</a>.</p>
+<p align="center">Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed.</p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/glideapps/glide-data-grid/master/media/data-grid-dark.png">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/glideapps/glide-data-grid/master/media/data-grid.png">
-  <img alt="Glide Data Grid with sample data" src="https://raw.githubusercontent.com/glideapps/glide-data-grid/master/media/data-grid.png">
-</picture>
+`@specstory/ai-data-grid` is the core package of AI Data Grid. Version 7.0.0 is API-compatible with the 6.x releases it was forked from, but it needs React 19. Existing users on React 19 only change import paths (see [Migrating from 6.x](#migrating-from-6x)).
 
-[![Version](https://img.shields.io/npm/v/@glideapps/glide-data-grid?color=blue&label=latest&style=for-the-badge)](https://github.com/glideapps/glide-data-grid/releases)
-[![React 16+](https://img.shields.io/badge/React-16+-00ADD8?style=for-the-badge&logo=react)](https://reactjs.org)
-[![Code Coverage](https://img.shields.io/coverallsCoverage/github/glideapps/glide-data-grid?color=457aba&label=Cover&style=for-the-badge)](https://coveralls.io/github/glideapps/glide-data-grid)
-[![npm bundle size](https://img.shields.io/bundlephobia/minzip/@glideapps/glide-data-grid?color=success&label=bundle&style=for-the-badge)](https://bundlephobia.com/package/@glideapps/glide-data-grid)
-[![License](https://img.shields.io/github/license/glideapps/glide-data-grid?color=red&style=for-the-badge)](https://github.com/glideapps/glide-data-grid/blob/main/LICENSE)
-[![Made By Glide](https://img.shields.io/badge/❤_Made_by-Glide-11CCE5?style=for-the-badge&logo=none)](https://www.glideapps.com/jobs)
+Companion packages:
 
-# 👩‍💻 Demo and features
+-   `@specstory/ai-data-grid-cells`: extra cell renderers.
+-   `@specstory/ai-data-grid-source`: data source hooks such as column sort and undo/redo.
 
-Lot's of fun examples are in our [Storybook](https://quicktype.github.io/glide-data-grid).
-
-You can also visit our [main site](https://grid.glideapps.com).
+Source: https://github.com/specstoryai/ai-data-grid
 
 ## Features
 
 -   **It scales to millions of rows**. Cells are rendered lazily on demand for memory efficiency.
 -   **Scrolling is extremely fast**. Native scrolling keeps everything buttery smooth.
 -   **Supports multiple types of cells**. Numbers, text, markdown, bubble, image, drilldown, uri
--   **Fully Free & Open Source**. [MIT licensed](LICENSE) so you can use Grid in commerical projects.
+-   **Fully Free & Open Source**. [MIT licensed](LICENSE), so you can use the grid in commercial projects.
 -   **Editing is built in**.
 -   **Resizable and movable columns**.
 -   **Variable sized rows**.
@@ -40,10 +29,10 @@ You can also visit our [main site](https://grid.glideapps.com).
 
 # ⚡ Quick Start
 
-First make sure you are using React 16 or greater. Then install the data grid:
+The packages need React 19 (`react` and `react-dom` peer range `^19.0.0`). React 16, 17 and 18 are not supported. Install the data grid:
 
 ```shell
-npm i @glideapps/glide-data-grid
+npm i @specstory/ai-data-grid
 ```
 
 You may also need to install the peer dependencies if you don't have them already:
@@ -55,13 +44,15 @@ npm i lodash marked react-responsive-carousel
 Create a new `DataEditor` wherever you need to display lots and lots of data
 
 ```tsx
-<DataEditor getCellContent={getData} columns={columns} rows={numRows} />
+import { DataEditor } from "@specstory/ai-data-grid";
+
+<DataEditor getCellContent={getData} columns={columns} rows={numRows} />;
 ```
 
 Don't forget to import mandatory CSS
 
 ```ts
-import "@glideapps/glide-data-grid/dist/index.css";
+import "@specstory/ai-data-grid/dist/index.css";
 ```
 
 Making your columns is easy
@@ -104,7 +95,21 @@ function getData([col, row]: Item): GridCell {
 
 ## Full API documentation
 
-The full [API documentation is on the main site](https://grid.glideapps.com/docs/index.html).
+The API reference, including the HTML/CSS prerequisites, is in `API.md`, which ships in this package.
+
+## Migrating from 6.x
+
+7.0.0 needs React 19 (`^19.0.0`). React 16, 17 and 18 are not supported, so if your app is on one of them, upgrade it to React 19 first, then switch packages.
+
+7.0.0 keeps every exported name and prop, `DataEditor`, the `--gdg-*` CSS variables and the `gdg-` class names. Change only the package names in your `package.json` and imports:
+
+| 6.x package | 7.0.0 package |
+| --- | --- |
+| `@glideapps/glide-data-grid` | `@specstory/ai-data-grid` |
+| `@glideapps/glide-data-grid-cells` | `@specstory/ai-data-grid-cells` |
+| `@glideapps/glide-data-grid-source` | `@specstory/ai-data-grid-source` |
+
+For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. See the 7.0.0 release notes in `CHANGELOG.md`, which ships in this package.
 
 # 📒 FAQ
 
@@ -128,9 +133,9 @@ Data Grid is agnostic about the way you load/store/generate/mutate your data. Wh
 
 **Does it do sorting, searching, and filtering?**
 
-Search is included. You provide the trigger, we do the search. [Example](https://quicktype.github.io/glide-data-grid/?path=/story/glide-data-grid-docs--search) in our storybook.
+Search is included. You provide the trigger, we do the search. See the `showSearch` and `onSearchClose` props in [API.md](API.md).
 
-Filtering and sorting are something you would have to implement with your data source. There are hooks for adding column header menus if you want that.
+Filtering and sorting are something you would have to implement with your data source. There are hooks for adding column header menus if you want that, and the companion package `@specstory/ai-data-grid-source` provides a `useColumnSort` hook.
 
 The reason we don't add filtering/sorting in by default is that these are usually very application-specific, and can often also be implemented more efficiently in the data source, via a database query, for example.
 
@@ -140,7 +145,7 @@ Yes!
 
 **Can I render my own cells?**
 
-Yes, but the renderer has to use HTML Canvas. [Simple example](https://quicktype.github.io/glide-data-grid/?path=/story/glide-data-grid-dataeditor-demos--draw-custom-cells) in our Storybook.
+Yes, but the renderer has to use HTML Canvas. See `drawCell` and `customRenderers` in [API.md](API.md).
 
 **Why does Data Grid use HTML Canvas?**
 
@@ -148,43 +153,58 @@ Originally we had implemented our Grid using virtualized rendering. We virtualiz
 
 There are some hacks you can do like setting timers and entering into a "low fidelity" rendering mode where you only render a single element per cell. This works okay until you want to show hundreds of cells and you are right back to choppy scrolling. It also doesn't really look or feel great.
 
-**I want to use this with Next.js / Vercel but I'm getting weird errors**
+**I want to use this with Next.js / Vercel, but I'm getting weird errors**
 
-The easiest way to use the grid with Next is to create a component which wraps up your grid and then import it as a dynamic.
+The grid needs the browser (`window` and a canvas), so don't render it on the server. Put it in its own component and load that with `next/dynamic` and `ssr: false`. With the App Router, `ssr: false` is only allowed in a Client Component, so the file that calls `dynamic` starts with `"use client";`.
 
-home.tsx
+`app/page.tsx`
 
 ```tsx
-import type { NextPage } from "next";
+"use client";
+
 import dynamic from "next/dynamic";
-import styles from "../styles/Home.module.css";
 
-const Grid = dynamic(
-    () => {
-        return import("../components/Grid");
-    },
-    { ssr: false }
-);
+const Grid = dynamic(() => import("../components/Grid").then(m => m.Grid), { ssr: false });
 
-export const Home: NextPage = () => {
-    return (
-        <div className={styles.container}>
-            <main className={styles.main}>
-                <h1 className={styles.title}>Hi</h1>
-                <Grid />
-            </main>
-        </div>
-    );
-};
-```
-
-grid.tsx
-
-```tsx
-import React from "react";
-import DataEditor from "@glideapps/glide-data-grid";
-
-export default function Grid() {
-    return <DataEditor {...args} />;
+export default function Home() {
+    return <Grid />;
 }
 ```
+
+`components/Grid.tsx`
+
+```tsx
+"use client";
+
+import * as React from "react";
+import { DataEditor, GridCellKind, type GridCell, type GridColumn, type Item } from "@specstory/ai-data-grid";
+import "@specstory/ai-data-grid/dist/index.css";
+
+const data = [
+    { firstName: "Ada", lastName: "Lovelace" },
+    { firstName: "Grace", lastName: "Hopper" },
+];
+
+const columns: GridColumn[] = [
+    { title: "First Name", width: 150 },
+    { title: "Last Name", width: 150 },
+];
+
+function getCellContent([col, row]: Item): GridCell {
+    const person = data[row];
+    const text = col === 0 ? person.firstName : person.lastName;
+    return { kind: GridCellKind.Text, data: text, displayData: text, allowOverlay: false };
+}
+
+export function Grid() {
+    return (
+        <div style={{ height: 400 }}>
+            <DataEditor columns={columns} rows={data.length} getCellContent={getCellContent} width="100%" height="100%" />
+        </div>
+    );
+}
+```
+
+## License
+
+MIT. See `LICENSE`. Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed.

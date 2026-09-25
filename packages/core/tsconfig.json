@@ -5,7 +5,7 @@
         "entryPoints": ["./src/index.ts"],
         "out": "gen-docs",
         "categorizeByGroup": false,
-        "name": "Glide Data Grid",
+        "name": "AI Data Grid",
         "categoryOrder": ["DataEditor", "*"]
     }
 }

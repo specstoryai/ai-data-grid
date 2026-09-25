@@ -11,7 +11,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -21,7 +21,7 @@ export default {
     ],
 };
 
-export const GetMouseArgsForPosition: React.VFC = () => {
+export const GetMouseArgsForPosition: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
     const ref = React.useRef<DataEditorRef>(null);
     const [info, setInfo] = React.useState<string>("Move the mouse over the grid");

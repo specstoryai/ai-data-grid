@@ -32,7 +32,7 @@ export const Wrapper = styled.div<WrapperProps>`
     }
 `;
 
-export const Highlight: React.VFC<{ children: string }> = p => {
+export const Highlight: React.FC<{ children: string }> = p => {
     return (
         <SyntaxHighlighter
             style={highlightStyle}
@@ -44,7 +44,7 @@ export const Highlight: React.VFC<{ children: string }> = p => {
     );
 };
 
-export const Marked: React.VFC<{ children: string }> = p => {
+export const Marked: React.FC<{ children: string }> = p => {
     return (
         <div
             className="marked"

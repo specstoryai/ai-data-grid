@@ -14,7 +14,7 @@ import { useRowGrouping } from "../../data-editor/row-grouping-api.js";
 import _ from "lodash";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -33,7 +33,7 @@ export default {
     ],
 };
 
-export const RowGrouping: React.VFC<any> = (p: { freezeColumns: number }) => {
+export const RowGrouping: React.FC<any> = (p: { freezeColumns: number }) => {
     const { cols, getCellContent } = useMockDataGenerator(100);
     const rows = 100_000;
 

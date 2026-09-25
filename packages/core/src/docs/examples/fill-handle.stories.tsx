@@ -14,7 +14,7 @@ import type { FillPatternEventArgs } from "../../index.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -59,7 +59,7 @@ export default {
     },
 };
 
-export const FillHandle: React.VFC<{
+export const FillHandle: React.FC<{
     fillHandleEnabled: boolean;
     shape: "square" | "circle";
     size: number;

@@ -1,4 +1,4 @@
-import type { EditableGridCell, GridCell, GridSelection, Item, DataEditorRef } from "@glideapps/glide-data-grid";
+import type { EditableGridCell, GridCell, GridSelection, Item, DataEditorRef } from "@specstory/ai-data-grid";
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
@@ -178,7 +178,7 @@ export function useUndoRedo(
 
     // Apply a batch of edits to the grid
     useEffect(() => {
-        if (state.operation && gridSelectionRef.current && gridRef.current) {
+        if (state.operation && gridSelectionRef.current && gridRef.current !== null) {
             const cells = [] as { cell: Item }[];
             const previousState: Batch = {
                 edits: [],

@@ -10,7 +10,7 @@ import {
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -37,7 +37,7 @@ interface PaddingProps {
     paddingBottom: number;
 }
 
-export const Padding: React.VFC<PaddingProps> = p => {
+export const Padding: React.FC<PaddingProps> = p => {
     const { paddingRight, paddingBottom } = p;
     const { cols, getCellContent } = useMockDataGenerator(20);
 

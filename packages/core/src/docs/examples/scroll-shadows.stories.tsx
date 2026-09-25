@@ -7,7 +7,7 @@ import { CompactSelection } from "../../internal/data-grid/data-grid-types.js";
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -28,7 +28,7 @@ export default {
     ],
 };
 
-export const ScrollShadows: React.VFC = () => {
+export const ScrollShadows: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     const [selection, setSelection] = React.useState<GridSelection>({

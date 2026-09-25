@@ -1,6 +1,6 @@
 {
-    "name": "@glideapps/glide-data-grid",
-    "version": "6.0.4-alpha25",
+    "name": "@specstory/ai-data-grid",
+    "version": "7.0.0",
     "description": "React data grid for beautifully displaying and editing large amounts of data with amazing performance.",
     "sideEffects": [
         "**/*.css"
@@ -35,7 +35,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/glideapps/glide-data-grid.git",
+        "url": "git+https://github.com/specstoryai/ai-data-grid.git",
         "directory": "packages/core"
     },
     "keywords": [
@@ -50,12 +50,12 @@
         "cell",
         "canvas"
     ],
-    "author": "Glide",
+    "author": "SpecStory",
     "license": "MIT",
     "bugs": {
-        "url": "https://github.com/glideapps/glide-data-grid/issues"
+        "url": "https://github.com/specstoryai/ai-data-grid/issues"
     },
-    "homepage": "https://grid.glideapps.com",
+    "homepage": "https://github.com/specstoryai/ai-data-grid",
     "dependencies": {
         "@linaria/react": "^6.3.0",
         "canvas-hypertxt": "^1.0.3",
@@ -64,8 +64,8 @@
     "peerDependencies": {
         "lodash": "^4.17.19",
         "marked": "^16.0.10",
-        "react": "^16.12.0 || 17.x || 18.x || 19.x",
-        "react-dom": "^16.12.0 || 17.x || 18.x || 19.x",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
         "react-responsive-carousel": "^3.2.7"
     },
     "devDependencies": {

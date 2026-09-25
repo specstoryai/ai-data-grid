@@ -45,9 +45,7 @@ export function Bug70() {
     return (
         <Bug70Style className="App">
             <p>To cause error: scroll down at least one row, edit a cell in Col2, and hit Tab</p>
-            <a href="https://github.com/glideapps/glide-data-grid/issues/70" target="_blank" rel="noreferrer">
-                Original report
-            </a>
+            <p>Repro for issue #70, originally reported against the upstream project before the fork.</p>
             <DataEditor
                 width={500}
                 height={500}

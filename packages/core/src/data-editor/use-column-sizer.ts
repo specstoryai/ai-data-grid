@@ -114,7 +114,7 @@ export function useColumnSizer(
 
     const memoMap = React.useRef<Record<string, number>>({});
 
-    const lastColumns = React.useRef<typeof columns>();
+    const lastColumns = React.useRef<typeof columns>(undefined);
     const [selectedData, setSelectionData] = React.useState<CellArray | undefined>();
 
     React.useLayoutEffect(() => {

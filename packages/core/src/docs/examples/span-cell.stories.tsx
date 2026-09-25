@@ -14,7 +14,7 @@ import type { Rectangle, CellArray, GridCell } from "../../internal/data-grid/da
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -39,7 +39,7 @@ export default {
     ],
 };
 
-export const SpanCell: React.VFC = () => {
+export const SpanCell: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100, true, true);
 
     const mangledGetCellContent = React.useCallback<typeof getCellContent>(
