@@ -161,25 +161,7 @@ function isMappingError(m: Mapping | MapAIOutputError): m is MapAIOutputError {
     return "kind" in m;
 }
 
-/**
- * Maps a validated answer to the grid (step 4 of the result precedence). It
- * returns three separate things: the raw `answer`, the `display` text and the
- * `value` to commit (with `hasValue`), plus the semantic outcome. When
- * `ctx.destination` is given and there is a value, it also builds the
- * destination `cell` with `output.toCell` (default {@link defaultToCell}).
- *
- * Fails with `type-mismatch` when the value can't be produced or doesn't fit
- * the destination (including when `output.store`, `output.format` or
- * `output.toCell` throws), and with `configuration` when the mapping is
- * incomplete. The function is pure as long as those callbacks are.
- *
- * - **Choice:** the selected option's `value`, else its `label`, else its id. A
- *   semantic outcome (`none` / `unknown`) has a value only when the option sets one.
- * - **Score:** by `output.store` (default `"score"` rounded to `precision`, default 2).
- * - **Noul:** by `output.store`: the probability rounded to `precision`, or
- *   `true` / `false` (`boolean`) or the labels (`label`) by the bands. The middle
- *   band has no value and displays `labels.uncertain` ("Uncertain"), never "No".
- */
+/** Implements the public `mapAIOutput`; its reference documentation is on the export in `ai-fill/index.ts`. */
 export function mapAIOutput(
     definition: AIColumnDefinition,
     answer: ParsedJevAnswer,

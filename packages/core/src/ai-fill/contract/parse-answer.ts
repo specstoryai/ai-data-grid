@@ -51,29 +51,7 @@ function checkProbabilities(value: unknown, expectedKeys: readonly string[]): Pr
     return { ok: true, probabilities };
 }
 
-/**
- * Validates one raw Jev answer against the question it answers, and attaches the
- * response's model id. This is step 2 of the result precedence: any rejection
- * makes the cell a `malformed` error and the policy is not evaluated.
- *
- * An answer is rejected when:
- * - the response has no `model` (a non-empty string)
- * - the answer isn't an object, or its `type` isn't the question's type
- * - a Choice `choice` isn't one of the question's options
- * - the probability keys don't exactly match the criteria (option ids, or `"0"`…`"n-1"` for a Score)
- * - a probability, confidence or Noul value is non-finite or outside [0, 1]
- * - the probabilities sum to something outside 1 ± 0.01
- * - a Score is non-finite or outside [0, n − 1]
- * - a Choice `choice` isn't the maximum-probability option (tolerance 1e-9)
- * - a Score `legend` is present but isn't an object
- *
- * A Score answer without a `legend` gets one built from the question's criteria.
- * The function is pure.
- *
- * @param raw - The value under `answers[questionId]` in the response.
- * @param question - The question that was sent under that id.
- * @param model - The response's top-level `model`.
- */
+/** Implements the public `parseJevAnswer`; its reference documentation is on the export in `ai-fill/index.ts`. */
 export function parseJevAnswer(raw: unknown, question: JevQuestion, model: unknown): ParseJevAnswerResult {
     if (typeof model !== "string" || model === "") return { ok: false, reason: "the response has no model id" };
     if (!isRecord(raw)) return { ok: false, reason: "the answer is missing or not an object" };

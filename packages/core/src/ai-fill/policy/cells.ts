@@ -12,18 +12,7 @@ function dropdownData(cell: GridCell): DropdownData | undefined {
     return data?.kind === "dropdown-cell" ? (data as DropdownData) : undefined;
 }
 
-/**
- * The default empty-destination test:
- * - Text, Uri, Markdown and row-id cells: `""`, `null` or `undefined`
- * - Number: `undefined`, `null` or `NaN`
- * - Boolean: `null` (`BooleanEmpty`) or `undefined`
- * - the cells package's dropdown cell: a `value` of `""`, `null` or `undefined`
- * - other custom cells: `data` is `null` or `undefined`
- * - Image, Bubble and Drilldown: no items
- * - Loading and Protected: never empty (they are skipped for their own reasons)
- *
- * **`0` and `false` are values, not empty.**
- */
+/** Implements the public `isAIDestinationEmpty`; its reference documentation is on the export in `ai-fill/index.ts`. */
 export function isAIDestinationEmpty(cell: GridCell): boolean {
     switch (cell.kind) {
         case GridCellKind.Text:

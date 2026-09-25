@@ -616,23 +616,7 @@ function checkColumn(
     }
 }
 
-/**
- * Checks an AI Fill configuration and returns every problem found, each with a
- * path and a message. An empty list means the configuration is valid. An issue
- * with a `columnId` disables that column; one without disables AI Fill for the
- * grid.
- *
- * It checks the structure (connection shape, direct mode's
- * `dangerouslyAllowBrowser` in browsers, `model`, `rows.getRowId`, AI columns
- * matching grid column ids, sources, 2–255 Choice options, 2–10 Score levels,
- * Noul bands for `boolean` and `label`) and the policies: thresholds finite and
- * in [0, 1] (Score `score` bounds in [0, levels − 1]), `min <= max`, Noul
- * `falseAtOrBelow < trueAtOrAbove`, referenced option and level ids exist, no
- * confidence measure on a Noul, gates monotonic (`show` ≤ `ready` ≤ `autoApply`
- * for every shared `min`, the reverse for every `max`), and no `autoApply` with
- * `overwrite: "never"` alongside the `column` scope. Messages never include the
- * API key.
- */
+/** Implements the public `validateAIFillConfig`; its reference documentation is on the export in `ai-fill/index.ts`. */
 export function validateAIFillConfig(
     config: AIFillConfig,
     options: ValidateAIFillConfigOptions = {}
