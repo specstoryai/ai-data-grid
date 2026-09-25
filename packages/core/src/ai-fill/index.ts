@@ -29,6 +29,7 @@ export type {
     ScoreAnswer,
 } from "./contract/types.js";
 export { parseJevAnswer, type ParseJevAnswerResult } from "./contract/parse-answer.js";
+export type { JevEndpointErrorBody } from "./contract/endpoint.js";
 
 export type * from "./config/types.js";
 export type * from "./config/results.js";

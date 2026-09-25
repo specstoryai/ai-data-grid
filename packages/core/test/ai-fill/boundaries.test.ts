@@ -1,3 +1,4 @@
+// @vitest-environment node
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
@@ -10,7 +11,9 @@ import { describe, expect, it } from "vitest";
  *    them, never from a package entry, `src/index.ts` or `data-editor-all.tsx`.
  * 2. Outside `ai-fill/`, only `src/index.ts` and `src/data-editor-all.tsx`
  *    import from `ai-fill/`. `data-editor/data-editor.tsx` may import types only.
- * 3. (Added with `/server`.) The `/server` graph has no React, DOM or Linaria.
+ * 3. The module graph reachable from `ai-fill/server/index.ts` has no
+ *    `react`, `react-dom` or `@linaria/*` import, no `.tsx` file, and no
+ *    module-level `window` or `document` reference.
  * 4. `ai-fill/testing/**` imports only from `testing/`, `contract/`,
  *    `identity/` and `transport/`, and nothing from `react/`.
  *
@@ -91,6 +94,48 @@ function collectImports(file: string): ImportRecord[] {
     return records;
 }
 
+/** Resolves a relative import target (without extension) to its source file. */
+function resolveSource(target: string): string | undefined {
+    return [".ts", ".tsx"].map(extension => target + extension).find(file => fs.existsSync(file));
+}
+
+/** Every source file reachable from `entry` through relative imports, including type-only ones. */
+function moduleGraph(entry: string): string[] {
+    const seen = new Set<string>();
+    const queue = [entry];
+    while (queue.length > 0) {
+        const file = queue.shift() ?? "";
+        if (seen.has(file)) continue;
+        seen.add(file);
+        for (const record of collectImports(file)) {
+            const resolved = record.target === undefined ? undefined : resolveSource(record.target);
+            if (resolved !== undefined) queue.push(resolved);
+        }
+    }
+    return [...seen].sort();
+}
+
+/** `window` and `document` references outside any function body, as `file:line`. */
+function moduleLevelDomReferences(file: string): string[] {
+    const sourceFile = ts.createSourceFile(file, fs.readFileSync(file, "utf8"), ts.ScriptTarget.ESNext, true);
+    const found: string[] = [];
+    const visit = (node: ts.Node, insideFunction: boolean) => {
+        if (
+            !insideFunction &&
+            ts.isIdentifier(node) &&
+            (node.text === "window" || node.text === "document") &&
+            !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
+        ) {
+            const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart());
+            found.push(`${path.relative(srcDir, file)}:${line + 1}`);
+        }
+        const entersFunction = ts.isFunctionLike(node) || ts.isClassStaticBlockDeclaration(node);
+        ts.forEachChild(node, child => visit(child, insideFunction || entersFunction));
+    };
+    visit(sourceFile, false);
+    return found;
+}
+
 function isInside(target: string, dir: string): boolean {
     return target.startsWith(dir + path.sep);
 }
@@ -129,6 +174,31 @@ describe("AI Fill import boundaries", () => {
             .filter(record => !(record.typeOnly && typeOnlyAllowed.has(record.file)))
             .map(describeRecord);
         expect(violations).toEqual([]);
+    });
+
+    describe("rule 3: the /server graph runs without React, the DOM or Linaria", () => {
+        const graph = moduleGraph(path.join(aiFillDir, "server", "index.ts"));
+
+        it("walks the /server graph", () => {
+            expect(graph).toContain(path.join(aiFillDir, "server", "index.ts"));
+            expect(typeof window).toBe("undefined");
+        });
+
+        it("has no react, react-dom or @linaria import", () => {
+            const violations = graph
+                .flatMap(collectImports)
+                .filter(record => /^(?:react|react-dom)(?:\/|$)|^@linaria\//.test(record.specifier))
+                .map(describeRecord);
+            expect(violations).toEqual([]);
+        });
+
+        it("has no .tsx file", () => {
+            expect(graph.filter(file => file.endsWith(".tsx")).map(file => path.relative(srcDir, file))).toEqual([]);
+        });
+
+        it("has no module-level window or document reference", () => {
+            expect(graph.flatMap(moduleLevelDomReferences)).toEqual([]);
+        });
     });
 
     it("rule 4: ai-fill/testing imports only testing, contract, identity and transport", () => {
