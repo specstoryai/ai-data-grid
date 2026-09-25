@@ -102,7 +102,13 @@ export interface AIFillExecutionOptions {
 export interface AIFillRows {
     /** Display row → stable id. Required. Results are keyed by this id, never by display position. */
     readonly getRowId: (row: number) => AIRowId;
-    /** Stable id → display row, or `undefined` when the row is gone. Optional. Not read yet: the grid integration that uses it comes in a later stage. */
+    /**
+     * Stable id → display row, or `undefined` when the row isn't displayed.
+     * Optional: without it, AI Fill scans `getRowId` over the rows once and
+     * reuses the map until the current task ends. An index whose `getRowId` is
+     * another id is treated as a missing row, so a wrong index can't redirect
+     * a read or a write.
+     */
     readonly getRowIndex?: (rowId: AIRowId) => number | undefined;
 }
 

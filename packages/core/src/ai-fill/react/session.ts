@@ -127,6 +127,8 @@ export class AIFillSession {
         rows: CompactSelection.empty(),
         current: undefined,
     };
+    /** The last selection the grid reported, when the app listens without controlling it. */
+    private observedSelection: GridSelection | undefined;
     private reviewedCounter = 0;
     private ready = false;
 
@@ -224,12 +226,27 @@ export class AIFillSession {
             const app = p.onCellEdited;
             out.onCellEdited = this.memo.get("onCellEdited", [app], () => this.onCellEdited(app));
         }
-        if (p.gridSelection === undefined && p.onGridSelectionChange === undefined) {
-            out.gridSelection = this.heldSelection;
-            out.onGridSelectionChange = this.holdSelection;
+        if (p.gridSelection === undefined) {
+            const app = p.onGridSelectionChange;
+            if (app === undefined) {
+                out.gridSelection = this.heldSelection;
+                out.onGridSelectionChange = this.holdSelection;
+            } else {
+                out.onGridSelectionChange = this.memo.get("onGridSelectionChange", [app], () =>
+                    this.observeSelection(app)
+                );
+            }
         }
         return { ...p, ...out };
     };
+
+    /** The grid holds the selection and reports changes: observe them, then forward. */
+    private observeSelection(app: (selection: GridSelection) => void): (selection: GridSelection) => void {
+        return selection => {
+            this.observedSelection = selection;
+            app(selection);
+        };
+    }
 
     private readonly holdSelection = (selection: GridSelection): void => {
         this.heldSelection = selection;
@@ -423,11 +440,14 @@ export class AIFillSession {
         return ids;
     }
 
-    /** The grid's selection now: the app's when it controls it, otherwise the one AI Fill holds. */
+    /**
+     * The grid's selection now: the app's when it controls it, the last one the
+     * grid reported when the app only listens, otherwise the one AI Fill holds.
+     */
     private selection(): GridSelection | undefined {
         const p = this.gridProps();
         if (p.gridSelection !== undefined) return p.gridSelection;
-        return p.onGridSelectionChange === undefined ? this.heldSelection : undefined;
+        return p.onGridSelectionChange === undefined ? this.heldSelection : this.observedSelection;
     }
 
     /** The AI cells in the selection, as `[rowId, columnId]`, in display order. */
@@ -487,9 +507,17 @@ export class AIFillSession {
         });
     }
 
-    /** The results in a target that `accept` may write: `suggested` and `review`, filtered by a column target's filter. */
+    /**
+     * The results in a target that `accept` may write: `suggested` and
+     * `review`, filtered by a column target's filter. A column target covers
+     * only displayed rows, so a filtered-out row keeps its result for when it
+     * comes back.
+     */
     private acceptable(target: AIFillTarget): AICellRef[] {
-        return this.resolve(target, acceptable);
+        const refs = this.resolve(target, acceptable);
+        if (!("column" in target)) return refs;
+        this.host.invalidate();
+        return refs.filter(ref => this.host.rowIndex(ref.rowId) !== undefined);
     }
 
     private clear(target: AIFillTarget | undefined): void {
@@ -668,9 +696,13 @@ export class AIFillSession {
                 rangeStack: [],
             },
         };
-        const onChange = this.gridProps().onGridSelectionChange;
-        if (onChange !== undefined) onChange(selection);
-        else if (this.gridProps().gridSelection === undefined) this.holdSelection(selection);
+        const p = this.gridProps();
+        if (p.onGridSelectionChange !== undefined) {
+            if (p.gridSelection === undefined) this.observedSelection = selection;
+            p.onGridSelectionChange(selection);
+        } else if (p.gridSelection === undefined) {
+            this.holdSelection(selection);
+        }
     }
 
     /** One batch through the app's handlers, the same contract core's paste uses. */
