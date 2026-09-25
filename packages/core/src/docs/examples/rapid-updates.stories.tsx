@@ -14,7 +14,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import { DataEditorAll } from "../../data-editor-all.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (

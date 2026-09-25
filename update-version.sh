@@ -28,6 +28,6 @@ done
 for DIR in "cells" "source"
 do
     pushd packages/$DIR
-    update ".dependencies.\"@glideapps/glide-data-grid\" = $VERSION" package.json
+    update ".dependencies.\"@specstory/ai-data-grid\" = $VERSION" package.json
     popd
 done

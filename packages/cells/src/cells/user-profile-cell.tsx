@@ -7,7 +7,7 @@ import {
     type CustomRenderer,
     getMiddleCenterBias,
     GridCellKind,
-} from "@glideapps/glide-data-grid";
+} from "@specstory/ai-data-grid";
 
 interface UserProfileCellProps {
     readonly kind: "user-profile-cell";

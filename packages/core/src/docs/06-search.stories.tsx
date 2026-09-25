@@ -6,7 +6,7 @@ import { SimpleThemeWrapper } from "../stories/story-utils.js";
 import { DocWrapper, Highlight, Marked, Wrapper } from "./doc-wrapper.js";
 
 export default {
-    title: "Glide-Data-Grid/Docs",
+    title: "AI-Data-Grid/Docs",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -172,7 +172,7 @@ export const Search: React.VFC = () => {
                 {`
 # Search
 
-Search is a controlled property in Glide Data Grid. Triggering the search interface is up to the application but once triggered search is handled interally on the data grid. Search always depends on a properly implemented \`getCellsForSelection\`.`}
+Search is a controlled property in AI Data Grid. Triggering the search interface is up to the application but once triggered search is handled interally on the data grid. Search always depends on a properly implemented \`getCellsForSelection\`.`}
             </Marked>
             <Highlight>
                 {`

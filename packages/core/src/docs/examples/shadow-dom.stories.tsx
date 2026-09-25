@@ -12,7 +12,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import { createRoot } from "react-dom/client";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
@@ -84,7 +84,7 @@ const ShadowDOMWrapper: React.FC<{
         const host = hostRef.current;
         const shadowRoot = host.attachShadow({ mode: "open" });
 
-        (window as any).glideShadowRoot = shadowRoot;
+        (window as any).gridShadowRoot = shadowRoot;
 
         copyStylesToShadowRoot(shadowRoot);
 

@@ -13,7 +13,7 @@ import range from "lodash/range.js";
 import { faker } from "@faker-js/faker";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (

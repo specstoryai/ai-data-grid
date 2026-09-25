@@ -12,7 +12,7 @@ import {
     isTextEditableGridCell,
     type Item,
     type Rectangle,
-} from "@glideapps/glide-data-grid";
+} from "@specstory/ai-data-grid";
 
 import { faker } from "@faker-js/faker";
 

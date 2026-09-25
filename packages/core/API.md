@@ -1434,7 +1434,7 @@ Enables/disables the interactive minimap. Default to `false`.
 scrollToEnd?: boolean;
 ```
 
-When this property changes to `true`, the Grid will scroll all the way to the right. Glide uses that when the user clicks the "Add Column" button.
+When this property changes to `true`, the Grid will scroll all the way to the right. AI Data Grid uses that when the user clicks the "Add Column" button.
 
 ---
 

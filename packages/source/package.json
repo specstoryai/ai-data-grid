@@ -1,7 +1,7 @@
 {
-    "name": "@glideapps/glide-data-grid-source",
-    "version": "6.0.4-alpha25",
-    "description": "Useful data source hooks for Glide Data Grid",
+    "name": "@specstory/ai-data-grid-source",
+    "version": "7.0.0",
+    "description": "Useful data source hooks for AI Data Grid",
     "sideEffects": false,
     "type": "module",
     "browser": "dist/esm/index.js",
@@ -23,11 +23,14 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/glideapps/glide-data-grid.git",
+        "url": "git+https://github.com/specstoryai/ai-data-grid.git",
         "directory": "packages/source"
     },
-    "homepage": "https://github.com/glideapps/glide-data-grid/tree/main/packages/source",
-    "author": "Glide",
+    "homepage": "https://github.com/specstoryai/ai-data-grid/tree/main/packages/source",
+    "author": "SpecStory",
+    "bugs": {
+        "url": "https://github.com/specstoryai/ai-data-grid/issues"
+    },
     "license": "MIT",
     "keywords": [
         "react",
@@ -42,7 +45,7 @@
         "canvas"
     ],
     "dependencies": {
-        "@glideapps/glide-data-grid": "6.0.4-alpha25"
+        "@specstory/ai-data-grid": "7.0.0"
     },
     "peerDependencies": {
         "lodash": "^4.17.19",

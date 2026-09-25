@@ -8,7 +8,7 @@ import {
     GridCellKind,
     type GridColumn,
     type Theme,
-} from "@glideapps/glide-data-grid";
+} from "@specstory/ai-data-grid";
 import { faker } from "@faker-js/faker";
 import { useCollapsingGroups, useColumnSort, useMoveableColumns } from "../index.js";
 import { useUndoRedo } from "../use-undo-redo.js";
@@ -36,6 +36,9 @@ const SimpleThemeWrapper: React.FC = p => {
 
 export default {
     title: "Extra Packages/Source",
+
+    // MoreInfo is a styled component used by the stories below, not a story.
+    excludeStories: ["MoreInfo"],
 
     decorators: [
         (Story: React.ComponentType) => (

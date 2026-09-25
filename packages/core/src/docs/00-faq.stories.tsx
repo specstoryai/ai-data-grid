@@ -4,7 +4,7 @@ import { SimpleThemeWrapper } from "../stories/story-utils.js";
 import { DocWrapper, Marked } from "./doc-wrapper.js";
 
 export default {
-    title: "Glide-Data-Grid/Docs",
+    title: "AI-Data-Grid/Docs",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -23,7 +23,7 @@ export const FAQ: React.VFC = () => {
 
 ### Nothing shows up? It crashes when I edit a cell?
 
-Please read the [Prerequisites section in the docs](https://github.com/glideapps/glide-data-grid/blob/main/packages/core/API.md).
+Please read the [Prerequisites section in the docs](https://github.com/specstoryai/ai-data-grid/blob/main/packages/core/API.md).
 
 ### Does it work with screen readers and other a11y tools?
 
@@ -37,7 +37,7 @@ Data Grid is agnostic about the way you load/store/generate/mutate your data. Wh
 
 ### Does it do sorting?
 
-Yes through the [glide-data-grid-source](https://www.npmjs.com/package/@glideapps/glide-data-grid-source) package.
+Yes through the [ai-data-grid-source](https://www.npmjs.com/package/@specstory/ai-data-grid-source) package.
 
 ### Does it do search?
 
@@ -45,7 +45,7 @@ Yes, built in! There are examples in the storybook.
 
 ### Can it filter?
 
-Nothing built in yet. It is planned for the \`glide-data-grid-source\`.
+Nothing built in yet. It is planned for the \`ai-data-grid-source\`.
 
 ### Can it do frozen columns?
 

@@ -6,7 +6,7 @@ import { SimpleThemeWrapper } from "../stories/story-utils.js";
 import { DocWrapper, Highlight, Marked, Wrapper } from "./doc-wrapper.js";
 
 export default {
-    title: "Glide-Data-Grid/Docs",
+    title: "AI-Data-Grid/Docs",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -173,7 +173,7 @@ export const GettingStarted: React.VFC = () => {
                 {`
 # Getting Started
 
-Glide data grid is a powerful but flexible library requiring very few concepts required to get started. The grid will need data, columns, and a \`getCellContent\` callback to convert our data into cells on demand. Because the callback is used, there is no need to pre-format the data in any particular way, so long as it can be transformed into a cell. This example uses a flat array of objects.`}
+AI Data Grid is a powerful but flexible library requiring very few concepts required to get started. The grid will need data, columns, and a \`getCellContent\` callback to convert our data into cells on demand. Because the callback is used, there is no need to pre-format the data in any particular way, so long as it can be transformed into a cell. This example uses a flat array of objects.`}
             </Marked>
             <Highlight>
                 {`

@@ -1,6 +1,6 @@
 {
     "name": "root",
-    "version": "6.0.4-alpha25",
+    "version": "7.0.0",
     "scripts": {
         "start": "npm run storybook",
         "version": "./update-version.sh",
@@ -11,6 +11,7 @@
         "watch:core": "npm run watch -w packages/core",
         "storybook": "concurrently \"npm run storybook:run\" \"npm run watch:core\"",
         "build-storybook": "npm run build --workspaces && storybook build -o storybook-build/",
+        "smoke-storybook": "node scripts/smoke-storybook.mjs",
         "prod-storybook": "npm run build-storybook && npx http-server storybook-build -p 9009",
         "test": "cd packages/core && npm run test --",
         "test-18": "./setup-react-18-test.sh && cd packages/core && npm run test --",
@@ -20,7 +21,7 @@
         "test-projects": "cd test-projects/ && ./bootstrap-projects.sh"
     },
     "type": "commonjs",
-    "author": "Glide",
+    "author": "SpecStory",
     "license": "MIT",
     "workspaces": [
         "./packages/core",
@@ -78,6 +79,7 @@
         "lodash": "^4.17.21",
         "marked": "^16.1.2",
         "mini-css-extract-plugin": "^2.9.2",
+        "playwright": "^1.63.0",
         "prettier": "^3.5.3",
         "react": "^19.1.1",
         "react-dom": "^19.1.1",
@@ -96,6 +98,5 @@
     },
     "overrides": {
         "storybook": "$storybook"
-    },
-    "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+    }
 }

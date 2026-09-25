@@ -16,7 +16,7 @@ import {
 } from "../../index.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>

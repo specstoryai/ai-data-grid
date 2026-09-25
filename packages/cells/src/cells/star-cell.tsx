@@ -1,4 +1,4 @@
-import { type CustomCell, type Item, type CustomRenderer, GridCellKind } from "@glideapps/glide-data-grid";
+import { type CustomCell, type Item, type CustomRenderer, GridCellKind } from "@specstory/ai-data-grid";
 import * as React from "react";
 import { styled } from "@linaria/react";
 

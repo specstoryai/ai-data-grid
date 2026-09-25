@@ -54,7 +54,7 @@ export interface DataGridSearchProps extends Omit<ScrollingDataGridProps, "preli
     readonly getCellsForSelection?: (selection: Rectangle, abortSignal: AbortSignal) => GetCellsThunk | CellArray;
 
     /**
-     * The search results to display. If not provided glide will use its own internal search provider.
+     * The search results to display. If not provided the grid will use its own internal search provider.
      */
     readonly searchResults?: readonly Item[];
 

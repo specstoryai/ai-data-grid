@@ -6,7 +6,7 @@ ensure_bash_4
 
 shopt -s globstar
 
-echo -e "\033[0;36m🏗️ Building Glide Data Grid Cells 🏗️\033[0m"
+echo -e "\033[0;36m🏗️ Building AI Data Grid Cells 🏗️\033[0m"
 
 compile_esm() {
     compile esm true

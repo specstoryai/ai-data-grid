@@ -1,3 +1,29 @@
+# 7.0.0 Release notes
+
+AI Data Grid 7.0.0 is the first release of AI Data Grid, forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed. It is API-compatible with `@glideapps/glide-data-grid` 6.x.
+
+## Package renames
+
+The packages moved to the `@specstory` npm scope:
+
+| Old name | New name |
+|---|---|
+| `@glideapps/glide-data-grid` | `@specstory/ai-data-grid` |
+| `@glideapps/glide-data-grid-cells` | `@specstory/ai-data-grid-cells` |
+| `@glideapps/glide-data-grid-source` | `@specstory/ai-data-grid-source` |
+
+## Porting guide
+
+The public API is unchanged. To migrate, change only your import paths to the new package names. The `DataEditor` component and every exported name and prop, the `--gdg-*` CSS variables, and the `gdg-*` class names are unchanged.
+
+## React support
+
+This release requires React 19 (`react` / `react-dom` `^19.0.0`). Support for React 16, 17 and 18 is dropped. (Landed in the WP2 work package.)
+
+---
+
+The sections below are the historical Glide Data Grid release notes, kept verbatim.
+
 # 5.0.0 Release notes
 
 ## 🚨🚨 Breaking changes and porting guide

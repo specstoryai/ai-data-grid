@@ -4339,7 +4339,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
 };
 
 /**
- * The primary component of Glide Data Grid.
+ * The primary component of AI Data Grid.
  * @category DataEditor
  * @param {DataEditorProps} props
  */

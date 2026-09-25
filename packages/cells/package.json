@@ -1,7 +1,7 @@
 {
-    "name": "@glideapps/glide-data-grid-cells",
-    "version": "6.0.4-alpha25",
-    "description": "Extra cells for glide-data-grid",
+    "name": "@specstory/ai-data-grid-cells",
+    "version": "7.0.0",
+    "description": "Extra cells for ai-data-grid",
     "sideEffects": [
         "**/*.css"
     ],
@@ -31,11 +31,14 @@
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/glideapps/glide-data-grid.git",
+        "url": "git+https://github.com/specstoryai/ai-data-grid.git",
         "directory": "packages/cells"
     },
-    "homepage": "https://github.com/glideapps/glide-data-grid/tree/main/packages/cells",
-    "author": "Glide",
+    "homepage": "https://github.com/specstoryai/ai-data-grid/tree/main/packages/cells",
+    "author": "SpecStory",
+    "bugs": {
+        "url": "https://github.com/specstoryai/ai-data-grid/issues"
+    },
     "license": "MIT",
     "keywords": [
         "react",
@@ -50,7 +53,7 @@
         "canvas"
     ],
     "dependencies": {
-        "@glideapps/glide-data-grid": "6.0.4-alpha25",
+        "@specstory/ai-data-grid": "7.0.0",
         "@linaria/react": "^6.3.0",
         "@toast-ui/editor": "3.2.2",
         "@toast-ui/react-editor": "3.2.3",
