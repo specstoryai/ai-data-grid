@@ -11,3 +11,4 @@ coverage/
 gen-docs/
 .specstory/
 .runstory/
+runstory.toml
