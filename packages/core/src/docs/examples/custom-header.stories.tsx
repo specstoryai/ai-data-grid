@@ -5,7 +5,7 @@ import type { DrawCellCallback, DrawHeaderCallback } from "../../internal/data-g
 import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (

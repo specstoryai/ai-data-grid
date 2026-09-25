@@ -7,7 +7,7 @@ import { SimpleThemeWrapper } from "../stories/story-utils.js";
 import { DocWrapper, Highlight, Marked, Wrapper } from "./doc-wrapper.js";
 
 export default {
-    title: "Glide-Data-Grid/Docs",
+    title: "AI-Data-Grid/Docs",
     decorators: [
         (Story: React.ComponentType) => (
             <SimpleThemeWrapper>
@@ -353,12 +353,12 @@ export const StreamingData: React.VFC = () => {
                 {`
 # Streaming Data
 
-> Glide Data Grid is capable of streaming hundreds of thousands of updates per second. You won't need that, but every millisecond the grid doesn't take is another millisecond your app has to process data and remain responsive.
+> AI Data Grid is capable of streaming hundreds of thousands of updates per second. You won't need that, but every millisecond the grid doesn't take is another millisecond your app has to process data and remain responsive.
 
 Streaming data is done as a two step process.
 
 1. Update the data backing store.
-2. Inform the Glide Data Grid of the changed data.
+2. Inform the AI Data Grid of the changed data.
 
 The Grid does not care of the data is coming down over the wire or being generated locally. Informing the grid of changes to the data is done by calling the \`updateCells\` function on a bound ref.`}
             </Marked>

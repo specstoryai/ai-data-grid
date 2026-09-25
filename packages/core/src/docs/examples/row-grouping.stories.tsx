@@ -14,7 +14,7 @@ import { useRowGrouping } from "../../data-editor/row-grouping-api.js";
 import _ from "lodash";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (

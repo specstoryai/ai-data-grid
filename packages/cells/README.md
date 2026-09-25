@@ -1,5 +1,4 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/glideapps/glide-data-grid/master/icon.png" width="224px"/><br/>
   <b>Glide Data Grid Cells</b>
 </h1>
 <p align="center">Additional cells and features for Glide Data Grid</p>

@@ -1,5 +1,4 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/glideapps/glide-data-grid/master/icon.png" width="224px"/><br/>
   <b>Glide Data Grid Source</b>
 </h1>
 <p align="center">This provides an easy to use data source for the Glide Data Grid which supports many convenient features such as sorting and menus out of the box.</p>

@@ -5,7 +5,7 @@ const preview = {
         options: {
             storySort: {
                 method: "alphabetical",
-                order: ["Glide-Data-Grid", "Extra Packages", "Subcomponents"],
+                order: ["AI-Data-Grid", "Extra Packages", "Subcomponents"],
                 locales: "en-US",
             },
         },

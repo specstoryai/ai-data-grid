@@ -1,6 +1,6 @@
 import { compareSmart, useColumnSort } from "../src/use-column-sort.js";
 import { renderHook } from "@testing-library/react-hooks";
-import { GridCellKind, type GridCell } from "@glideapps/glide-data-grid";
+import { GridCellKind, type GridCell } from "@specstory/ai-data-grid";
 import { expect, describe, test } from "vitest";
 
 describe("use-column-sort", () => {

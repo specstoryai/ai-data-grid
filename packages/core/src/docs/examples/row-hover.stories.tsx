@@ -12,7 +12,7 @@ import { SimpleThemeWrapper } from "../../stories/story-utils.js";
 import type { GridMouseEventArgs } from "../../internal/data-grid/event-args.js";
 
 export default {
-    title: "Glide-Data-Grid/DataEditor Demos",
+    title: "AI-Data-Grid/DataEditor Demos",
 
     decorators: [
         (Story: React.ComponentType) => (
