@@ -131,6 +131,8 @@ export interface AIFillApi {
     /**
      * Writes the `suggested` and `review` results in the target through the
      * grid's edit handlers, as one batch, after re-checking every commit guard.
+     * A `{ column }` target covers only displayed rows, and its `eligible`
+     * filter never includes `review` results.
      * A result without a value to write (a semantic outcome without a `value`)
      * is marked accepted and nothing is written. Returns the commit id, or
      * `undefined` when nothing was written.
@@ -148,7 +150,9 @@ export interface AIFillApi {
      * that is now read-only is left alone. Returns how many cells were restored.
      */
     revertCommit(commitId: string): number;
+    /** What AI Fill knows about one cell, or `undefined` when the cell has no result. Never sends a request. */
     getCellState(rowId: AIRowId, columnId: AIColumnId): AICellState | undefined;
+    /** The active runs, the last run's summary, cell counts by status and the configuration issues. Never sends a request. */
     getRunState(): AIRunState;
     /**
      * Tells AI Fill that rows changed outside the grid's edit handlers. Their

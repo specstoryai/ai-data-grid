@@ -71,6 +71,7 @@ Details of each property can be found by clicking on it.
 | [scrollTo](#scrollto)                               | Tells the data-grid to scroll to a particular location.                                                      |
 | [updateCells](#updatecells)                         | Invalidates the rendering of a list of passed cells.                                                         |
 | [getMouseArgsForPosition](#getmouseargsforposition) | Gets the mouse args from pointer event position.                                                             |
+| [aiFill](#dataeditorrefaifill)                      | AI Fill's API, on a grid with the `aiFill` prop once AI Fill has loaded; `undefined` otherwise.              |
 
 ## Required Props
 
@@ -88,6 +89,7 @@ Most data grids will want to set the majority of these props one way or another.
 
 | Name                                              | Description                                                                                                                                                                                                                                                         |
 |---------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [aiFill](#quick-start-aifill-prop)                | Turns on AI Fill: AI-filled columns powered by Jev, with suggestions, review, accept and undo. Unset, the grid is unchanged and no AI code loads. See [AI Fill](#ai-fill).                                                                                           |
 | [fixedShadowX](#fixedshadow)                      | Enable/disable a shadow behind fixed columns on the X axis.                                                                                                                                                                                                         |
 | [fixedShadowY](#fixedshadow)                      | Enable/disable a shadow behind the header(s) on the Y axis.                                                                                                                                                                                                         |
 | [freezeColumns](#freezecolumns)                   | The number of columns which should remain in place when scrolling horizontally. The row marker column, if enabled is always frozen and is not included in this count.                                                                                               |
@@ -492,6 +494,16 @@ focus: () => void;
 ```
 
 Causes the data grid to become focused.
+
+---
+
+## DataEditorRef.aiFill
+
+```ts
+aiFill?: AIFillApi;
+```
+
+AI Fill's API on a grid with the `aiFill` prop, once AI Fill has loaded; `undefined` before that and on a grid without the prop. See [The API](#the-api-aifillapi).
 
 ---
 
@@ -1467,7 +1479,7 @@ Behavior not defined or officially supported. Feel free to check out what this d
 
 # AI Fill
 
-> **In development: the `aiFill` prop arrives in a later package.** AI Fill is being built in stages inside `@specstory/ai-data-grid`. So far it has the Jev contract and answer parser, the configuration types and their validator, the result policy engine, and the execution layer: the Jev clients, the scheduler, the cache and the result store. `DataEditor` doesn't use it yet, so it can't fill a grid on its own. The server helper (`@specstory/ai-data-grid/server`) and the mock (`@specstory/ai-data-grid/testing`) are complete and usable now. The `aiFill` prop, `DataEditorRef.aiFill` and the built-in UI come in later stages.
+> **In development: the built-in UI arrives in a later package.** AI Fill is being built in stages inside `@specstory/ai-data-grid`. The `aiFill` prop works: a grid with it fills, draws, commits and undoes AI results, and apps drive it through `ref.current.aiFill` (`AIFillApi`). The built-in menus, the confirm dialog, the status bar and the inspector come in a later stage, so for now fills start from app code or the keyboard shortcuts below, and `execution.confirmAbove` isn't acted on yet. The server helper (`@specstory/ai-data-grid/server`) and the mock (`@specstory/ai-data-grid/testing`) are complete.
 
 AI Fill is powered by [Jev](https://docs.typesafe.ai), TypeSafe's Choice, Score and Noul primitives.
 
@@ -1482,6 +1494,109 @@ Jev returns structured answers, not prose:
 | Choice | A question and a map of option ids to descriptions (2–255 options) | The selected option, the probability of every option (summing to 1), and a separate model confidence |
 | Score | A question and an ordered rubric of 2–10 levels | A score in [0, levels − 1] (a probability-weighted position, not a percentage), a legend, each level's probability, and a confidence |
 | Noul | A yes/no question, optionally with what true and false mean | The probability that the answer is yes, in [0, 1]. There is no confidence. A value near 0 is a strong no, not a failure. |
+
+## Quick start (`aiFill` prop)
+
+An existing `DataEditor` turns AI Fill on with one prop, and changes nothing else:
+
+```tsx
+import * as React from "react";
+import { DataEditor, type AIFillConfig, type DataEditorRef } from "@specstory/ai-data-grid";
+import "@specstory/ai-data-grid/dist/index.css"; // the same CSS import as today
+
+function Contacts() {
+    const ref = React.useRef<DataEditorRef>(null);
+    const aiFill = React.useMemo<AIFillConfig>(
+        () => ({
+            connection: { mode: "endpoint", url: "/api/jev" },
+            model: "jev-latest",
+            rows: { getRowId: row => view[row].id },
+            rowScope: () => ({ rows: "displayed", label: "filtered contacts" }),
+            columns: { persona, seniority, ownsBudget }, // keyed by GridColumn.id, as in the overview below
+        }),
+        [view]
+    );
+    return (
+        <DataEditor
+            ref={ref}
+            aiFill={aiFill}
+            columns={columns}
+            rows={view.length}
+            getCellContent={getCellContent}
+            onCellEdited={onCellEdited}
+            validateCell={validateCell}
+        />
+    );
+}
+
+// Later, from a button or your own menu:
+ref.current?.aiFill?.fill("column-empty", { columns: ["persona"] });
+```
+
+- **Unset, nothing changes.** Without `aiFill`, `DataEditor` passes the same props to the grid, the ref is the grid's own handle, and no AI module loads. A golden test (`test/ai-fill/unconfigured-grid.test.tsx`) checks this.
+- **Loaded lazily.** AI Fill's controller loads in its own chunk the first time `aiFill` is set. Until it has loaded (normally a few milliseconds) the grid renders as if the prop were unset and `ref.current.aiFill` is `undefined`. Then `ref.current.aiFill` is set, and `aiFill.onReady(api)` is called once with the same API.
+- **Setting and clearing.** Setting or clearing `aiFill` never remounts the grid. Clearing it aborts every request in flight and drops every result; nothing is written.
+- **Keep the object stable,** for example with `useMemo`. A new object re-validates the configuration and applies it: a changed policy re-decides stored answers with no request, a changed question marks results stale, and a removed column drops its results.
+- **Configuration problems** are reported once each through `onError` as `configuration` errors, and listed in `getRunState().issues`. A problem with a `columnId` disables that column; one without disables AI Fill.
+
+What AI Fill adds to your props (each app handler is wrapped and still called, never replaced):
+
+| Prop | What AI Fill does |
+|---|---|
+| `columns` | AI columns get `hasMenu: true`, in a shallow copy. Other column objects are passed as they are. |
+| `drawCell` | Calls your `drawCell` (or draws the cell's content), then draws the AI state of cells with a result |
+| `drawHeader` | Calls your `drawHeader` (or draws the header), then draws a ✦ badge on AI columns |
+| `onCellEdited`, `onCellsEdited` | Watches edits made in the grid (an edited AI cell becomes `manual` and stale; results whose `sources` were edited become stale), then calls yours with the same arguments and returns its value |
+| `onKeyDown` | Calls yours first. If it called `preventDefault()` or `cancel()`, AI Fill does nothing. Otherwise **Mod+Enter** accepts and **Mod+Backspace** rejects the selected results, and **Mod+Alt+F** fills the selection (Mod is ⌘ on macOS and Ctrl elsewhere). A shortcut with nothing to act on is left alone. |
+| `gridSelection`, `onGridSelectionChange` | Passed through when you control the selection. When you only pass `onGridSelectionChange`, AI Fill also notes each selection the grid reports. When you pass neither, AI Fill holds the selection. |
+| `getCellContent`, `validateCell`, `onHeaderMenuClick`, `onHeaderContextMenu`, `onCellContextMenu`, everything else | Passed through untouched. AI Fill reads `getCellContent` and calls `validateCell` when it fills and commits. The built-in AI menus arrive with the built-in UI. |
+
+### The API (`AIFillApi`)
+
+`ref.current.aiFill` and the `onReady` argument. Cells are always addressed by `[rowId, columnId]`, with the ids from `rows.getRowId` and `GridColumn.id`.
+
+| Method | What it does |
+|---|---|
+| `fill(scope, { columns?, mode? })` | Starts a fill (see [Fill scopes](#fill-scopes)). `columns` limits it to some AI columns (default: all of them); `mode: "apply"` is "Fill and apply". Returns `{ runId, done, cells, requests, skipped, error? }`: the cells it evaluates, the requests it needs, the skipped cells by reason, and a `configuration` error when it can't run (nothing is sent). `done` resolves with the run's summary. |
+| `cancel(runId?)` | Cancels one run, or all of them. Cells go back to the result they had before, and late answers are ignored. |
+| `accept(target)` | Writes the `suggested` and `review` results in the target as one batch (see [Committing, validation and undo](#committing-validation-and-undo)). Returns the commit id, or `undefined` when nothing was written. |
+| `reject(target)` | Marks the decided or stale results in the target `rejected`. Nothing is written. Returns how many were rejected. |
+| `retry(target?)`, `rerunStale(target?)` | Re-runs the failed or stale cells in the target (default: all of them), each with the scope and mode it had |
+| `revertCommit(commitId)` | Writes a commit's previous values back, by row id. Returns how many cells were restored. |
+| `getCellState(rowId, columnId)` | The cell's `AICellState`: its status, the decision, the mapped output, the error, the commit id, whether it is `manual`, why its last commit was `blocked`, and its metadata. `undefined` for a cell with no result. |
+| `getRunState()` | `AIRunState`: the active runs with their progress, the last run's summary, the number of cells in each status, and the configuration issues |
+| `notifyRowsChanged(rowIds?)` | Tells AI Fill that rows changed outside the grid's edit handlers (see [Rows, identity and staleness](#rows-identity-and-staleness)) |
+| `clear(target?)` | Drops the results in the target, or cancels every run and drops every result. Cells waiting for Jev keep waiting. Nothing is written. |
+
+A **target** (`AIFillTarget`) is `{ cells: [rowId, columnId][] }`, `{ selection: true }` (the AI cells in the grid's selection) or `{ column, filter }`. For a column, `filter` is `"eligible"` (the `suggested` results), `"review"` or `"all"` (both). `accept({ column, filter: "eligible" })` is "Accept all eligible": it never includes review results, and it covers only displayed rows, so a filtered-out row keeps its result for when it comes back.
+
+### Fill scopes
+
+| Scope | Cells evaluated |
+|---|---|
+| `selection` | The AI cells in the selection: selected columns, selected rows intersected with the AI columns, and the selected ranges. Populated cells follow `overwrite`. |
+| `selection-empty` | Only the empty AI cells in the selection |
+| `column-empty` | The empty cells of the AI columns within `rowScope`. Needs `rowScope`. |
+| `column` | Every cell of the AI columns within `rowScope`, for columns whose `fillScopes` lists it |
+
+`rowScope: () => ({ rows: "displayed", label })` covers the rows displayed now; `rows: rowId[]` covers the listed rows that are displayed. A row that isn't displayed (filtered out) is never read or sent: it is skipped as `unloaded`, like a loading row. Each fill reports its skipped cells by reason (`populated`, `read-only`, `unloaded`, `not-applicable`, `missing-input` and `cached`; see [Planning a fill](#planning-a-fill)), and the scope never widens silently.
+
+### Cell states on the canvas
+
+AI Fill draws after the cell's normal content, only for cells with a result, and only when a result changes (no animation loop). Colors come from the grid theme.
+
+| State | Drawn as |
+|---|---|
+| queued, pending | A small `⋯` glyph at the right edge |
+| suggested | Empty cell: the suggestion as italic ghost text in the accent color, with a `✦` marker. Populated cell (`overwrite: "suggest"` or `"apply"`): the current value dimmed, with a `→ suggestion` chip. |
+| review | Like suggested, plus an amber corner marker |
+| semantic outcome (none, unknown) and the Noul middle band | The label in muted italic with a `◇` marker, not styled as an error |
+| withheld | The current value unchanged, with a hollow `○` marker |
+| error | A red corner marker |
+| stale | The old suggestion as grey struck-through ghost text (on an empty cell), with a `↻` marker |
+| accepted, applied, rejected | The normal cell, with no marker |
+
+The suggestion text follows the presentation options: Choice `· 0.86` (the selected option's probability) and `· conf 0.81` (model confidence), Score `· conf 0.70` and a rubric bar, Noul a probability bar.
 
 ## Configuration overview
 
@@ -1533,12 +1648,13 @@ const aiFill: AIFillConfig = {
 |---|---|
 | `connection` | `{ mode: "endpoint", url, headers?, fetch? }` (production: the key stays on your server), `{ mode: "direct", apiKey, dangerouslyAllowBrowser?, baseURL?, fetch? }` (local and demo use; a key used in a browser is visible to that browser's user, so browsers need `dangerouslyAllowBrowser: true`), or `{ mode: "custom", send }` |
 | `model` | The Jev model, for example `jev-latest`. Required. The versioned id that answered (for example `jev-1.13.0`) is kept with every answer. |
-| `rows` | `getRowId(row)` (required) and optional `getRowIndex(rowId)`. Nothing reads `getRowIndex` yet; the grid integration that uses it comes in a later stage. |
+| `rows` | `getRowId(row)` (required) and optional `getRowIndex(rowId)` (see [Rows, identity and staleness](#rows-identity-and-staleness)) |
 | `rowState` | The row state sent to Jev. Default: built from each column's `sources`. |
 | `rowScope` | A function returning the rows a column-wide fill covers: `() => ({ rows: "displayed" \| rowId[], label })`. Without it, column-wide fills aren't offered. |
 | `columns` | AI column definitions, keyed by `GridColumn.id` |
 | `execution` | Scheduler limits (see [Execution and errors](#execution-and-errors)): `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100; validated, but nothing acts on it until the confirm dialog arrives in a later stage), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
 | `onRunStart`, `onRunProgress`, `onRunEnd`, `onResult`, `onCommit`, `onReject`, `onError` | Observers. `onResult` fires for every decided result, including withheld and review ones. |
+| `onReady(api)` | Called once, when AI Fill has loaded and `ref.current.aiFill` exists |
 
 ### Column settings (all primitives)
 
@@ -1610,14 +1726,72 @@ For each answer, the first step that matches decides:
 
 **Thresholds are your choice, not accuracy guarantees.** Probability and confidence are what the model reports; they aren't measured correctness. Evaluate thresholds on your own data before relying on them.
 
-## Identity and staleness
+## Rows, identity and staleness
 
-These rules are internal (the helpers aren't exported), but they decide when a stored answer can be reused:
+Results are keyed by `(rowId, columnId)`, never by display position:
+
+- **Rows** are identified by `rows.getRowId(row)`, and columns by `GridColumn.id`. Display positions are worked out only at the moment they are needed: when a cell is drawn (row → id) and when a result is written (id → row).
+- **`rows.getRowIndex(rowId)`** answers id → row when you provide it. Its answer is checked against `getRowId`: an index whose row has another id counts as a missing row, so a wrong index can't redirect a read or a write. Without it, AI Fill scans `getRowId` over the rows once and reuses the map until the current task ends.
+- **Sorting, filtering and moving columns** move nothing: results stay with their ids and are drawn wherever their row and column are now. A result on a row that is filtered out stays until the row comes back.
+- **An answer that arrives for a row that isn't displayed** is dropped, and `onResult` reports it with status `cancelled` and `reason: "row-missing"`. AI Fill can't tell a filtered-out row from a deleted one, so it treats both as gone; nothing is written. Fill the row again once it's displayed.
+- **Edits in the grid.** An edit to a source column makes the row's results in the AI columns that list it `stale`, whether they are pending or decided. An edit to an AI cell makes its result `manual` and `stale`: it is never auto-applied or accepted. A late answer for a stale cell is stored as stale and never shown as a suggestion.
+- **Changes outside the grid.** Call `api.notifyRowsChanged(rowIds?)` after changing rows without the grid's edit handlers. Their results are fingerprinted again: a changed input makes a result stale, a changed destination makes it `manual` and stale, and a decided result whose row is gone is dropped with `row-missing`. You don't have to call it for safety: every answer and every commit re-checks the inputs and the destination.
+- **Accepted results** keep their commit id. They are never suggested again, including after an undo. Filling again is always explicit.
+
+The fingerprints behind these checks:
+
 
 - The question sent to Jev is built from the column definition: its `primitive`, `instructions` and `context`, plus the Choice option ids and descriptions, the Score level descriptions in order, or the Noul criteria.
 - The question fingerprint is canonical JSON (sorted keys) of that question plus the column's `sources`, deduplicated and sorted. The input fingerprint is canonical JSON of the state sent.
 - Cached answers are keyed by row id, column id, both fingerprints and the model. The key uses the exact canonical strings, so a hash collision can't attach a wrong answer. An 8-hex-digit FNV-1a short hash is used for display and metadata only.
 - Changing the instructions, context, option ids or descriptions, level descriptions or their order, Noul criteria, sources, the state sent or the model changes the key. Changing the policy, output mapping (including option and level `label`, `value` and `outcome`, and Noul labels), presentation or `decide` doesn't.
+
+## Committing, validation and undo
+
+`accept`, auto-apply and `revertCommit` all write through your edit handlers, the same way the grid's paste does.
+
+**The commit path.** For each result, right before writing:
+
+1. The row is found again by id. A row that is gone is `row-missing`, and its result is dropped.
+2. The value is turned into a cell with `output.toCell` (by default, by the destination's kind). A value that no longer fits is `type-mismatch`.
+3. The inputs are fingerprinted again and the destination compared with its value at request time. A changed input makes the result `stale`, and a changed destination makes it `manual` and stale.
+4. The destination must be writable (an editable kind, not `readonly`), and the `overwrite` policy and the fill's scope must allow the write: an empty cell always, a populated one never under `"never"` or in the `-empty` scopes, only by `accept` in the `selection` scope under `"suggest"`, and under `"apply"` also by auto-apply.
+5. `validateCell(location, next, current)` runs: `false` blocks the write, and a returned cell is written instead (coerced).
+
+A result that fails a guard isn't written and keeps its status; `getCellState` reports why in `blocked`, and `onError` gets one `commit-blocked` error (or `type-mismatch`) per reason, listing the cells. A result is committed at most once. A grid without `onCellEdited` or `onCellsEdited` can't commit, and reports `read-only`.
+
+**One batch.** The results that pass go out together, in one synchronous tick:
+
+1. If the grid has no selection, AI Fill first sets one covering the written cells, through your `onGridSelectionChange` (or its own held selection). `useUndoRedo` records nothing without a selection.
+2. `onCellsEdited(items)`, if you pass it.
+3. Unless it returned `true`, `onCellEdited(location, cell)` for each item.
+4. `onCommit({ commitId, source, edits })`, with each edit's `previous` and `next` cell, its location and its metadata. The cells are repainted with `updateCells`.
+
+A Choice semantic outcome without a `value`, and a Noul in the middle band, have nothing to write: accepting one marks it `accepted` and writes nothing.
+
+**Auto-apply.** In a "Fill and apply" run (`fill(scope, { mode: "apply" })`), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, as `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays `suggested`. Review results, manual cells and populated cells under `overwrite: "suggest"` are never auto-applied, and a result re-decided after a policy change isn't either.
+
+**Undo with `useUndoRedo`** (`@specstory/ai-data-grid-source`). Wire it the standard way:
+
+```tsx
+const undo = useUndoRedo(ref, getCellContent, setCellValue);
+
+<DataEditor
+    ref={ref}
+    aiFill={aiFill}
+    getCellContent={getCellContent}
+    onCellEdited={undo.onCellEdited}
+    gridSelection={undo.gridSelection ?? undefined}
+    onGridSelectionChange={undo.onGridSelectionChange}
+/>;
+```
+
+A bulk accept is then **one undo step**: undo restores every cell, redo writes them again once, and no suggestion comes back. Known limits of `useUndoRedo` apply unchanged:
+
+- It keys edits by display position, so an undo after re-sorting or filtering writes to positions, not to the rows that were accepted. `api.revertCommit(commitId)` is the id-safe alternative.
+- If your `onCellsEdited` returns `true`, the per-cell `onCellEdited` calls don't happen, so `useUndoRedo` never sees the edits. The same is true of paste today.
+
+**`revertCommit(commitId)`** writes a commit's previous values back by row id, through the same batch path (selection, `onCellsEdited`, `onCellEdited`), and returns how many cells it restored. It leaves a cell alone when its row is gone, when it no longer holds the committed value (a newer edit), when it is read-only now, or when `validateCell` rejects the old value. A commit is reverted at most once. The results stay `accepted`. With `onCommit`'s `previous` and `next` values, custom undo stacks can do the same.
 
 ## Connecting to Jev
 
@@ -1769,7 +1943,7 @@ The model in the configuration (the grid's `model`, or a column's) is sent to Je
 
 ## Execution and errors
 
-This section describes how AI Fill runs fills once the `aiFill` prop arrives. The engine is internal, and its settings are the `execution` options in `AIFillConfig`.
+This section describes how AI Fill runs the fills a grid starts. The engine is internal, and its settings are the `execution` options in `AIFillConfig`.
 
 ### What starts a request
 
@@ -1842,9 +2016,9 @@ Every `AIFillError` has a `kind`, a `message` and `retryable`, plus `httpStatus`
 | `input-too-large` | Cells | no | A state over `maxStateChars`, and HTTP 413 |
 | `evaluation` | Cells | yes | The response has no answer for the cell's question id |
 | `malformed` | Cells | no | The answer fails `parseJevAnswer`, or the body isn't JSON or has no `answers` |
-| `type-mismatch` | Cells | no | The mapped value doesn't fit the destination cell |
+| `type-mismatch` | Cells | no | The mapped value doesn't fit the destination cell, when the answer arrives or at commit time |
 | `policy-callback` | Cells | no | `decide` threw or returned something invalid |
-| `commit-blocked` | Cells | no | A result that was already committed would be written again |
+| `commit-blocked` | Cells | no | A write was refused: the result was already committed, its row is gone, its inputs or destination changed, the cell is read-only, the overwrite policy doesn't allow it, or `validateCell` returned `false` |
 
 ### Callbacks
 
@@ -1879,6 +2053,8 @@ From `@specstory/ai-data-grid`:
 | `mapAIOutput(definition, answer, ctx?)` | Maps a parsed answer. Returns `{ ok: true, output }`, where the `AIMappedOutput` keeps the raw `answer`, the `display` text and the `value` to write (with `hasValue`) apart, plus the semantic `outcome`; or `{ ok: false, error }`. |
 | `evaluateAIPolicy({ definition, answer, context, mode? })` | Runs mapping, the gates and `decide` on a parsed answer, and returns the status with its `AIPolicyDecision` and output, or an error. It makes no request. |
 | `isAIDestinationEmpty(cell)` | The default emptiness check for destination cells. `0` and `false` are values, not empty. |
+
+The API types are `AIFillApi`, `AIFillTarget`, `AICellState` and `AIRunState` (see [The API](#the-api-aifillapi)). The `aiFill` prop is on `DataEditorProps`, and `DataEditorRef` has the optional `aiFill` member; neither adds an export name.
 
 The types cover the Jev contract (`JevRequest`, `JevResponse`, `JevQuestion`, `JevAnswer` and the per-primitive `JevChoice*`, `JevScore*` and `JevNoul*` types), the endpoint contract's error body (`JevEndpointErrorBody`), the parsed answers (`ChoiceAnswer`, `ScoreAnswer`, `NoulAnswer`), the configuration (`AIFillConfig`, `AIColumnDefinition` and its per-primitive parts), and the results (`AIPolicyDecision`, `AIMappedOutput`, `AIFillError`, and the result, run, commit and reject events). Each has TSDoc.
 
