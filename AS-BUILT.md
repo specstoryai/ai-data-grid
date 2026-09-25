@@ -1,6 +1,6 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-13, documenting WP2 / PR #14)
+**Last updated:** 2026-09-25 (SPST-13 round 2, correcting the Next.js README example and the `npm audit` note after SPST-14 verification of PR #14)
 **Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), and React 19 only with the `test-projects/` sample apps (WP2, PR #14). Hosted Storybook (WP3) and the docs site (WP4) are documented when they land.
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -180,7 +180,7 @@ Both need Playwright's Chromium and aren't in CI.
 - **The core tarball ships source, tests and stories** because core has no `files` field (see above).
 - **`.devcontainer/` is stale.** It pins a Node 14 image and runs a `.devcontainer/run.sh` that doesn't exist. It isn't documented as a way to work on the repo.
 - `packages/cells/test/date-picker-cell.test.tsx` was fixed in WP1: it rendered the wrong cell and left a `findByDisplayValue` promise unawaited, which failed CI intermittently.
-- 43 `npm audit` findings are open.
+- Open `npm audit` findings remain in the root install; run `npm audit` for the current list.
 
 ## Decision log
 
@@ -213,7 +213,7 @@ Both need Playwright's Chromium and aren't in CI.
 - Deploy Storybook to Vercel and link it from the READMEs (WP3, SPST-5).
 - Docs site (WP4, SPST-3), then link it from the READMEs.
 - Rename the `glide-*` runtime identifiers in 8.0.
-- Fix the 43 `npm audit` findings.
+- Fix the open `npm audit` findings.
 - Make `ci.yml` a required check on `main`.
 - Replace `@glideapps/ts-helper` for `cycle-check`.
 - Decide whether the core tarball should get a `files` field, and fix or delete `.devcontainer/`.

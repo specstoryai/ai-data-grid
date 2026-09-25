@@ -188,42 +188,53 @@ There are some hacks you can do like setting timers and entering into a "low fid
 
 **I want to use this with Next.js / Vercel, but I'm getting weird errors**
 
-The easiest way to use the grid with Next is to create a component which wraps up your grid and then import it as a dynamic. With the App Router, `ssr: false` is only allowed in a Client Component, so put `"use client";` at the top of the file that calls `dynamic`.
+The grid needs the browser (`window` and a canvas), so don't render it on the server. Put it in its own component and load that with `next/dynamic` and `ssr: false`. With the App Router, `ssr: false` is only allowed in a Client Component, so the file that calls `dynamic` starts with `"use client";`.
 
-home.tsx
+`app/page.tsx`
 
 ```tsx
-import type { NextPage } from "next";
+"use client";
+
 import dynamic from "next/dynamic";
-import styles from "../styles/Home.module.css";
 
-const Grid = dynamic(
-    () => {
-        return import("../components/Grid");
-    },
-    { ssr: false }
-);
+const Grid = dynamic(() => import("../components/Grid").then(m => m.Grid), { ssr: false });
 
-export const Home: NextPage = () => {
-    return (
-        <div className={styles.container}>
-            <main className={styles.main}>
-                <h1 className={styles.title}>Hi</h1>
-                <Grid />
-            </main>
-        </div>
-    );
-};
+export default function Home() {
+    return <Grid />;
+}
 ```
 
-grid.tsx
+`components/Grid.tsx`
 
 ```tsx
-import React from "react";
-import DataEditor from "@specstory/ai-data-grid";
+"use client";
 
-export default function Grid() {
-    return <DataEditor {...args} />;
+import * as React from "react";
+import { DataEditor, GridCellKind, type GridCell, type GridColumn, type Item } from "@specstory/ai-data-grid";
+import "@specstory/ai-data-grid/dist/index.css";
+
+const data = [
+    { firstName: "Ada", lastName: "Lovelace" },
+    { firstName: "Grace", lastName: "Hopper" },
+];
+
+const columns: GridColumn[] = [
+    { title: "First Name", width: 150 },
+    { title: "Last Name", width: 150 },
+];
+
+function getCellContent([col, row]: Item): GridCell {
+    const person = data[row];
+    const text = col === 0 ? person.firstName : person.lastName;
+    return { kind: GridCellKind.Text, data: text, displayData: text, allowOverlay: false };
+}
+
+export function Grid() {
+    return (
+        <div style={{ height: 400 }}>
+            <DataEditor columns={columns} rows={data.length} getCellContent={getCellContent} width="100%" height="100%" />
+        </div>
+    );
 }
 ```
 

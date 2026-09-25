@@ -73,7 +73,7 @@ It needs Playwright's Chromium. If it isn't installed yet, run `npx playwright i
 `test-projects/` holds two small apps that install the packages the way users do, from the npm tarballs:
 
 - `vite-app`: Vite 8, React 19, TypeScript. `npm run build` runs `tsc --noEmit && vite build`.
-- `next-app`: Next 16 App Router, React 19. The grid is in a `"use client"` component loaded with `next/dynamic` and `ssr: false`. `npm run build` runs `next build`.
+- `next-app`: Next 16 App Router, React 19. `app/page.tsx` is a `"use client"` page that loads the grid component (`components/Grid.tsx`) with `next/dynamic` and `ssr: false`. `npm run build` runs `next build`.
 
 Both render a `DataEditor` with text, number, boolean and star (from `-cells`) columns, and import `@specstory/ai-data-grid/dist/index.css`.
 
