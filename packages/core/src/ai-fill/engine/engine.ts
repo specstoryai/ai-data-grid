@@ -1084,6 +1084,7 @@ export class AIFillEngine {
                         ...(result.record.decision === undefined ? {} : { decision: result.record.decision }),
                         ...(result.record.error === undefined ? {} : { error: result.record.error }),
                     };
+                    if (result.record.error !== undefined) notify(this.config.onError, result.record.error);
                 }
             }
         }

@@ -1467,7 +1467,7 @@ Behavior not defined or officially supported. Feel free to check out what this d
 
 # AI Fill
 
-> **In development: the `aiFill` prop arrives in a later package.** AI Fill is being built in stages inside `@specstory/ai-data-grid`. This stage is the pure TypeScript foundation: the Jev contract and answer parser, the configuration types and their validator, and the result policy engine. It has no network code and no React components, and `DataEditor` doesn't use it yet, so it can't fill a grid on its own. The `aiFill` prop, `DataEditorRef.aiFill`, the Jev client, `@specstory/ai-data-grid/server` and `@specstory/ai-data-grid/testing` come in later stages.
+> **In development: the `aiFill` prop arrives in a later package.** AI Fill is being built in stages inside `@specstory/ai-data-grid`. So far it has the Jev contract and answer parser, the configuration types and their validator, the result policy engine, and the execution layer: the Jev clients, the scheduler, the cache and the result store. `DataEditor` doesn't use it yet, so it can't fill a grid on its own. The server helper (`@specstory/ai-data-grid/server`) and the mock (`@specstory/ai-data-grid/testing`) are complete and usable now. The `aiFill` prop, `DataEditorRef.aiFill` and the built-in UI come in later stages.
 
 AI Fill is powered by [Jev](https://docs.typesafe.ai), TypeSafe's Choice, Score and Noul primitives.
 
@@ -1537,7 +1537,7 @@ const aiFill: AIFillConfig = {
 | `rowState` | The row state sent to Jev. Default: built from each column's `sources`. |
 | `rowScope` | A function returning the rows a column-wide fill covers: `() => ({ rows: "displayed" \| rowId[], label })`. Without it, column-wide fills aren't offered. |
 | `columns` | AI column definitions, keyed by `GridColumn.id` |
-| `execution` | Scheduler limits, validated now and applied by the scheduler in a later stage: `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
+| `execution` | Scheduler limits (see [Execution and errors](#execution-and-errors)): `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
 | `onRunStart`, `onRunProgress`, `onRunEnd`, `onResult`, `onCommit`, `onReject`, `onError` | Observers. `onResult` fires for every decided result, including withheld and review ones. |
 
 ### Column settings (all primitives)
@@ -1619,9 +1619,254 @@ These rules are internal (the helpers aren't exported), but they decide when a s
 - Cached answers are keyed by row id, column id, both fingerprints and the model. The key uses the exact canonical strings, so a hash collision can't attach a wrong answer. An 8-hex-digit FNV-1a short hash is used for display and metadata only.
 - Changing the instructions, context, option ids or descriptions, level descriptions or their order, Noul criteria, sources, the state sent or the model changes the key. Changing the policy, output mapping (including option and level `label`, `value` and `outcome`, and Noul labels), presentation or `decide` doesn't.
 
+## Connecting to Jev
+
+AI Fill calls Jev's HTTP API (`POST https://api.typesafe.ai/v1/systemone`) with `fetch`. It doesn't use the TypeSafe SDK, and it adds no runtime dependency. `connection` picks one of three modes.
+
+| Mode | Configuration | Use it for |
+|---|---|---|
+| Endpoint | `{ mode: "endpoint", url, headers?, fetch? }` | Production. The browser calls your server, which holds the key. |
+| Direct | `{ mode: "direct", apiKey, dangerouslyAllowBrowser?, baseURL?, fetch? }` | Node scripts, server-side code and tests. In a browser, local demos only (see below). |
+| Custom | `{ mode: "custom", send(request, signal) }` | Tests, Storybook and unusual hosts. `createMockJev` provides one. |
+
+### The endpoint contract
+
+In endpoint mode, AI Fill sends `POST <url>` with `content-type: application/json` and the headers returned by `connection.headers()` (called before every request, for example for a CSRF token). The body is exactly Jev's request body, a `JevRequest`:
+
+```json
+{
+    "model": "jev-latest",
+    "state": { "company": "Example Co", "title": "VP of Finance" },
+    "questions": {
+        "q0": { "type": "noul", "instructions": "Does this contact own a budget?" }
+    }
+}
+```
+
+- **Success:** status 200 with Jev's response body unchanged: `{ model, answers, usage }`. An `x-typesafe-request-id` header, when present, is kept as the result's `requestId`.
+- **Failure:** a non-2xx status with a `JevEndpointErrorBody`, `{ error: { type, message, retryAfterMs?, detail? } }`. Forward Jev's status, and its `Retry-After` and `retry-after-ms` headers. The status decides the error kind (see [Errors](#errors)).
+
+### The server helper
+
+`@specstory/ai-data-grid/server` implements the contract. It has no React, DOM or styling imports, and runs in any Fetch-API host (Next.js route handlers, Node 20 and later, edge runtimes).
+
+```ts
+// app/api/jev/route.ts (Next.js App Router)
+import { createJevHandler } from "@specstory/ai-data-grid/server";
+
+export const POST = createJevHandler({
+    apiKey: process.env.TYPESAFE_API_KEY ?? "", // explicit; the helper never reads the environment itself
+    authorize: request => isSignedIn(request), // required; () => true only for local demos
+    allowedModels: ["jev-latest"], // the default
+});
+```
+
+For Express or Node `http`, wrap it with `toNodeListener`:
+
+```ts
+import express from "express";
+import { createJevHandler, toNodeListener } from "@specstory/ai-data-grid/server";
+
+const app = express();
+app.post("/api/jev", toNodeListener(createJevHandler({ apiKey: process.env.TYPESAFE_API_KEY ?? "", authorize })));
+```
+
+`toNodeListener` streams the request body, or uses `req.body` when middleware such as `express.json()` already parsed it.
+
+| `createJevHandler` option | Meaning | Default |
+|---|---|---|
+| `apiKey` | Your TypeSafe key. An empty key doesn't fail at load time (so a build without the key still works), but every authorized request then gets a 500 `server_configuration` error. | required |
+| `authorize(request)` | Returns (or resolves to) `true` to let the request spend your key. Anything else, including a throw, is a 403. Construction throws a `TypeError` without it, so an app can't ship an open proxy by accident. | required |
+| `allowedModels` | The models a request may ask for | `["jev-latest"]` |
+| `maxBodyBytes` | The largest request body. Checked against `content-length` and again while reading. | `256000` |
+| `maxQuestions` | The most questions in one request | `32` |
+| `timeoutMs` | How long to wait for Jev | `20000` |
+| `baseURL`, `fetch` | Jev's origin, and the `fetch` used to call it | `https://api.typesafe.ai`, the global `fetch` |
+
+In order, the handler answers:
+
+| Status | `error.type` | When |
+|---|---|---|
+| 405 | `method_not_allowed` | The method isn't POST |
+| 403 | `forbidden` | `authorize` didn't return `true` |
+| 500 | `server_configuration` | `apiKey` is empty |
+| 413 | `payload_too_large` | The body is over `maxBodyBytes`, or has more than `maxQuestions` questions |
+| 400 | `invalid_request` | The body isn't JSON, or isn't `{ model, state, questions }` with valid questions |
+| 400 | `model_not_allowed` | The model isn't in `allowedModels` |
+| Jev's status | Jev's type, for example `rate_limit_error` | Jev returned an error. `Retry-After` and `retry-after-ms` are forwarded, and `retryAfterMs` is set in the body. |
+| 504 | `upstream_timeout` | Jev didn't answer within `timeoutMs` |
+| 502 | `upstream_unreachable` | Jev couldn't be reached |
+
+Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and `x-typesafe-request-id` header. The key is never echoed: not in a body, an error message or a header. It is redacted from any text Jev returns. The helper forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
+
+In Node, `require("@specstory/ai-data-grid/server")` works as well as `import`. Core's CommonJS build is ES modules, like the rest of the package, so `require` relies on Node's `require(esm)` (Node 20.19+, 22.12+ and 24).
+
+### Direct mode
+
+Direct mode sends the key from the process that runs the grid: `POST ${baseURL}/v1/systemone` with `Authorization: Bearer <apiKey>`.
+
+> **A key used in a browser is visible to anyone using that browser.** Direct mode is for Node scripts, server-side code, tests and local demos. Use endpoint mode in production.
+
+- **In Node** it works as is.
+- **In a browser without `dangerouslyAllowBrowser: true`,** AI Fill refuses: `validateAIFillConfig` reports it, and a fill fails with a `configuration` error before any request is made.
+- **In a browser with `dangerouslyAllowBrowser: true`,** AI Fill prints one `console.warn` per page that the key is visible to the browser's user.
+- **CORS limitation:** TypeSafe's API currently rejects browser CORS preflights from every origin tried, so direct calls from a browser fail anyway. AI Fill reports that as a `network` error with the message "TypeSafe's API does not accept browser calls from this origin; use endpoint mode or the local dev proxy."
+
+### The local dev proxy
+
+For browser demos (Storybook, the sample apps), the repository has an unpublished proxy, `scripts/jev-dev-proxy.mjs`. It runs `createJevHandler` on `0.0.0.0:8787` with the key from `JEV_API_KEY` (or `TYPESAFE_API_KEY`):
+
+```bash
+npm run build
+JEV_API_KEY=… node scripts/jev-dev-proxy.mjs [--port 8787] [--allow-origin https://my-storybook.example.com] [--allow-model jev-preview]
+```
+
+Then point the grid at it: `connection: { mode: "endpoint", url: "http://localhost:8787/api/jev" }` (any path works).
+
+- It allows `http://localhost:<any port>` and `http://127.0.0.1:<any port>`, plus only the exact origins passed with `--allow-origin`. It never allows `*`, and it refuses `--allow-origin *`.
+- `authorize` checks the same list, so a request without an allowed `Origin` header (including one from `curl` without `-H "Origin: …"`) gets a 403 and never reaches Jev.
+- It answers CORS preflights for allowed origins, and exposes `retry-after`, `retry-after-ms` and `x-typesafe-request-id` to the browser.
+- It logs the method, path, status and time of each request, never the key, headers or bodies.
+- Every request it forwards is a live, billed Jev call.
+
+### The mock: `@specstory/ai-data-grid/testing`
+
+`createMockJev` is a deterministic stand-in for Jev with no network access, for tests, Storybook and local development:
+
+```ts
+import { createMockJev } from "@specstory/ai-data-grid/testing";
+
+const jev = createMockJev({
+    seed: 1,
+    latencyMs: 300,
+    rules: [{ instructions: /own a budget/, answer: { type: "noul", noul: 0.92 } }],
+    errors: [{ kind: "rate-limit", calls: [0], retryAfterMs: 2000 }],
+});
+
+const aiFill = { ...config, connection: jev.connection }; // or { mode: "endpoint", url: "/api/jev", fetch: jev.fetch }
+```
+
+| Option | Meaning | Default |
+|---|---|---|
+| `rules` | `MockJevRule[]`. Each matches on any of `questionId` (AI Fill sends `q0`, `q1`, … per request), `type`, `instructions` (a string or RegExp; for a column with `context`, the inner instructions) and `state` (a predicate, or a RegExp tested against its canonical JSON), and gives an `answer` or a function returning one. The first rule that answers wins. | none |
+| `fixtures` | Recorded `{ request, response }` pairs, replayed when a request's `state` and `questions` are equal. Use synthetic data only. | none |
+| `latencyMs` | A number, or a function of the `MockJevCall`. It uses timers, so fake timers control it. | `0` |
+| `errors` | Errors to inject, each `{ kind, calls?, times?, retryAfterMs?, message? }`. `kind` is `authentication` (401), `configuration` (400), `invalid-request` (422), `input-too-large` (413), `rate-limit` (429), `overloaded` (529), `server-error` (500), `network` (the connection drops), `timeout` (never answers), `malformed` (a wrong answer type) or `evaluation` (answers left out). `calls` lists the 0-based call indexes it applies to (default every call), and `times` caps how often. | none |
+| `seed` | Changes every generated answer | `0` |
+| `model` | The model id reported, or a function of the requested one | `jev-mock-1.0.0` for `jev-latest` and `jev-preview`, otherwise the requested id |
+
+A question no rule answers gets a generated answer. Generated answers depend only on the seed, the state and the question (not on call order or question ids), and always pass `parseJevAnswer`: Choice probabilities sum to 1 and the choice is the most probable option, a Score is the probability-weighted position with a legend, and a Noul is in [0, 1].
+
+The returned `MockJev` has `connection` (`{ mode: "custom", send }`), `send`, `fetch`, `calls` and `reset()`. Its `fetch` behaves like Jev for URLs ending in `/v1/systemone` (it needs an `Authorization` header) and like an endpoint built with `createJevHandler` for any other URL. `calls` logs every call as a `MockJevCall`: its `index`, `via` (`send` or `fetch`), `url`, `authorized` (whether an `Authorization` header was sent; its value is never recorded), `request`, `startedAt`, `status` (`pending`, `answered`, `failed` or `aborted`), `httpStatus`, the injected `error` kind and the `response`.
+
+### Models
+
+The model in the configuration (the grid's `model`, or a column's) is sent to Jev as given, and no model version is hard-coded. The versioned id that answered, for example `jev-1.13.0` for a `jev-latest` request, is kept with every answer (`answer.model`) and reported in result metadata as `model`, next to `requestedModel`.
+
+## Execution and errors
+
+This section describes how AI Fill runs fills once the `aiFill` prop arrives. The engine is internal, and its settings are the `execution` options in `AIFillConfig`.
+
+### What starts a request
+
+Only an explicit fill, retry or re-run starts inference: a menu item, a shortcut, a confirm dialog or app code. Painting, scrolling, sorting, filtering, selecting and opening a suggestion never send a request.
+
+### Planning a fill
+
+Before anything is sent, a fill works out which cells it evaluates and which it skips, and why:
+
+| Skip reason | When |
+|---|---|
+| `unloaded` | The row is gone, or the destination is a loading cell |
+| `read-only` | The destination isn't editable, or is `readonly` |
+| `not-applicable` | The column is disabled by a configuration issue, its `fillScopes` doesn't include the scope, or `applies` returned false |
+| `populated` | The destination isn't empty by `isEmpty`, and the scope or `overwrite` doesn't allow evaluating it (only `selection` with `overwrite: "suggest"` or `"apply"`, and `column` with `"apply"`, do) |
+| `missing-input` | `missingInput` is `"skip"` (the default) and `isMissing` is true |
+| `cached` | The cell already has a suggested, review or withheld result for the same question, input and model |
+
+A fill is refused with a `configuration` error, before any request, when the configuration has a grid-level issue or the fill covers more than `maxCellsPerRun` cells. A `state` accessor that throws gives that cell a `configuration` error.
+
+### Requests, the cache and dedup
+
+- **One row per request.** Rows are never packed together.
+- **Columns share requests.** A row's AI columns whose state (as canonical JSON) and model are identical go into one request, one question per column, with the ids `q0`, `q1`, …. Groups are split into chunks of `maxQuestionsPerRequest` (default 16).
+- **Size.** A state longer than `maxStateChars` (default 60000) characters of JSON is an `input-too-large` error for that cell, before anything is sent.
+- **Cache.** Answers are cached (up to `cacheSize`, default 5000, least recently used first out) by row id, column id, question fingerprint, input fingerprint and requested model. A repeated fill of the same cell, for example after a reject, is answered from the cache with no request.
+- **Dedup.** A cell whose identical request is already in flight joins it instead of sending another.
+
+### Scheduling, limits and retries
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `concurrency` | 4 | Requests in flight at once. Never exceeded. |
+| `maxRequestsPerMinute` | 600 | A token bucket, with bursts of up to one second's worth (at least one) |
+| `timeoutMs` | 15000 | The timeout for each attempt |
+| `maxRetries` | 2 | Retries after the first attempt, for retryable failures only |
+| `backoff` | 500 ms → 5 s, jitter 0.25 | The delay doubles from `initialMs` up to `maxMs`, minus up to `jitter` of it at random |
+
+- **Retried:** network errors, timeouts, and HTTP 408, 429, 500–599 and 529. **Never retried:** 400, 401, 403, 404, 413 and 422.
+- **Server delays.** A `retry-after-ms` or `Retry-After` header (or the endpoint body's `retryAfterMs`) of up to 60 s is honored instead of the backoff. A longer one falls back to the backoff.
+- **Rate limits.** A 429 or 529 that is still failing after the retries fails that request's cells with a retryable `rate-limit` or `overloaded` error, and pauses the whole queue for the server's delay (or `backoff.maxMs` when there is none), at most 60 s.
+- **Authentication.** A 401 or 403 aborts the whole run: one `authentication` error goes to `onError`, listing every unfinished cell, and no further request is made for the run.
+- **Partial success.** Every cell settles on its own. Cells that succeeded keep their results when others fail, and a retry re-runs only the failed cells, with the scope and mode they had.
+- **Committing once.** A result is written at most once. A second commit of the same result is refused and reported as `commit-blocked`, so a retry or a repeated accept can't write twice.
+
+### Cancellation, late and out-of-order responses
+
+- **Cancel** drops the run's queued requests, aborts its in-flight requests (unless another run is waiting on the same request), and puts its cells back to the result they had before. The run ends with `cancelled: true`.
+- **Late responses are ignored.** Every request for a cell gets a new sequence number, and a response settles a cell only when it belongs to the latest request for that row id and column id, from the same run. So a cancelled request, an older request that arrives after a newer one, or a retry can never attach its answer to a different cell, or overwrite a newer request's result.
+- **Checked again on arrival.** When an answer arrives, the row's input is fingerprinted again and the destination compared with its value at request time. If the input changed (a source was edited, or the data changed outside the grid), the answer is stored as `stale`. If the destination changed, it is also marked `manual`. Neither is ever committed.
+- **Deleted rows.** If the row is gone when an answer arrives, the result is dropped and `onResult` reports it with status `cancelled` and `reason: "row-missing"`. Rows are found by id, never by display position, so sorting or filtering while a request is pending can't move a result to another row.
+
+### Re-evaluation without a request
+
+Changing a column's `policy`, `output` (including `format`, labels and values), `presentation` or `decide` re-decides its stored answers synchronously, with no request. Changing its instructions, context, options, levels, criteria, sources or model, or the grid's `model`, marks its results `stale` instead; they need an explicit re-run. Removing a column drops its results. Marking a result stale never starts a request by itself.
+
+### Errors
+
+Every `AIFillError` has a `kind`, a `message` and `retryable`, plus `httpStatus` and `requestId` (the `x-typesafe-request-id` header) where they apply, and the affected `cells` (or `columnId` for a column-level error). Errors never erase data.
+
+| Kind | Scope | Retryable | Produced by |
+|---|---|---|---|
+| `configuration` | Run, column or cell | no | An invalid configuration, direct mode in a browser without `dangerouslyAllowBrowser`, a fill over `maxCellsPerRun`, a throwing `state` accessor or `connection.headers()`, HTTP 400, 404 and 405, and an endpoint's 500 `server_configuration` |
+| `authentication` | Run | no | HTTP 401 and 403. Aborts the run. |
+| `rate-limit` | Cells | yes | HTTP 429 after the retries |
+| `overloaded` | Cells | yes | HTTP 529 and 503 after the retries |
+| `timeout` | Cells | yes | No response within `timeoutMs`, and HTTP 408 and 504, after the retries |
+| `network` | Cells | yes | The request couldn't be sent or the connection failed, and other 5xx statuses. In direct mode in a browser, the message points to endpoint mode. |
+| `invalid-request` | Cells | no | HTTP 422 (with Jev's `detail`) and other 4xx statuses |
+| `input-too-large` | Cells | no | A state over `maxStateChars`, and HTTP 413 |
+| `evaluation` | Cells | yes | The response has no answer for the cell's question id |
+| `malformed` | Cells | no | The answer fails `parseJevAnswer`, or the body isn't JSON or has no `answers` |
+| `type-mismatch` | Cells | no | The mapped value doesn't fit the destination cell |
+| `policy-callback` | Cells | no | `decide` threw or returned something invalid |
+| `commit-blocked` | Cells | no | A result that was already committed would be written again |
+
+### Callbacks
+
+| Callback | When |
+|---|---|
+| `onRunStart({ runId, columnIds, cells, apply })` | A run starts. `cells` counts the cells it evaluates. |
+| `onRunProgress({ runId, done, total })` | After each cell settles |
+| `onResult(event)` | For every settled cell: suggested, review, withheld, error and stale results, and `row-missing` drops. The event carries the result metadata: `runId`, `rowId`, `columnId`, `requestedModel`, `model`, the short `questionFingerprint` and `inputFingerprint`, the `answer`, and `timings` (`queuedAt`, `sentAt`, `receivedAt`). Re-evaluation after a configuration change doesn't call it. |
+| `onRunEnd(summary)` | The run ends, including when cancelled: `{ runId, cancelled, counts, skipped }`, with `counts` by status and `skipped` by reason |
+| `onError(error)` | Once per failed request (once per run for `authentication`), and for each cell error. A `decide` that returns `apply` for a column without `autoApply` is reported once per column. |
+| `onReject({ cells })` | Results are rejected. Nothing is written. |
+| `onCommit({ commitId, source, edits })` | Results are written, with each edit's previous and next cell and its metadata |
+
+A callback that throws doesn't stop AI Fill. The error is rethrown asynchronously, so it still shows up in the console.
+
 ## Exports
 
-Everything is exported from `@specstory/ai-data-grid`. Every AI Fill export name contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`.
+AI Fill has three entry points:
+
+| Entry | Contents |
+|---|---|
+| `@specstory/ai-data-grid` | The functions and types below. Every AI Fill export name here contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`. |
+| `@specstory/ai-data-grid/server` | `createJevHandler`, `toNodeListener`, and their types `JevHandlerOptions` and `JevNodeListener` (see [The server helper](#the-server-helper)) |
+| `@specstory/ai-data-grid/testing` | `createMockJev`, and its types `MockJev`, `MockJevOptions`, `MockJevRule` and `MockJevCall` (see [The mock](#the-mock-specstoryai-data-gridtesting)) |
+
+From `@specstory/ai-data-grid`:
 
 | Export | What it does |
 |---|---|
@@ -1631,6 +1876,6 @@ Everything is exported from `@specstory/ai-data-grid`. Every AI Fill export name
 | `evaluateAIPolicy({ definition, answer, context, mode? })` | Runs mapping, the gates and `decide` on a parsed answer, and returns the status with its `AIPolicyDecision` and output, or an error. It makes no request. |
 | `isAIDestinationEmpty(cell)` | The default emptiness check for destination cells. `0` and `false` are values, not empty. |
 
-The types cover the Jev contract (`JevRequest`, `JevResponse`, `JevQuestion`, `JevAnswer` and the per-primitive `JevChoice*`, `JevScore*` and `JevNoul*` types), the parsed answers (`ChoiceAnswer`, `ScoreAnswer`, `NoulAnswer`), the configuration (`AIFillConfig`, `AIColumnDefinition` and its per-primitive parts), and the results (`AIPolicyDecision`, `AIMappedOutput`, `AIFillError`, and the result, run, commit and reject events). Each has TSDoc.
+The types cover the Jev contract (`JevRequest`, `JevResponse`, `JevQuestion`, `JevAnswer` and the per-primitive `JevChoice*`, `JevScore*` and `JevNoul*` types), the endpoint contract's error body (`JevEndpointErrorBody`), the parsed answers (`ChoiceAnswer`, `ScoreAnswer`, `NoulAnswer`), the configuration (`AIFillConfig`, `AIColumnDefinition` and its per-primitive parts), and the results (`AIPolicyDecision`, `AIMappedOutput`, `AIFillError`, and the result, run, commit and reject events). Each has TSDoc.
 
-Tests never call Jev. They live in `packages/core/test/ai-fill/` and run with core's `npm test -- --run` (the bundle-budget test needs `npm run build` first).
+Tests never call Jev: they use `createMockJev` or a fake transport, and a guard installed by core's `vitest.setup.ts` fails any test that sends a request to `*.typesafe.ai`. They live in `packages/core/test/ai-fill/` and run with core's `npm test -- --run` (the bundle-budget and `/server` load tests need `npm run build` first).

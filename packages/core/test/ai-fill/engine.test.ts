@@ -422,6 +422,7 @@ describe("failures", () => {
         expect(e.getRecord("r1", "persona")?.error?.kind).toBe("policy-callback");
         // The label "Yes" can't be written into a boolean cell.
         expect(e.getRecord("r1", "ownsBudget")?.error).toMatchObject({ kind: "type-mismatch", retryable: false });
+        expect(events.errors.map(error => error.kind).sort()).toEqual(["policy-callback", "type-mismatch"]);
     });
 
     it("keeps partial successes, retries only the failed cells, and never commits twice", async () => {
