@@ -95,7 +95,7 @@ function getData([col, row]: Item): GridCell {
 
 ## AI Fill
 
-AI Fill adds AI-filled columns to a grid in configuration alone, powered by [Jev](https://docs.typesafe.ai) (TypeSafe's Choice, Score and Noul). You describe each AI column's question and how answers become cell values; AI Fill fills the cells you ask it to, shows suggestions in the grid, and writes only what is accepted (or what your "Fill and apply" rules allow), through your own edit handlers, so `validateCell` and `useUndoRedo` keep working. It is still in development: the built-in menus and dialogs arrive in a later release, and fills start from `ref.current.aiFill`.
+AI Fill adds AI-filled columns to a grid in configuration alone, powered by [Jev](https://docs.typesafe.ai) (TypeSafe's Choice, Score and Noul). You describe each AI column's question and how answers become cell values; AI Fill fills the cells you ask it to, shows suggestions in the grid, and writes only what is accepted (or what your "Fill and apply" rules allow), through your own edit handlers, so `validateCell` and `useUndoRedo` keep working. It is still in development: the built-in menus and dialogs arrive in a later release, and fills start from `ref.current.aiFill` (or the Mod+Alt+F shortcut).
 
 Turn it on with one prop. Without `aiFill`, the grid is unchanged and no AI code loads:
 

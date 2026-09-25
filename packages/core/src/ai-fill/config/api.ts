@@ -19,7 +19,8 @@ import type {
  * - `{ column, filter }`: the cells of one AI column that hold a result.
  *   `eligible` is the `suggested` results, `review` the `review` results, and
  *   `all` both. `accept` with `eligible` is "Accept all eligible", which never
- *   includes `review` results.
+ *   includes `review` results. The filter applies to every method, so
+ *   `retry` and `rerunStale` find nothing to re-run with a column target.
  */
 export type AIFillTarget =
     | { readonly cells: readonly (readonly [AIRowId, AIColumnId])[] }
@@ -146,8 +147,9 @@ export interface AIFillApi {
     rerunStale(target?: AIFillTarget): AIFillRun;
     /**
      * Writes a commit's previous values back, by row id, through the same batch
-     * path. A cell whose value changed since the commit, whose row is gone or
-     * that is now read-only is left alone. Returns how many cells were restored.
+     * path. A cell whose value changed since the commit, whose row is gone,
+     * that is now read-only or whose old value `validateCell` rejects is left
+     * alone. Returns how many cells were restored.
      */
     revertCommit(commitId: string): number;
     /** What AI Fill knows about one cell, or `undefined` when the cell has no result. Never sends a request. */
@@ -157,8 +159,9 @@ export interface AIFillApi {
     /**
      * Tells AI Fill that rows changed outside the grid's edit handlers. Their
      * results are re-fingerprinted: a changed input marks a result stale, and a
-     * row that is gone drops its result. Commits always re-check, whether or
-     * not this is called.
+     * row that is gone drops its decided results. A row that is filtered out
+     * counts as gone, so call it while a filter is on only for rows that are
+     * displayed. Commits always re-check, whether or not this is called.
      */
     notifyRowsChanged(rowIds?: readonly AIRowId[]): void;
     /**
