@@ -21,14 +21,16 @@ None of them is published to npm yet.
 
 ### Build outputs
 
-Each package's `build.sh` uses `config/build-util.sh`:
+**core and cells.** Their `build.sh` calls `compile` and `generate_index_css` from `config/build-util.sh`:
 
-1. `tsc` compiles `esm` and `cjs` in parallel into `dist/esm-tmp` and `dist/cjs-tmp`, with declarations into a shared `dist/dts-tmp`.
+1. `tsc` compiles `esm` and `cjs` in parallel into `dist/esm-tmp` and `dist/cjs-tmp`. Both runs write declarations into the same `dist/dts-tmp`.
 2. `wyw-in-js` extracts the Linaria styles into per-module `.css` files, and the `import "*.css"` lines are then removed from the JS.
-3. The tmp directories replace `dist/esm`, `dist/cjs` and `dist/dts`.
+3. The tmp directories replace `dist/esm`, `dist/cjs` and `dist/dts` (the esm run moves `dts-tmp`), and the `tsconfig.*.tsbuildinfo` files are deleted.
 4. `generate_index_css` writes `dist/index.css`, which `@import`s every extracted `.css` file.
 
-So consumers must import `dist/index.css` themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles. `source` has no CSS. Entry points: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`.
+**source.** `packages/source/build.sh` doesn't use `compile`. It runs `rm -rf dist`, then `tsc -p tsconfig.esm.json` and `tsc -p tsconfig.cjs.json` in parallel, straight into `dist/esm` and `dist/cjs`. Both configs set `declarationDir` to `dist/dts`, so both runs write declarations there. There is no tmp directory, no `wyw-in-js` step and no CSS. The output is `dist/esm`, `dist/cjs`, `dist/dts` and the two `tsconfig.*.tsbuildinfo` files, which are left in `dist/`.
+
+Because the JS doesn't import any CSS, consumers must import it themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles. `source` has no `dist/index.css` and needs no CSS import. Entry points, the same in all three packages: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`.
 
 ### What ships in each tarball (`npm pack --dry-run`)
 
@@ -125,7 +127,7 @@ WP3 adds no files to the repository. Everything is Vercel project configuration,
 
 - **React peer range is still 16.12–19** at this stage, while the 7.0.0 CHANGELOG section already says React 19 is required. WP2 narrows the range to `^19.0.0`.
 - **`@glideapps/ts-helper` is still a core devDependency** (with its dependencies `@glideapps/graphs` and `@glideapps/ts-necessities` in the lockfile). It's the external tool behind `cycle-check`, not shipped code.
-- **Emitted `.d.ts` files aren't byte-for-byte reproducible.** The `//# sourceMappingURL` trailer varies between builds because the parallel esm and cjs compiles share `dist/dts-tmp`. Pre-existing.
+- **Emitted `.d.ts` files aren't byte-for-byte reproducible, in all three packages.** The parallel esm and cjs `tsc` runs write the same declaration directory: `dist/dts-tmp` in core and cells, `dist/dts` in source. Whichever run finishes last wins, so the `//# sourceMappingURL` trailer is present in some builds and missing in others. In repeated builds on 2026-09-25 the number of `.d.ts` files with the trailer varied: core 40, 87 and 0 of 87; cells 0, 17, 17, 5 and 0 of 17; source's `index.d.ts` had it in 1 of 4 builds. Pre-existing.
 - **Failing `Vercel` status on PRs without `docs/`.** The docs Vercel project (WP4) builds every branch, and fails on branches that don't contain `docs/`. It stops once WP4 is on `main` and branches have merged it.
 - **The Storybook project fails on `spst-3-docs` (PR #11).** That branch still has the fork-point lockfile, which `npm ci` rejects. It clears when WP4 merges `main` after WP1.
 - **The Storybook ignore step compares only `HEAD^` and `HEAD`.** A branch push of several commits whose last commit touches only `docs/` skips the preview, even if earlier commits changed code. Push another commit or redeploy by hand. Production isn't affected: `main` moves only by merge commits, whose `HEAD^` is the previous `main`.

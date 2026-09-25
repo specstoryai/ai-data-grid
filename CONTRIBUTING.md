@@ -35,7 +35,7 @@ Run these from the root. CI runs the first five.
 | Command | What it does |
 | --- | --- |
 | `npm ci` | Clean install from the root lockfile. |
-| `npm run build` | Builds all three packages (`dist/esm`, `dist/cjs`, `dist/dts`, `dist/index.css`), then lints them (ESLint, plus a `cycle-check` for import cycles in core). Two existing `no-console` warnings are expected; errors fail. |
+| `npm run build` | Builds all three packages into `dist/esm`, `dist/cjs` and `dist/dts`, plus `dist/index.css` for core and cells (source has no CSS), then lints them (ESLint, plus a `cycle-check` for import cycles in core). Two existing `no-console` warnings are expected; errors fail. |
 | `npm test -- --run` | Core unit tests (vitest), run once. Without `--run` vitest watches. |
 | `npm run test-cells -- --run` | Cells unit tests. |
 | `npm run test-source -- --run` | Source unit tests. |
