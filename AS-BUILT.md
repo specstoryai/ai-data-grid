@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-8, the Documenter step for SPST-2 / PR #12)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1). React 19 only (WP2), hosted Storybook (WP3) and the docs site (WP4) are documented when they land.
+**Last updated:** 2026-09-25 (SPST-11, the Documenter step for SPST-5 / PR #13)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, SPST-2 / PR #12), and Storybook hosting on Vercel (WP3, SPST-5 / PR #13). React 19 only (WP2) and the docs site (WP4) are documented when they land.
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -82,11 +82,44 @@ This is unchanged from upstream apart from the names.
 - Storybook 9 with `@storybook/react-vite` (`.storybook/main.cjs`), stories from `**/src/**/*.stories.tsx`, Linaria through `@wyw-in-js/vite`.
 - `npm start` runs `storybook dev -p 9009 --no-open` together with a core watcher. The dev server listens on all interfaces.
 - `npm run build-storybook` builds the packages, then a static Storybook into `storybook-build/` (113 stories). The `MoreInfo` styled component exported from `packages/source/src/stories/use-data-source.stories.tsx` is kept out of the story list with `excludeStories`.
-- Not hosted anywhere yet.
+- Hosted on Vercel; see [Storybook hosting (Vercel)](#storybook-hosting-vercel).
 
 ### Smoke test
 
 `scripts/smoke-storybook.mjs` (`npm run smoke-storybook`) serves `storybook-build/` on `127.0.0.1` at a random port with a small `node:http` server, reads the story ids from `index.json`, opens each story's iframe in headless Chromium (Playwright, a root devDependency) and waits 1.5 s. A story fails when it logs a console error or page error that no substring in `errorAllowlist[storyId]` matches, or when it has no `<canvas>` and isn't in `noCanvasAllowlist`. `FIXED?` flags allowlist entries whose errors no longer occur. The allowlist has 8 entries: one image-cell demo with an undefined URL (404) and seven test-case stories that hotlink an Imgur image (403). Current result: 113 visited, 8 known, 0 unexpected, 0 without a canvas. It isn't run in CI.
+
+## Storybook hosting (Vercel)
+
+WP3 adds no files to the repository. Everything is Vercel project configuration, created through the Vercel API on 2026-09-25. Values below are as the Vercel API (`GET /v9/projects/<id>`) reports them.
+
+| Setting | Value |
+| --- | --- |
+| Project | `ai-data-grid-storybook` (`prj_9YwVKakzRDEptjSQguhJXWeLmm6f`) |
+| Team | `spec-story` (`team_jCkRTurzFOHzHP9Lwuyat5Dr`) |
+| Git connection | GitHub `specstoryai/ai-data-grid`, production branch `main` |
+| Root Directory | repo root (`rootDirectory: null`) |
+| Framework | Other (`framework: null`) |
+| Node.js | `24.x` |
+| Install Command | `npm ci` |
+| Build Command | `npm run build-storybook` |
+| Output Directory | `storybook-build` |
+| Deployment protection | Standard Protection (`ssoProtection.deploymentType: all_except_custom_domains`), no password protection |
+| Protection bypass | One *Protection Bypass for Automation* secret (scope `automation-bypass`) |
+
+- **URLs.** Production: https://ai-data-grid-storybook.vercel.app. Branch previews: `https://ai-data-grid-storybook-git-<branch>-spec-story.vercel.app`, plus a per-deployment URL. Production returns 404 until the first `main` build, which happens when WP1 and WP3 have merged.
+- **Deploys.** Every branch push builds a preview; a push to `main` (a PR merge commit) deploys production. The Vercel GitHub app posts the `Vercel – ai-data-grid-storybook` status on each commit.
+- **No root `vercel.json`.** WP4's docs site has its own Vercel project (`ai-data-grid-docs`, Root Directory `docs`) with a `docs/vercel.json`. Keeping the Storybook settings in project config means no repo file is shared between the two projects.
+- **Ignored Build Step** (project setting `commandForIgnoringBuildStep`), verbatim:
+
+    ```sh
+    git diff --quiet HEAD^ HEAD -- . ":(exclude)docs" 2>/dev/null && ! git diff --quiet HEAD^ HEAD -- docs 2>/dev/null
+    ```
+
+    Vercel skips the build when the command exits 0. That happens only when the latest commit changes files and all of them are under `docs/`. Commits that touch anything outside `docs/`, mixed commits and empty commits build, as do branches without `docs/` and first deploys with no `HEAD^` (the `git diff` fails, so the command exits non-zero). The command is compact because Vercel caps the setting at 256 characters.
+- **Protection.** The production `*.vercel.app` alias is public. Preview URLs redirect (302) to the Vercel login unless the viewer is logged in with access to the team, or the request carries the `x-vercel-protection-bypass` header with the automation secret. The secret lives only in the Vercel project; it isn't in the repository, CI or any PR.
+- **CLI fallback.** If the git connection is lost: `vercel link` to the project, then `vercel build` and `vercel deploy --prebuilt` (`--prod` on both for production). Not used so far.
+- **Build.** About 75–80 s on Vercel (`npm ci` takes most of it), about 12 MB of static output.
+- **Smoke test.** `scripts/smoke-storybook.mjs` serves only a local `storybook-build/`; it takes no URL or bypass header. The WP3 preview was checked with an ad-hoc variant of the same allowlist logic plus the bypass header: 113 stories, 0 unexpected failures.
 
 ## Known limitations and risks
 
@@ -94,6 +127,9 @@ This is unchanged from upstream apart from the names.
 - **`@glideapps/ts-helper` is still a core devDependency** (with its dependencies `@glideapps/graphs` and `@glideapps/ts-necessities` in the lockfile). It's the external tool behind `cycle-check`, not shipped code.
 - **Emitted `.d.ts` files aren't byte-for-byte reproducible.** The `//# sourceMappingURL` trailer varies between builds because the parallel esm and cjs compiles share `dist/dts-tmp`. Pre-existing.
 - **Failing `Vercel` status on PRs without `docs/`.** The docs Vercel project (WP4) builds every branch, and fails on branches that don't contain `docs/`. It stops once WP4 is on `main` and branches have merged it.
+- **The Storybook project fails on `spst-3-docs` (PR #11).** That branch still has the fork-point lockfile, which `npm ci` rejects. It clears when WP4 merges `main` after WP1.
+- **The Storybook ignore step compares only `HEAD^` and `HEAD`.** A branch push of several commits whose last commit touches only `docs/` skips the preview, even if earlier commits changed code. Push another commit or redeploy by hand. Production isn't affected: `main` moves only by merge commits, whose `HEAD^` is the previous `main`.
+- **Storybook project settings aren't in the repository.** Changes to them don't show up in PRs or git history; this file is the record.
 - **`test-projects/`, `test-18`, `test-19`, `test-projects` script.** `test-projects/` is broken and still uses the old package names. `test-18`/`test-19` reinstall React and Testing Library with `npm i -D`, rewriting `package.json` and the lockfile. WP2 removes or replaces them.
 - **The core tarball ships source, tests and stories** because core has no `files` field (see above).
 - **`.devcontainer/` is stale.** It pins a Node 14 image and runs a `.devcontainer/run.sh` that doesn't exist. It isn't documented as a way to work on the repo.
@@ -117,11 +153,18 @@ This is unchanged from upstream apart from the names.
 | 2026-09-25 | SPST-2 / PR #12 | Add a Playwright Storybook smoke test with a per-story allowlist, and keep it out of CI. | It catches runtime errors in every story. Some stories load third-party images, which makes it too flaky for CI. |
 | 2026-09-25 | SPST-2 / PR #12 | Keep `@glideapps/ts-helper` as a core devDependency for `cycle-check`. | It's a build tool, not shipped code or branding, and there is no drop-in replacement yet. |
 | 2026-09-25 | SPST-8 | The package READMEs, which ship in the tarballs, don't link to images, a hosted Storybook or a docs site. | The repository is private, so its images and links don't resolve for npm users, and neither hosted site exists yet. |
+| 2026-09-25 | SPST-6, SPST-5 / PR #13 | Host Storybook as its own Vercel project, `ai-data-grid-storybook`, git-connected to the repo with production branch `main`, rather than deploying from the CLI. | Previews for every branch and production on merge with no CI publish step (CI stays tests-only). The Vercel GitHub app already had access to the repo. |
+| 2026-09-25 | SPST-5 / PR #13 | Keep all Storybook build settings in the Vercel project config, with no root `vercel.json`. | Nothing in the repo can collide with WP4's `docs/vercel.json` and its separate docs project. |
+| 2026-09-25 | SPST-5 / PR #13 | Skip builds with a compact Ignored Build Step that exits 0 only when the latest commit changes files and all are under `docs/`. | Vercel limits the setting to 256 characters. Requiring a change under `docs/` makes empty commits and branches without `docs/` still build. |
+| 2026-09-25 | SPST-6 (assumption A5), SPST-5 / PR #13 | Use Vercel's default Standard Protection: public production URL, protected previews, plus a Protection Bypass for Automation secret for verification. | The Storybook is meant to be public, previews of unmerged work are not. The bypass lets automated checks reach previews without sharing a login. |
+| 2026-09-25 | SPST-11 | Link the hosted Storybook from the root README only. The package READMEs stay unchanged. | The package READMEs don't point readers to examples or demos, and the production URL serves only after the merge. |
 
 ## Open follow-ups
 
 - React 19 only: peer range `^19.0.0`, and remove or replace `test-projects/`, `test-18` and `test-19` (WP2, SPST-4).
-- Deploy Storybook to Vercel and link it from the READMEs (WP3, SPST-5).
+- Production Storybook goes live at https://ai-data-grid-storybook.vercel.app on the first `main` build after WP1 and WP3 merge. Check that it serves then.
+- Optionally make the Storybook ignore step compare against `VERCEL_GIT_PREVIOUS_SHA` instead of `HEAD^`, so multi-commit pushes ending in a docs-only commit still build.
+- Optionally let `scripts/smoke-storybook.mjs` target a deployed URL (with the bypass header read from the environment), so previews can be smoke-tested without an ad-hoc script.
 - Docs site (WP4, SPST-3), then link it from the READMEs.
 - Rename the `glide-*` runtime identifiers in 8.0.
 - Fix the 43 `npm audit` findings.

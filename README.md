@@ -102,6 +102,10 @@ function getData([col, row]: Item): GridCell {
 }
 ```
 
+## Demos and examples
+
+The Storybook at https://ai-data-grid-storybook.vercel.app has live demos of the grid, the extra cells and the data source hooks. It is built from `main`, so it shows the latest unreleased code. You can also run it locally from a clone (see [CONTRIBUTING.md](CONTRIBUTING.md#running-storybook)).
+
 ## Full API documentation
 
 The API reference, including the HTML/CSS prerequisites, is in [packages/core/API.md](packages/core/API.md).

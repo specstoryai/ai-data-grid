@@ -62,6 +62,42 @@ This runs Storybook's dev server on port 9009 together with a watcher that rebui
 
 To serve the production build instead: `npm run prod-storybook` (builds, then serves `storybook-build/` on port 9009).
 
+## Hosted Storybook (Vercel)
+
+Storybook is hosted on Vercel as the project `ai-data-grid-storybook` in the SpecStory team (`spec-story`). Production is https://ai-data-grid-storybook.vercel.app.
+
+### How deploys happen
+
+The project is git-connected to `specstoryai/ai-data-grid`, so there is nothing to run by hand:
+
+- **Every push to a branch builds a preview**, at `https://ai-data-grid-storybook-git-<branch>-spec-story.vercel.app`. On a PR it shows up as the `Vercel – ai-data-grid-storybook` check, with a link to the preview.
+- **A push to `main` deploys production.** In practice that's a PR merge commit.
+- Build settings: Root Directory = repo root, Framework = Other, Node 24.x, Install `npm ci`, Build `npm run build-storybook`, Output `storybook-build`. A build takes about 80 s.
+- **Settings live in the Vercel project, not in the repo.** There is no root `vercel.json`. Change them in the Vercel dashboard (Project → Settings) and record the change in [AS-BUILT.md](AS-BUILT.md#storybook-hosting-vercel).
+- **Docs-only commits are skipped.** The project's Ignored Build Step skips the build when the latest commit changes only files under `docs/` (the docs site, which is its own Vercel project). Empty commits and commits touching anything else build.
+- **Known limitation:** the ignore step compares only `HEAD^` with `HEAD`. If you push several commits at once and the last one touches only `docs/`, Vercel skips the preview even though earlier commits changed code. Push another commit or redeploy by hand. Production isn't affected, because `main` only moves by merge commits.
+
+### How to redeploy
+
+You need access to the `spec-story` Vercel team.
+
+- Push a commit to the branch (an empty commit works: `git commit --allow-empty -m "Redeploy Storybook"`).
+- Or open the deployment in the Vercel dashboard and use **Redeploy**.
+- Fallback if the git connection is lost: with the Vercel CLI and a project linked to `ai-data-grid-storybook` (`vercel link`), run `vercel build` and then `vercel deploy --prebuilt` (add `--prod` to both for production). Don't deploy production by hand without the maintainer's approval.
+
+### Previews are protected
+
+The production URL is public. Preview URLs use Vercel's default Standard Protection: without a Vercel login that can see the `spec-story` team they redirect to the Vercel login page.
+
+- **In a browser:** log in to Vercel with an account in the team.
+- **From automation** (for example a verification script): send the header `x-vercel-protection-bypass: <secret>`. The secret is the project's *Protection Bypass for Automation*, under Project → Settings → Deployment Protection (or from the Vercel API). Never commit it, log it, or post it in a PR or issue. In browser tools, send the header to the preview origin only: sent to every origin, it turns requests to third parties such as Google Fonts into CORS preflights that fail.
+
+`npm run smoke-storybook` only tests a local `storybook-build/`. It can't target a deployed URL or send the bypass header.
+
+### Known status noise
+
+Until the docs site (WP4) is on `main` and your branch has merged it, the docs Vercel project `ai-data-grid-docs` posts a failing `Vercel – ai-data-grid-docs` status on every branch without a `docs/` directory. Ignore it. No status checks are required on `main`.
+
 ## Versioning
 
 `update-version.sh` sets one version everywhere: the root and all three `package.json` files, and the `@specstory/ai-data-grid` dependency of `cells` and `source`. It needs `jq`, and it doesn't touch `package-lock.json`.
@@ -107,7 +143,7 @@ Each package has a `test/public-api-exports.test.ts`. It reads the package's `sr
 npm ci → npm run build → npm test -- --run → npm run test-cells -- --run → npm run test-source -- --run
 ```
 
-CI only tests. There are no publish, release, Pages or Dependabot workflows. Storybook build and the smoke test are not in CI; run them locally when you touch stories, Storybook config or rendering.
+CI only tests. There are no publish, release, Pages or Dependabot workflows. Storybook build and the smoke test are not in CI; run them locally when you touch stories, Storybook config or rendering. Vercel builds Storybook separately on every push (see [Hosted Storybook](#hosted-storybook-vercel)), but it doesn't run the smoke test.
 
 ## Scripts not to use
 
