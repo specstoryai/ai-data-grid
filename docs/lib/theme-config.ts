@@ -33,7 +33,7 @@ export const siteConfig = {
       '© 2026 ai-data-grid contributors. Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed.',
     links: [
       { label: 'GitHub', href: 'https://github.com/specstoryai/ai-data-grid' },
-      { label: 'License', href: 'https://github.com/specstoryai/ai-data-grid/blob/main/LICENSE' },
+      { label: 'License', href: '/docs/about' },
     ],
   },
 }
