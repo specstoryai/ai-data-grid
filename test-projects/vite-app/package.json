@@ -10,6 +10,7 @@
     },
     "dependencies": {
         "@specstory/ai-data-grid": "file:../.packs/specstory-ai-data-grid-7.0.0.tgz",
+        "@specstory/ai-data-grid-ai": "file:../.packs/specstory-ai-data-grid-ai-7.0.0.tgz",
         "@specstory/ai-data-grid-cells": "file:../.packs/specstory-ai-data-grid-cells-7.0.0.tgz",
         "@specstory/ai-data-grid-source": "file:../.packs/specstory-ai-data-grid-source-7.0.0.tgz",
         "lodash": "^4.17.21",
