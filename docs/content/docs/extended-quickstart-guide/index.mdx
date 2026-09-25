@@ -17,7 +17,7 @@ title: "Extended QuickStart Guide"
    ```
 
    <Note title="Not on npm yet">
-     7.0.0 hasn't been published to npm yet. Until it is, build the packages from the repository and install the tarballs, as described in the repository README's [Installing before the npm release](https://github.com/specstoryai/ai-data-grid#installing-before-the-npm-release) section.
+     7.0.0 hasn't been published to npm yet. Until it is, build the packages from source and install the tarballs instead, as described in [Building from source](#building-from-source) below.
    </Note>
 2. You may also need to install the peer dependencies if you don't have them already:
 
@@ -29,6 +29,75 @@ title: "Extended QuickStart Guide"
    ```ts
    import "@specstory/ai-data-grid/dist/index.css";
    ```
+
+### Building from source
+
+Until 7.0.0 is on npm, build the packages from a clone of the repository and install the packed tarballs into your app.
+
+**Prerequisites**
+
+* Node.js 24 (the version in the repository's `.nvmrc`; run `nvm use` if you use nvm) and npm
+* Git, with access to the [ai-data-grid repository](https://github.com/specstoryai/ai-data-grid)
+* An app on React 19 (`react` and `react-dom` `^19.0.0`). React 16, 17 and 18 are not supported.
+
+**1. Clone and build the packages**
+
+```bash
+git clone https://github.com/specstoryai/ai-data-grid.git
+cd ai-data-grid
+npm ci
+npm run build
+```
+
+`npm ci` installs from the repository's lockfile. `npm run build` builds all three packages into each package's `dist/` folder (including `dist/index.css` for the core and cells packages), then lints them. Two `no-console` lint warnings are expected; errors fail the build.
+
+**2. Pack the tarballs**
+
+```bash
+for p in core cells source; do (cd packages/$p && npm pack --pack-destination ../..); done
+```
+
+This writes three tarballs to the repository root:
+
+| Tarball | Package |
+| --- | --- |
+| `specstory-ai-data-grid-7.0.0.tgz` | `@specstory/ai-data-grid`, the grid |
+| `specstory-ai-data-grid-cells-7.0.0.tgz` | `@specstory/ai-data-grid-cells`, extra cell renderers |
+| `specstory-ai-data-grid-source-7.0.0.tgz` | `@specstory/ai-data-grid-source`, data source hooks |
+
+**3. Install them in your app**
+
+From your app's directory, install the core tarball, plus the others if you use them, in one command. `cells` and `source` depend on `@specstory/ai-data-grid` `7.0.0`, so the core tarball must be in the same command:
+
+```bash
+npm i /path/to/ai-data-grid/specstory-ai-data-grid-7.0.0.tgz \
+      /path/to/ai-data-grid/specstory-ai-data-grid-cells-7.0.0.tgz \
+      /path/to/ai-data-grid/specstory-ai-data-grid-source-7.0.0.tgz
+npm i lodash marked react-responsive-carousel
+```
+
+npm records them as `file:` dependencies in your `package.json`. Keep the tarballs where they are: `npm ci` and fresh installs of your app read them from that path.
+
+If you install the cells package, npm may warn `ERESOLVE overriding peer dependency` for `@toast-ui/react-editor`, whose article cell editor declares a `react ^17` peer. The install still succeeds and the editor works on React 19. To remove the warning, see the cells package README's [React 19 and the @toast-ui/react-editor peer warning](https://github.com/specstoryai/ai-data-grid/tree/main/packages/cells#react-19-and-the-toast-uireact-editor-peer-warning) section.
+
+Then import the CSS and use the grid as shown below:
+
+```ts
+import "@specstory/ai-data-grid/dist/index.css";
+import { DataEditor } from "@specstory/ai-data-grid";
+```
+
+**Updating to a newer commit**
+
+```bash
+cd /path/to/ai-data-grid
+git pull
+npm ci
+npm run build
+for p in core cells source; do (cd packages/$p && npm pack --pack-destination ../..); done
+```
+
+Then run the `npm i` command from step 3 again in your app. It picks up the rebuilt tarballs even though their version is still `7.0.0`.
 
 ### Getting started with data and columns
 
