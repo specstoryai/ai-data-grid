@@ -76,7 +76,7 @@
         "http-server": "^14.1.1",
         "jsdom": "^26.1.0",
         "lodash": "^4.17.21",
-        "marked": "^16.1.2",
+        "marked": "^18.0.13",
         "mini-css-extract-plugin": "^2.9.2",
         "prettier": "^3.5.3",
         "react": "^19.1.1",
