@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-7 round 4: the docs site's pre-release note, React 19 migration wording and Storybook links, PR #11 at `aca129ec`)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), and the documentation site in `docs/` (WP4, SPST-3 / PR #11).
+**Last updated:** 2026-09-25 (SPST-20: AI Fill WP-AI1, PR #16 at `df9af6f7`)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), and the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -36,7 +36,7 @@ Because the JS doesn't import any CSS, consumers must import it themselves: `@sp
 
 | Package | `files` | Contents |
 | --- | --- | --- |
-| core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 768 files: `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
+| core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 862 files at PR #16 (768 before AI Fill): `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
 | cells | `["dist"]` | 120 files: `dist/`, `LICENSE`, `README.md`, `package.json` |
 | source | `["dist"]` | 41 files: `dist/` (including two `tsconfig.*.tsbuildinfo` files), `LICENSE`, `README.md`, `package.json` |
 
@@ -61,7 +61,9 @@ This is unchanged from upstream apart from the names.
 
 ### How the API is guarded
 
-`packages/{core,cells,source}/test/public-api-exports.test.ts` build a TypeScript program for the package's `src/index.ts`, list the module's exports with the type checker, sort them, and compare them with a hard-coded `expectedExports` list taken from 6.0.4-alpha25: 151 names in core, 27 in cells, 5 in source. These add one test per package (core 388, cells 65, source 8; the baseline was 387, 64, 7). They check names only, not prop or type shapes.
+`packages/{core,cells,source}/test/public-api-exports.test.ts` build a TypeScript program for the package's `src/index.ts`, list the module's exports with the type checker, sort them, and compare them with a hard-coded `expectedExports` list taken from 6.0.4-alpha25: 151 names in core, 27 in cells, 5 in source. These added one test per package (core 388, cells 65, source 8; the baseline was 387, 64, 7). They check names only, not prop or type shapes.
+
+Since WP-AI1, core's list is `upstreamExports` (the 151 names) plus `aiFillExports` (92 names), 243 in total. A second core test checks that all 151 upstream names are kept and that every added name matches the AI Fill naming rule `/AI|Jev|^(?:Choice|Score|Noul)/` (see [AI Fill](#ai-fill-in-development)).
 
 ## License and attribution
 
@@ -264,6 +266,56 @@ Vercel project ai-data-grid-docs (team spec-story)
 - `npm run lint` in `docs/` runs `eslint .` with the flat config `docs/eslint.config.mjs`: `eslint-config-next/core-web-vitals`, ignoring `.next/`, `.source/`, `out/`, `node_modules/` and `next-env.d.ts`. No rules are disabled.
 - Root CI and the root check commands don't cover `docs/`. Vercel builds are the only automated check on it.
 
+## AI Fill (in development)
+
+AI Fill (SPST-16) is developer-configured AI filling of grid columns with Jev, TypeSafe's Choice, Score and Noul primitives. It is being built into core, `@specstory/ai-data-grid`, in five stacked PRs (WP-AI1 to WP-AI5). The design is SPST-17's plan with its Amendment 1. Only WP-AI1 (PR #16, not merged) exists so far: a pure TypeScript foundation with no network code and no React code. `DataEditor`, `data-editor-all.tsx` and `DataEditorRef` don't reference it yet, and core's `package.json` (`exports`, dependencies, `cycle-check`) is unchanged. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, marked as in development.
+
+### Module layout
+
+All paths are under `packages/core/src/ai-fill/`. Tests are in `packages/core/test/ai-fill/` (185 tests in 8 files; core also gained a second export test in `test/public-api-exports.test.ts`, for 574 in total).
+
+| Module | Contents | Public |
+| --- | --- | --- |
+| `index.ts` | Barrel of the public names, re-exported by `src/index.ts` with `export *`. | — |
+| `contract/` | Jev request, question and answer types (`types.ts`); `parseJevAnswer` (`parse-answer.ts`), which checks a raw answer against its question and returns a `ParsedJevAnswer` (`ChoiceAnswer`, `ScoreAnswer` or `NoulAnswer`) or a reason. | yes |
+| `config/` | 40 configuration types (`types.ts`), 20 result, event and error types (`results.ts`), and `validateAIFillConfig` (`validate.ts`), which returns every problem as `{ path, message, columnId? }`. | yes |
+| `identity/` | `canonicalJson`, `buildQuestion`, `questionFingerprint`, `inputFingerprint`, `cacheKey`, `resolveModel` and `shortHash`. | no |
+| `policy/` | `mapAIOutput` (`map-output.ts`), `evaluateAIPolicy` (`evaluate-policy.ts`), `isAIDestinationEmpty` and `defaultToCell` (`cells.ts`), and the commit-guard helpers (`commit-guards.ts`). | the first three |
+
+Planned layers that don't exist yet: `transport/` and `engine/` (the Jev client, scheduler and result store), `server/` and `testing/` (the `@specstory/ai-data-grid/server` and `/testing` subpaths), `react/` (the `aiFill` prop's controller, the bridge and the UI) and `stories/`.
+
+### Public API
+
+WP-AI1 adds 92 core exports (151 → 243): 5 functions (`validateAIFillConfig`, `parseJevAnswer`, `evaluateAIPolicy`, `mapAIOutput`, `isAIDestinationEmpty`) and 87 types (20 contract types, the 40 config and 20 result types, and 7 helper types: `ParseJevAnswerResult`, `AIFillConfigIssue`, `ValidateAIFillConfigOptions`, `MapAIOutputResult`, `MapAIOutputError`, `EvaluateAIPolicyInput`, `AIPolicyEvaluation`). The configuration, result and event types already describe the later layers (connection modes, execution limits, fill scopes, observers); only the functions above run in this stage.
+
+### Behaviour worth knowing
+
+- **Exact comparisons.** Gate thresholds are compared with the raw doubles from the response: `min` passes when `value >= min`, `max` when `value <= max`, with no epsilon or rounding. Display rounding never feeds a decision.
+- **Identity.** The question fingerprint is canonical JSON (sorted keys) of the question sent to Jev (type, instructions, context, criteria) plus the column's `sources`, deduplicated and sorted (`identity/fingerprints.ts`). The input fingerprint is canonical JSON of the state. The cache key is canonical JSON of `[rowId, columnId, questionFingerprint, inputFingerprint, model]`, with the full strings, not hashes. `shortHash` is 32-bit FNV-1a over UTF-16 code units, 8 hex digits, for display only.
+- **Validation** (`config/validate.ts`) reports, among others: 2–255 Choice options, 2–10 Score levels, overlapping gates (`show` ≤ `ready` ≤ `autoApply` for each shared `min`, the reverse for `max`), Noul bands, a confidence measure on a Noul, a direct-mode key in a browser without `dangerouslyAllowBrowser`, and `autoApply` with `overwrite: "never"` when the `column` fill scope is enabled.
+- **Parsing** (`contract/parse-answer.ts`): a Score answer without a `legend` gets one built from the question's criteria; a `legend` that isn't an object is malformed.
+- **Mapping** (`policy/map-output.ts`): the default `precision` for Score and Noul values is 2. An apply candidate needs a value.
+- **`decide`** receives frozen copies of the answer, candidate and decision (`policy/evaluate-policy.ts`). A throw or invalid return is a `policy-callback` error, and nothing is written.
+- **Emptiness** (`policy/cells.ts`): `0` and `false` are values. The cells package's dropdown cell is empty when its `data.value` is `""`, `null` or `undefined`, detected by `data.kind === "dropdown-cell"`, so core doesn't import the cells package.
+
+### Guard tests
+
+- `test/ai-fill/boundaries.test.ts` parses every `src/**/*.ts(x)` with the TypeScript compiler and enforces the import rules: `ai-fill/` never imports `src/index.ts`, `src/data-editor-all.tsx` or `@specstory/*`; only `src/index.ts` and `src/data-editor-all.tsx` import `ai-fill/` (plus type-only imports from `src/data-editor/data-editor.tsx`); `ai-fill/testing/` imports only `testing/`, `contract/`, `identity/` and `transport/`; core never imports cells or source. The rule that the `/server` graph has no React, DOM or Linaria import is added with `/server` in WP-AI2.
+- `test/ai-fill/bundle-budget.test.ts`, see below.
+
+### Bundle budget
+
+AI Fill must cost little for apps that render `DataEditor` without `aiFill`. `test/ai-fill/bundle-budget.test.ts` bundles an entry that imports `DataEditor` and `dist/index.css` from core's built `dist/esm`, with the root esbuild CLI (0.25.12): `--bundle --minify --splitting --format=esm`, with `react`, `react-dom`, `marked`, `lodash` and `react-responsive-carousel` external. Sizes are GNU `gzip -9` of the concatenated output files. It uses the CLI because esbuild's JS API refuses to run under jsdom.
+
+| Measure | Baseline (SPST-17 A7, `main` at `a0a121c`) | Measured by the test (`main` and PR #16) | Limit |
+| --- | --- | --- | --- |
+| Initial JS (entry chunk plus the chunks it imports statically) | 70,374 B | 70,305 B | 71,900 B (+1.5 KB) |
+| CSS | 2,052 B | 2,044 B | 4,600 B (+2.5 KB) |
+| AI Fill modules in the initial chunks | — | none | none except `ai-fill/react/bridge.js` |
+| Lazy AI Fill chunks | — | 0 B | 40,000 B |
+
+The A7 figures came from a slightly different measurement than the test's (the test gzips the concatenated files); the limits are A7's. It reads `dist/`, so it needs `npm run build` first. CI builds before testing. WP-AI3 (the bridge) and WP-AI4 (the CSS) are where the numbers are expected to move.
+
 ## Known limitations and risks
 
 - **`@toast-ui/react-editor` is unmaintained and declares a `react ^17.0.1` peer.** npm warns on install of `-cells` (see [above](#toast-uireact-editor-cells-article-editor)). Fallback if React breaks it: a wrapper around `@toast-ui/editor`.
@@ -281,6 +333,9 @@ Vercel project ai-data-grid-docs (team spec-story)
 - **`.devcontainer/` is stale.** It pins a Node 14 image and runs a `.devcontainer/run.sh` that doesn't exist. It isn't documented as a way to work on the repo.
 - `packages/cells/test/date-picker-cell.test.tsx` was fixed in WP1: it rendered the wrong cell and left a `findByDisplayValue` promise unawaited, which failed CI intermittently.
 - Open `npm audit` findings remain in the root install; run `npm audit` for the current list.
+- **Browsers can't call Jev directly today.** TypeSafe's API rejects CORS preflights from every origin tried during planning (SPST-17 §1), so AI Fill's planned direct-key mode will only work from Node. Browser apps will need endpoint mode (their own server) or a local dev proxy. WP-AI1 has no network code; this affects WP-AI2 onwards.
+- **AI Fill isn't usable yet.** WP-AI1 exports types and pure functions only. The `aiFill` prop, `DataEditorRef.aiFill`, the transport and the `/server` and `/testing` subpaths arrive in later packages.
+- **`npm test` in core needs a build.** `bundle-budget.test.ts` reads `dist/` and fails on a fresh clone until `npm run build` has run, and it measures stale output after source changes. It also needs the `gzip` binary.
 
 ## Decision log
 
@@ -323,6 +378,19 @@ Vercel project ai-data-grid-docs (team spec-story)
 | 2026-09-25 | SPST-3, PR #11 | Accept ERROR `Vercel` statuses on branches without `docs/` until they merge `main`. | This is temporary and only affects branches that predate the docs site. Working around it (for example by disconnecting git) would cost preview deploys. |
 | 2026-09-25 | SPST-3, PR #11 (`df5948a`) | Lint `docs/` with the ESLint CLI (`eslint .`, flat config extending `eslint-config-next/core-web-vitals`). Set `agentRules: false` in `docs/next.config.mjs`. Restrict `docs/tsconfig.json` to `"types": ["node"]`. | Next.js 16 removed `next lint`, so the scaffold's lint script was broken. `next dev` otherwise leaves untracked agent-rule files. Without the `types` restriction, the build type-check picks up the root library's broken `@types` packages. |
 | 2026-09-25 | SPST-3 / PR #11 (`aca129ec`) | The docs site's "Not on npm yet" notes link to the README's "Installing before the npm release" section instead of copying the tarball steps. The FAQ's custom-rendering answer links the Custom Drawing story (`ai-data-grid-dataeditor-demos--custom-drawing`) in place of the GitBook's `draw-custom-cells` story, which no longer exists. | The tarball steps stay in one place and are removed in one place at the first npm publish. Custom Drawing shows canvas `drawCell` / `drawHeader` painting, which is what that answer is about. |
+| 2026-09-25 | SPST-16 (Jake), SPST-17 Amendment 1 | AI Fill is part of core, `@specstory/ai-data-grid` (`packages/core/src/ai-fill/`), not a separate package. WP-AI1's first delivery in `packages/ai` was moved into core. | Jake: "this is one package, an ai-data-grid". One install and one version for users. |
+| 2026-09-25 | SPST-17 Amendment 1 | Apps opt in with an optional `aiFill` prop on `DataEditor`, loaded lazily through a small static bridge. An unconfigured grid is unchanged. (Planned for WP-AI3; not built yet.) | Keeps the 6.x-compatible API and costs apps without AI Fill almost nothing. |
+| 2026-09-25 | SPST-17 §1 | Call Jev's HTTP API with `fetch`, and don't depend on the TypeSafe SDK. The request and response types are ours (`contract/types.ts`), pinned by `test/ai-fill/fixtures/jev-contract.ts`. | The SDK is pre-1.0 and had a breaking change days before planning. The grid needs its own retry, cancellation and scheduling anyway, and core gets no new dependency. |
+| 2026-09-25 | SPST-17 §4, SPST-19 | Compare gate thresholds exactly, as raw IEEE doubles, with no epsilon or rounding; display rounding never feeds a decision. | Predictable, documentable gates: with `minProbability: 0.8`, 0.79 is withheld and 0.80 is shown. |
+| 2026-09-25 | SPST-17, SPST-19 | Key cached answers by the exact canonical-JSON strings, not hashes. `shortHash` (FNV-1a, our own code, so `THIRD_PARTY_NOTICES.md` is unchanged) is for display only. | A hash collision can't attach a wrong answer to a cell. |
+| 2026-09-25 | SPST-19 | The question fingerprint includes the column's `sources`, deduplicated and sorted. | Changing which columns feed a question changes what it means, so earlier answers become stale. Order and duplicates don't. |
+| 2026-09-25 | SPST-17 §1, SPST-19 | Validate the Score level count (2–10) in `validateAIFillConfig`. | Jev's docs say 2–10 levels, but the live API accepted and answered a 1-level Score. |
+| 2026-09-25 | SPST-19 | Score levels are `string` or `{ description, label?, value? }`. A Score answer without a `legend` gets one built from the criteria. The default `precision` is 2. | Levels need a label to show and a value to store, apart from the description sent to Jev. |
+| 2026-09-25 | SPST-19 | `autoApply` with `overwrite: "never"` and the `column` fill scope is a validation error. An apply candidate needs a value. | The `column` scope includes populated cells, which `never` can't write, so the combination can't do what it says. Nothing is applied without a value to write. |
+| 2026-09-25 | SPST-19 | `decide` gets frozen copies of the answer, candidate and decision. A throw (in strict-mode code, including a write to a frozen copy) or an invalid return becomes a `policy-callback` error, and nothing is written. | The callback can't change a stored answer or give a result a value. |
+| 2026-09-25 | SPST-19 | The cells package's dropdown cell is empty by its `data.value`, recognized by `data.kind === "dropdown-cell"`. | Custom cells need their own emptiness rule, and core can't import the cells package. |
+| 2026-09-25 | SPST-17 Amendment 1 (A8), SPST-19 | Every new core export contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`, enforced by `public-api-exports.test.ts`. Identity, mapping and commit-guard helpers stay internal. | AI Fill shouldn't take generic names in core's namespace; renaming a public export later would be a breaking change. |
+| 2026-09-25 | SPST-17 Amendment 1 (A7), SPST-19 | Cap what AI Fill adds for apps without `aiFill` with `bundle-budget.test.ts`: initial JS ≤ 71,900 B and CSS ≤ 4,600 B gzip, only `bridge.js` in the initial chunks, lazy AI chunks ≤ 40,000 B. | Moving AI Fill into core must not make every grid heavier. The test makes growth visible in each PR. |
 
 ## Open follow-ups
 
@@ -341,3 +409,4 @@ Vercel project ai-data-grid-docs (team spec-story)
 - First npm publish under `@specstory` (needs Jake's approval).
 - `@toast-ui/react-editor` is unmaintained with a `react ^17` peer. If a React release breaks it, replace it with a small wrapper around `@toast-ui/editor`.
 - `scripts/check-article-cell-editor.mjs` aims at the article cell by canvas coordinates; make it find the cell some other way if the story changes often.
+- AI Fill: WP-AI2 (transport, scheduler, result store, `/server`, `/testing`, and the `/server` boundary rule), WP-AI3 (the `aiFill` prop), WP-AI4 (built-in UI) and WP-AI5 (Storybook, docs site guide, live check). Remove the "in development" note from `packages/core/API.md` when the `aiFill` prop lands.

@@ -33,6 +33,7 @@ The root `package.json` `overrides` only affect this repository's install, not t
 | Path | What it is |
 | --- | --- |
 | `packages/core` | `@specstory/ai-data-grid`, the grid. Source in `src/`, tests in `test/`, stories in `src/docs/` and `src/**/*.stories.tsx`. `API.md` is the API reference and `CHANGELOG.md` the release notes. |
+| `packages/core/src/ai-fill/` | AI Fill, in development inside core (not a separate package). See [Working on AI Fill](#working-on-ai-fill). Its tests are in `packages/core/test/ai-fill/`. |
 | `packages/cells` | `@specstory/ai-data-grid-cells`, extra cell renderers (`src/cells/`). |
 | `packages/source` | `@specstory/ai-data-grid-source`, data source hooks. |
 | `config/build-util.sh` | Shared build steps used by each package's `build.sh`. |
@@ -51,13 +52,13 @@ Run these from the root. CI runs the first five.
 | --- | --- |
 | `npm ci` | Clean install from the root lockfile. |
 | `npm run build` | Builds all three packages into `dist/esm`, `dist/cjs` and `dist/dts`, plus `dist/index.css` for core and cells (source has no CSS), then lints them (ESLint, plus a `cycle-check` for import cycles in core). Two existing `no-console` warnings are expected; errors fail. |
-| `npm test -- --run` | Core unit tests (vitest), run once. Without `--run` vitest watches. |
+| `npm test -- --run` | Core unit tests (vitest), run once. Without `--run` vitest watches. Includes the AI Fill bundle-budget test, which needs `npm run build` first (see [Working on AI Fill](#working-on-ai-fill)). |
 | `npm run test-cells -- --run` | Cells unit tests. |
 | `npm run test-source -- --run` | Source unit tests. |
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 388, cells 65 and source 8. Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 574 (185 of them in `test/ai-fill/`), cells 65 and source 8. Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -68,6 +69,56 @@ Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `
 `errorAllowlist` in `scripts/smoke-storybook.mjs` lists known, accepted failures per story id (currently 8, all "Failed to load resource" from third-party images). A `FIXED?` line means an allowlisted error no longer happens; remove that entry. Only add an entry for a failure you have understood and accepted, with a comment explaining it.
 
 It needs Playwright's Chromium. If it isn't installed yet, run `npx playwright install chromium`. The smoke test doesn't run in CI.
+
+## Working on AI Fill
+
+AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. This stage has no network code, no React code, and nothing in `DataEditor` uses it yet. The `aiFill` prop and the other layers come in later packages. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`; the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
+
+### Code map
+
+| Path | What it is |
+| --- | --- |
+| `src/ai-fill/index.ts` | Internal barrel listing only the public AI Fill names. `src/index.ts` re-exports it with `export * from "./ai-fill/index.js"`. |
+| `src/ai-fill/contract/` | The Jev request and answer types, and `parseJevAnswer` (every malformed-answer rule). |
+| `src/ai-fill/config/` | The configuration types (`types.ts`), result, event and error types (`results.ts`), and `validateAIFillConfig` (`validate.ts`). |
+| `src/ai-fill/identity/` | Canonical JSON, `buildQuestion`, the question and input fingerprints, the cache key and the display-only `shortHash`. Internal. |
+| `src/ai-fill/policy/` | `mapAIOutput`, `evaluateAIPolicy`, `isAIDestinationEmpty` and the default `toCell` (`cells.ts`), and the commit-guard helpers (`commit-guards.ts`, internal). |
+| `test/ai-fill/*.test.ts` | Unit tests per module, plus the `boundaries` and `bundle-budget` guards below. |
+| `test/ai-fill/fixtures/` | Shared fixtures: `jev-contract.ts` holds Jev request and response bodies copied from the TypeSafe docs examples (update them from the docs, never from a test run), `definitions.ts` holds synthetic column definitions. |
+
+Paths are relative to `packages/core`. Later packages add `transport/`, `engine/`, `server/`, `testing/`, `react/` and `stories/` under `src/ai-fill/`; they don't exist yet.
+
+### Import rules (`test/ai-fill/boundaries.test.ts`)
+
+The test parses every `.ts`/`.tsx` file under `src/` and fails on:
+
+1. an import in `ai-fill/` from `src/index.ts`, `src/data-editor-all.tsx` or any `@specstory/*` package. Import core types from the module that defines them, for example `../../internal/data-grid/data-grid-types.js`;
+2. an import of `ai-fill/` from anywhere outside it except `src/index.ts` and `src/data-editor-all.tsx`. `src/data-editor/data-editor.tsx` may use type-only imports;
+3. an import in `ai-fill/testing/` from anything but `testing/`, `contract/`, `identity/` and `transport/`;
+4. an import of `@specstory/ai-data-grid-cells` or `-source` anywhere in core.
+
+The planned rule that the `/server` graph has no React, DOM or Linaria import is added with `/server`. `npm run build` also runs `cycle-check`, which must stay clean.
+
+### Bundle budget (`test/ai-fill/bundle-budget.test.ts`)
+
+This test caps what AI Fill costs apps that render `DataEditor` without using AI Fill. It bundles `import { DataEditor } from "@specstory/ai-data-grid"` plus `dist/index.css` from the built `dist/esm` with the root esbuild CLI (`--bundle --minify --splitting --format=esm`, with `react`, `react-dom`, `marked`, `lodash` and `react-responsive-carousel` external), and measures the output with `gzip -9`. It fails if:
+
+- the initial JS (the entry chunk and every chunk it imports statically) is over 71,900 B gzip;
+- the CSS is over 4,600 B gzip;
+- any `ai-fill/` module other than `ai-fill/react/bridge.js` is in the initial chunks;
+- the lazily loaded AI Fill chunks are over 40,000 B gzip.
+
+It prints the measured sizes (`bundle-budget: initial JS … B gzip, …`). It reads `dist/`, so **run `npm run build` before `npm test`**: without `dist/esm/index.js` it fails with "run \`npm run build\` first", and after source changes it measures stale output. It also needs the `gzip` binary on `PATH`. CI builds before it tests, so it runs there as is. The limits and baseline are recorded in [AS-BUILT.md](AS-BUILT.md#bundle-budget).
+
+### Export names
+
+Every new core export name contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`, so AI Fill never takes a generic name from core's namespace. `test/public-api-exports.test.ts` keeps the 151 upstream names (`upstreamExports`) and the AI Fill names (`aiFillExports`) in separate lists and checks every addition against that rule. Helpers that apps don't need stay unexported: list public names in `src/ai-fill/index.ts` only, and import internal helpers in tests from their module, for example `../../src/ai-fill/identity/fingerprints.js`.
+
+### Tests and fixtures
+
+- **Tests never call Jev.** Build answers in the test or use `test/ai-fill/fixtures/`. Live Jev calls are for manual validation only and are recorded outside the tests.
+- **Core's tarball ships `src/` and `test/`** (core has no `files` field). Fixtures use synthetic row data only, with request ids removed. Never commit a key, token or `.env` file, and never put `JEV_API_KEY` in a test, story, fixture or CI.
+- Core gets no new runtime or peer dependencies for AI Fill. Use `fetch` and the platform's `AbortController`, `TextEncoder`, `Headers`, `Request` and `Response`, not the TypeSafe SDK.
 
 ## Sample apps (`test-projects/`)
 
@@ -221,7 +272,7 @@ With no argument it copies the current root version to the packages. It is also 
 - the `--gdg-*` CSS variables and the `gdg-` class names;
 - the runtime identifiers `glide-cell-{col}-{row}` (DOM id), `glide-select` (class) and `glide_fade_in` (keyframe). Renaming them waits for 8.0.
 
-Each package has a `test/public-api-exports.test.ts`. It reads the package's `src/index.ts` with the TypeScript compiler API and compares the sorted export names with a hard-coded list (core 151, cells 27, source 5). Adding, removing or renaming an export fails the test. If the change is intended (a new export is not breaking; removals and renames wait for 8.0), update `expectedExports` in the same PR and say why in the PR description.
+Each package has a `test/public-api-exports.test.ts`. It reads the package's `src/index.ts` with the TypeScript compiler API and compares the sorted export names with a hard-coded list (core 243, cells 27, source 5). Core's list is the 151 upstream names plus the 92 AI Fill names (see [Export names](#export-names)). Adding, removing or renaming an export fails the test. If the change is intended (a new export is not breaking; removals and renames wait for 8.0), update `expectedExports` in the same PR and say why in the PR description.
 
 ## Git and PR workflow
 

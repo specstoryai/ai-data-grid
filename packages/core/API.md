@@ -1535,9 +1535,9 @@ const aiFill: AIFillConfig = {
 | `model` | The Jev model, for example `jev-latest`. Required. The versioned id that answered (for example `jev-1.13.0`) is kept with every answer. |
 | `rows` | `getRowId(row)` (required) and optional `getRowIndex(rowId)` |
 | `rowState` | The row state sent to Jev. Default: built from each column's `sources`. |
-| `rowScope` | The rows a column-wide fill covers, as `{ rows: "displayed" \| rowId[], label }` |
+| `rowScope` | A function returning the rows a column-wide fill covers: `() => ({ rows: "displayed" \| rowId[], label })`. Without it, column-wide fills aren't offered. |
 | `columns` | AI column definitions, keyed by `GridColumn.id` |
-| `execution` | Scheduler limits: `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
+| `execution` | Scheduler limits, validated now and applied by the scheduler in a later stage: `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
 | `onRunStart`, `onRunProgress`, `onRunEnd`, `onResult`, `onCommit`, `onReject`, `onError` | Observers. `onResult` fires for every decided result, including withheld and review ones. |
 
 ### Column settings (all primitives)
@@ -1566,7 +1566,7 @@ Primitive-specific settings:
 
 The raw answer, the display text and the committed value are always three separate things: `mapAIOutput` returns `answer`, `display` and `value` (with `hasValue`), plus the semantic `outcome`.
 
-`validateAIFillConfig(config, { columns, isBrowser })` returns every problem as `{ path, message, columnId? }`. An issue with a `columnId` disables that column; one without disables AI Fill for the grid. Overlapping gates, out-of-range thresholds, unknown option or level ids, missing Noul bands, a confidence measure on a Noul and a direct-mode key in a browser without `dangerouslyAllowBrowser` are all reported.
+`validateAIFillConfig(config, { columns?, isBrowser? })` returns every problem as `{ path, message, columnId? }`. An issue with a `columnId` disables that column; one without disables AI Fill for the grid. Overlapping gates, out-of-range thresholds, unknown option or level ids, missing Noul bands, a confidence measure on a Noul and a direct-mode key in a browser without `dangerouslyAllowBrowser` are all reported. `isBrowser` defaults to detecting a browser window or a web worker.
 
 ## Result policies
 
@@ -1592,9 +1592,9 @@ For each answer, the first step that matches decides:
 1. A transport or evaluation error: `error`.
 2. A malformed answer (`parseJevAnswer` rejects it): `error: malformed`. It rejects a wrong type, a choice that isn't an option, probability keys that don't match the criteria, values that are non-finite or outside [0, 1], probabilities summing outside 1 ± 0.01, a Score outside [0, n − 1], a choice that isn't the most probable option (tolerance 1e-9), a non-object Score legend, and a response without a model.
 3. Stale inputs: `stale`, never committed.
-4. Mapping (`mapAIOutput`): a value that can't be produced or doesn't fit the destination is `error: type-mismatch`.
+4. Mapping (`mapAIOutput`): a value that can't be produced or doesn't fit the destination is `error: type-mismatch`. An incomplete mapping (a `"level-value"` level without a `value`, or a Noul `"boolean"` or `"label"` store without `bands`) is `error: configuration`.
 5. Gates: `show` fails → `withheld`; a Noul in the middle band → `review` (or `withheld`); `ready` fails → `review`; otherwise `suggested`, or `apply-candidate` when `autoApply` passes in a "Fill and apply" run.
-6. `decide`: returns `withheld`, `review`, `suggested` or `apply`, or `undefined` to keep the decision. It can't create a value. `apply` counts only when the column configures `autoApply` (otherwise the result is `suggested` and a configuration error is reported). A throw is `error: policy-callback`, and nothing is written.
+6. `decide`: returns `withheld`, `review`, `suggested` or `apply`, or `undefined` to keep the decision. It can't create a value. `apply` becomes an apply candidate only when the column configures `autoApply`, the run is a "Fill and apply" run and there is a value to write. Without `autoApply` the result is `suggested` and a configuration error is reported. A throw or an invalid return value is `error: policy-callback`, and nothing is written.
 7. Commit guards, for every write, in this order: not already committed, the row still exists, the fingerprints match, the destination is unchanged, the cell is writable, the overwrite policy and scope allow it, and `validateCell` passes.
 
 `evaluateAIPolicy` runs steps 4–6 on a parsed answer. It makes no request, so when only the policy, `output.format`, the presentation or `decide` change, stored answers are re-decided for free.
@@ -1614,10 +1614,10 @@ For each answer, the first step that matches decides:
 
 These rules are internal (the helpers aren't exported), but they decide when a stored answer can be reused:
 
-- The question sent to Jev is built from the column definition: its `primitive`, `instructions`, `context` and its options, levels or criteria.
-- The question fingerprint is canonical JSON (sorted keys) of that question plus the column's sorted `sources`. The input fingerprint is canonical JSON of the state sent.
+- The question sent to Jev is built from the column definition: its `primitive`, `instructions` and `context`, plus the Choice option ids and descriptions, the Score level descriptions in order, or the Noul criteria.
+- The question fingerprint is canonical JSON (sorted keys) of that question plus the column's `sources`, deduplicated and sorted. The input fingerprint is canonical JSON of the state sent.
 - Cached answers are keyed by row id, column id, both fingerprints and the model. The key uses the exact canonical strings, so a hash collision can't attach a wrong answer. An 8-hex-digit FNV-1a short hash is used for display and metadata only.
-- Changing the instructions, context, options, levels, criteria, sources, state or model changes the key. Changing the policy, output mapping, presentation, labels or `decide` doesn't.
+- Changing the instructions, context, option ids or descriptions, level descriptions or their order, Noul criteria, sources, the state sent or the model changes the key. Changing the policy, output mapping (including option and level `label`, `value` and `outcome`, and Noul labels), presentation or `decide` doesn't.
 
 ## Exports
 
@@ -1633,4 +1633,4 @@ Everything is exported from `@specstory/ai-data-grid`. Every AI Fill export name
 
 The types cover the Jev contract (`JevRequest`, `JevResponse`, `JevQuestion`, `JevAnswer` and the per-primitive `JevChoice*`, `JevScore*` and `JevNoul*` types), the parsed answers (`ChoiceAnswer`, `ScoreAnswer`, `NoulAnswer`), the configuration (`AIFillConfig`, `AIColumnDefinition` and its per-primitive parts), and the results (`AIPolicyDecision`, `AIMappedOutput`, `AIFillError`, and the result, run, commit and reject events). Each has TSDoc.
 
-Tests never call Jev. They live in `packages/core/test/ai-fill/` and run with core's `npm test -- --run`.
+Tests never call Jev. They live in `packages/core/test/ai-fill/` and run with core's `npm test -- --run` (the bundle-budget test needs `npm run build` first).

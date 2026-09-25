@@ -87,7 +87,7 @@ export interface AIPolicyDecision {
  *
  * | Kind | Scope |
  * |---|---|
- * | `configuration` | Run or column |
+ * | `configuration` | Run or column, or cells for an incomplete output mapping |
  * | `authentication` | Run |
  * | `rate-limit`, `overloaded`, `timeout`, `network`, `invalid-request` | Cells |
  * | `evaluation` | Cells: the answer for a question id is missing |
