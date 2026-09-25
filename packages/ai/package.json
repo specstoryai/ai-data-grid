@@ -1,0 +1,75 @@
+{
+    "name": "@specstory/ai-data-grid-ai",
+    "version": "7.0.0",
+    "description": "Developer-configured AI Fill for AI Data Grid, powered by Jev",
+    "sideEffects": [
+        "**/*.css"
+    ],
+    "type": "module",
+    "browser": "dist/esm/index.js",
+    "main": "dist/cjs/index.js",
+    "module": "dist/esm/index.js",
+    "types": "dist/dts/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/dts/index.d.ts",
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js"
+        },
+        "./server": {
+            "types": "./dist/dts/server/index.d.ts",
+            "import": "./dist/esm/server/index.js",
+            "require": "./dist/cjs/server/index.js"
+        },
+        "./testing": {
+            "types": "./dist/dts/testing/index.d.ts",
+            "import": "./dist/esm/testing/index.js",
+            "require": "./dist/cjs/testing/index.js"
+        },
+        "./index.css": {
+            "import": "./dist/index.css",
+            "require": "./dist/index.css"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "./build.sh",
+        "lint": "eslint src --ext .ts,.tsx",
+        "test": "vitest"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/specstoryai/ai-data-grid.git",
+        "directory": "packages/ai"
+    },
+    "homepage": "https://github.com/specstoryai/ai-data-grid/tree/main/packages/ai",
+    "author": "SpecStory",
+    "bugs": {
+        "url": "https://github.com/specstoryai/ai-data-grid/issues"
+    },
+    "license": "MIT",
+    "keywords": [
+        "react",
+        "datagrid",
+        "data-grid",
+        "ai",
+        "jev",
+        "canvas"
+    ],
+    "dependencies": {
+        "@specstory/ai-data-grid": "7.0.0"
+    },
+    "peerDependencies": {
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0"
+    },
+    "devDependencies": {
+        "eslint": "^8.57.1",
+        "eslint-plugin-import": "^2.31.0",
+        "eslint-plugin-react": "^7.37.5",
+        "eslint-plugin-react-hooks": "^5.2.0",
+        "typescript": "^5.8.3"
+    }
+}
