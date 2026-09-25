@@ -104,9 +104,11 @@ function getData([col, row]: Item): GridCell {
 
 You can [edit this example live](https://codesandbox.io/s/glide-data-grid-template-ydvnnk) on CodeSandbox
 
-## Full API documentation
+## Documentation
 
-The full [API documentation is on the main site](https://docs.grid.glideapps.com/)
+The full documentation (quickstart guide, API reference, guides and FAQ) is at **https://ai-data-grid-docs.vercel.app**.
+
+AI Data Grid is forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed. The documentation is converted from the original Glide Data Grid GitBook documentation.
 
 # 📒 FAQ
 
