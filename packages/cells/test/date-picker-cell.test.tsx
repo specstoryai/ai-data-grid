@@ -93,7 +93,7 @@ describe("editor", () => {
         expect(input.format === format);
     });
 
-    it("renders textarea when readonly is true", () => {
+    it("renders textarea when readonly is true", async () => {
         // @ts-ignore
         const Editor = renderer.provideEditor?.({
             ...getMockDateCell({ readonly: true } as DatePickerCell),
@@ -103,9 +103,11 @@ describe("editor", () => {
             throw new Error("Editor is invalid");
         }
 
-        const result = render(<Editor isHighlighted={false} value={getMockDateCell()} />);
+        // Note: getMockDateCell({ readonly: true }) would not work here, the helper overrides
+        // spread props with readonly: false.
+        const result = render(<Editor isHighlighted={false} value={{ ...getMockDateCell(), readonly: true }} />);
         // text-area should be found
-        expect(result.findByDisplayValue("2023-02-06T04:47:44.584Z")).not.toBeUndefined();
+        expect(await result.findByDisplayValue("2023-02-06T04:47:44.584Z")).not.toBeUndefined();
     });
 
     it("contains max, min, step when passed in", () => {
