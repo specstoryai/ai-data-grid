@@ -8,8 +8,8 @@ import type { AIJsonValue } from "./types.js";
  * status and its `Retry-After` / `retry-after-ms` headers are forwarded.
  *
  * AI Fill's endpoint client reads `error.message`, `error.retryAfterMs` and
- * `error.detail`, and decides the error kind from the HTTP status: 400 and 404
- * are `configuration`, 401 and 403 `authentication`, 408 and 504 `timeout`,
+ * `error.detail`, and decides the error kind from the HTTP status: 400, 404 and
+ * 405 are `configuration`, 401 and 403 `authentication`, 408 and 504 `timeout`,
  * 413 `input-too-large`, 422 and other 4xx `invalid-request`, 429 `rate-limit`,
  * 503 and 529 `overloaded`, and other 5xx `network`. A 500 whose `type` is
  * `server_configuration` is a `configuration` error.

@@ -80,7 +80,10 @@ export interface AIFillExecutionOptions {
     readonly backoff?: { readonly initialMs?: number; readonly maxMs?: number; readonly jitter?: number };
     /** The most cells one run may evaluate. Default 1000. */
     readonly maxCellsPerRun?: number;
-    /** Runs larger than this ask for confirmation first. Default 100. */
+    /**
+     * Runs larger than this will ask for confirmation first. Validated, but not
+     * acted on yet: the confirm dialog comes in a later stage. Default 100.
+     */
     readonly confirmAbove?: number;
     /** Questions combined into one request. Default 16. */
     readonly maxQuestionsPerRequest?: number;
@@ -98,7 +101,7 @@ export interface AIFillExecutionOptions {
 export interface AIFillRows {
     /** Display row → stable id. Required. Results are keyed by this id, never by display position. */
     readonly getRowId: (row: number) => AIRowId;
-    /** Stable id → display row, or `undefined` when the row is gone. Optional; without it, commits scan the rows. */
+    /** Stable id → display row, or `undefined` when the row is gone. Optional. Not read yet: the grid integration that uses it comes in a later stage. */
     readonly getRowIndex?: (rowId: AIRowId) => number | undefined;
 }
 
@@ -275,7 +278,10 @@ export interface AIColumnDefinitionBase {
     readonly applies?: (ctx: AIRowContext) => boolean;
     /** What to do when the input is missing. Default `"skip"`. */
     readonly missingInput?: "skip" | "evaluate";
-    /** What "missing" means. Default: every source cell is empty. */
+    /**
+     * What "missing" means. Default: the column has sources and every source
+     * cell is empty by {@link isAIDestinationEmpty}.
+     */
     readonly isMissing?: (ctx: AIRowContext) => boolean;
     /** Whether a destination cell is empty. Default {@link isAIDestinationEmpty}, under which `0` and `false` are values. */
     readonly isEmpty?: (cell: GridCell) => boolean;
