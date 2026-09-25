@@ -1,6 +1,6 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-7, the Documenter step for SPST-3 / PR #11)
+**Last updated:** 2026-09-25 (SPST-7 round 2, the Documenter step for SPST-3 / PR #11 at `df5948a`)
 **Covers:** the documentation site in `docs/` (work package WP4). Other parts of the repository are documented when their work packages land.
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -29,6 +29,8 @@ Vercel project ai-data-grid-docs (team spec-story)
 - `docs/` is a standalone Next.js app, scaffolded with `npx create-unmint@latest docs -y` (create-unmint 1.4.0). It has its own `package.json` (name `ai-data-grid-docs`, private) and `package-lock.json`. It is not listed in the root `package.json` `workspaces`, and it doesn't depend on the grid packages.
 - Routes: `/` redirects to `/docs` (`docs/app/page.tsx`). `/docs/[[...slug]]` renders the MDX pages and is statically generated at build time. `/api/search` and `/api/og` are dynamic. `/llms.txt` and `/llms-full.txt` are static.
 - Content source: `docs/source.config.ts` reads `content/docs`, and `docs/lib/docs-source.ts` mounts it at `/docs`. Code blocks are highlighted by `rehypeCode` (github-light/github-dark themes).
+- `docs/next.config.mjs` sets `agentRules: false`, so `next dev` doesn't generate Next.js 16's `AGENTS.md` / `CLAUDE.md` agent-rule files in `docs/`.
+- `docs/tsconfig.json` sets `"types": ["node"]`. Without it, tsc also loads `@types/*` from the repo root's `node_modules` (for example the `@types/prosemirror-*` packages), and `npm run build` fails its type check when the root dependencies are installed.
 - Site name, footer and theme are set in `docs/lib/theme-config.ts`. The footer carries the attribution "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed."
 - License: `docs/LICENSE` keeps unmint's MIT text (`Copyright (c) 2024 Unmint Contributors`) and adds `Copyright (c) 2026 ai-data-grid contributors`.
 
@@ -58,14 +60,13 @@ Vercel project ai-data-grid-docs (team spec-story)
 
 - `docs/__tests__/`: vitest with happy-dom (`docs/vitest.config.ts`). There are 5 files and 27 tests, covering the unmint components (callout, card, tabs), `lib/theme-config` and `lib/utils`. They don't test the content or the importer.
 - `npm run build` in `docs/` is the content check: it fails when an MDX page doesn't compile.
+- `npm run lint` in `docs/` runs `eslint .` with the flat config `docs/eslint.config.mjs`: `eslint-config-next/core-web-vitals`, ignoring `.next/`, `.source/`, `out/`, `node_modules/` and `next-env.d.ts`. No rules are disabled.
 - Root CI and the root check commands don't cover `docs/`. Vercel builds are the only automated check on it.
 
 ### Known limitations and risks
 
 - **Vercel ERROR statuses on branches without `docs/`.** The project's Root Directory is `docs`, so every push to a branch that doesn't contain `docs/` (for example `spst-2-rebrand`, or Dependabot branches) creates an ERROR deployment and a failing `Vercel` status on its PR. This stops once `docs/` is on `main` and those branches have merged `main`. It was accepted as non-blocking.
 - **Re-importing loses the rebrand edits** to generated pages (see above). The importer doesn't apply the product-name replacement itself.
-- **`npm run lint` in `docs/` is broken.** The script is `next lint`, which Next.js 16 removed. It fails with `Invalid project directory provided, no such directory: .../docs/lint`.
-- **`next dev` creates untracked `docs/AGENTS.md` and `docs/CLAUDE.md`.** Next.js 16 generates these agent-rules files unless `agentRules: false` is set in `docs/next.config.mjs`. They must not be committed.
 - The content describes Glide Data Grid 6.x behaviour, with package names rewritten to `@specstory/*`. It is only as accurate as the upstream GitBook docs.
 - On this branch, the root `npm ci` fails and `.nvmrc` says `20.10.0`. Both predate the fork and are fixed by WP1 (PR #12). They don't affect `docs/`.
 
@@ -82,11 +83,11 @@ Vercel project ai-data-grid-docs (team spec-story)
 | 2026-09-25 | SPST-3, PR #11 | Make the ignore step fail-safe: build when there is no previous SHA or when `git diff` errors, and skip only on a clean "no change under `docs/`". | The first deploy, and any environment where the diff can't run, must still produce a deployment rather than silently skip. |
 | 2026-09-25 | SPST-3, PR #11 | Keep Vercel's default protection: protected previews and a public production domain. Verification uses a Protection Bypass for Automation secret. | Standing hosting rule. Previews of unmerged work stay private. |
 | 2026-09-25 | SPST-3, PR #11 | Accept ERROR `Vercel` statuses on branches without `docs/` until they merge `main`. | This is temporary and only affects branches that predate the docs site. Working around it (for example by disconnecting git) would cost preview deploys. |
+| 2026-09-25 | SPST-3, PR #11 (`df5948a`) | Lint `docs/` with the ESLint CLI (`eslint .`, flat config extending `eslint-config-next/core-web-vitals`). Set `agentRules: false` in `docs/next.config.mjs`. Restrict `docs/tsconfig.json` to `"types": ["node"]`. | Next.js 16 removed `next lint`, so the scaffold's lint script was broken. `next dev` otherwise leaves untracked agent-rule files. Without the `types` restriction, the build type-check picks up the root library's broken `@types` packages. |
 
 ## Open follow-ups
 
-- Fix `npm run lint` in `docs/` (Next.js 16 has no `next lint`; switch to the ESLint CLI), then add docs build, test and lint to CI if wanted.
-- Set `agentRules: false` in `docs/next.config.mjs`, or git-ignore `docs/AGENTS.md` and `docs/CLAUDE.md`, so `next dev` doesn't leave untracked files.
+- Add the docs build, test and lint to CI, if wanted. Today, Vercel builds are the only automated check on `docs/`.
 - Move the product-name replacement into the importer, so re-imports don't lose the rebrand edits.
 - Confirm that the production URL serves publicly after PR #11 merges.
 - Link Storybook from the docs once WP3 deploys it.

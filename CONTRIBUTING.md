@@ -37,12 +37,11 @@ The documentation site (https://ai-data-grid-docs.vercel.app) lives in `docs/`. 
 ```bash
 cd docs && npm ci && npm run dev -- -H 0.0.0.0   # dev server on port 3000; / redirects to /docs
 npm run build                                     # production build (static pages for every doc)
+npm run lint                                      # ESLint (eslint-config-next core-web-vitals)
 npm test -- --run                                 # vitest unit tests, run once (plain `npm test` watches)
 ```
 
 Add `-p <port>` to the dev command to use another port. In the dev sandbox, run it detached in tmux and share it with `sb-url <port>`.
-
-`next dev` writes untracked `docs/AGENTS.md` and `docs/CLAUDE.md` files (Next.js agent rules). Delete them and don't commit them. `npm run lint` in `docs/` doesn't work yet (Next.js 16 removed `next lint`), so there is no lint step for the docs site.
 
 ### Content
 
