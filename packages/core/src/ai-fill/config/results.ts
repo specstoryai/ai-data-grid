@@ -171,6 +171,11 @@ export interface AIResultEvent extends AIResultMetadata {
     readonly status: AICellStatus;
     readonly decision?: AIPolicyDecision;
     readonly error?: AIFillError;
+    /**
+     * Set with status `cancelled` when an answer arrived for a row that no
+     * longer exists. The record is dropped and nothing is written.
+     */
+    readonly reason?: "row-missing";
 }
 
 /** Passed to `onRunStart`. */
