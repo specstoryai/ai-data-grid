@@ -95,7 +95,7 @@ export interface AIPolicyDecision {
  * | `type-mismatch` | Cells: the value can't be mapped to the destination cell |
  * | `input-too-large` | Cells |
  * | `policy-callback` | Cells: `decide` threw or returned something invalid |
- * | `commit-blocked` | Cells: validation, read-only, overwrite or staleness blocked a write |
+ * | `commit-blocked` | Cells: a write was refused. So far only for a result that was already committed; the validation, read-only, overwrite and staleness guards come with the commit path in a later stage |
  */
 export type AIFillErrorKind =
     | "configuration"

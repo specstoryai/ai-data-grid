@@ -1533,11 +1533,11 @@ const aiFill: AIFillConfig = {
 |---|---|
 | `connection` | `{ mode: "endpoint", url, headers?, fetch? }` (production: the key stays on your server), `{ mode: "direct", apiKey, dangerouslyAllowBrowser?, baseURL?, fetch? }` (local and demo use; a key used in a browser is visible to that browser's user, so browsers need `dangerouslyAllowBrowser: true`), or `{ mode: "custom", send }` |
 | `model` | The Jev model, for example `jev-latest`. Required. The versioned id that answered (for example `jev-1.13.0`) is kept with every answer. |
-| `rows` | `getRowId(row)` (required) and optional `getRowIndex(rowId)` |
+| `rows` | `getRowId(row)` (required) and optional `getRowIndex(rowId)`. Nothing reads `getRowIndex` yet; the grid integration that uses it comes in a later stage. |
 | `rowState` | The row state sent to Jev. Default: built from each column's `sources`. |
 | `rowScope` | A function returning the rows a column-wide fill covers: `() => ({ rows: "displayed" \| rowId[], label })`. Without it, column-wide fills aren't offered. |
 | `columns` | AI column definitions, keyed by `GridColumn.id` |
-| `execution` | Scheduler limits (see [Execution and errors](#execution-and-errors)): `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
+| `execution` | Scheduler limits (see [Execution and errors](#execution-and-errors)): `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100; validated, but nothing acts on it until the confirm dialog arrives in a later stage), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
 | `onRunStart`, `onRunProgress`, `onRunEnd`, `onResult`, `onCommit`, `onReject`, `onError` | Observers. `onResult` fires for every decided result, including withheld and review ones. |
 
 ### Column settings (all primitives)
@@ -1549,7 +1549,7 @@ const aiFill: AIFillConfig = {
 | `sources` | Source column ids: they build the default state and invalidate results when edited | `[]`, and then a `state` or grid `rowState` is required |
 | `state` | A per-column row state accessor | grid `rowState` |
 | `context` | Extra context such as category definitions or examples, sent as `{ instructions, context }` | none |
-| `applies`, `missingInput`, `isMissing` | Row applicability and what to do with missing input | every row; `"skip"`; every source empty |
+| `applies`, `missingInput`, `isMissing` | Row applicability and what to do with missing input | every row; `"skip"`; the column has sources and every one is empty by `isAIDestinationEmpty` |
 | `isEmpty` | Whether a destination cell is empty. Under `isAIDestinationEmpty`, **`0` and `false` are values, not empty.** | `isAIDestinationEmpty` |
 | `overwrite` | `"never"`, `"suggest"` (populated cells only in explicit selections, never auto-applied) or `"apply"` | `"never"` |
 | `fillScopes` | Any of `"selection"`, `"selection-empty"`, `"column-empty"`, `"column"` | the first three |
@@ -1683,6 +1683,8 @@ app.post("/api/jev", toNodeListener(createJevHandler({ apiKey: process.env.TYPES
 | `timeoutMs` | How long to wait for Jev | `20000` |
 | `baseURL`, `fetch` | Jev's origin, and the `fetch` used to call it | `https://api.typesafe.ai`, the global `fetch` |
 
+`createJevHandler` also throws a `TypeError` when `maxBodyBytes`, `maxQuestions` or `timeoutMs` is set to something other than a positive number.
+
 In order, the handler answers:
 
 | Status | `error.type` | When |
@@ -1690,14 +1692,15 @@ In order, the handler answers:
 | 405 | `method_not_allowed` | The method isn't POST |
 | 403 | `forbidden` | `authorize` didn't return `true` |
 | 500 | `server_configuration` | `apiKey` is empty |
-| 413 | `payload_too_large` | The body is over `maxBodyBytes`, or has more than `maxQuestions` questions |
+| 413 | `payload_too_large` | The body is over `maxBodyBytes` |
 | 400 | `invalid_request` | The body isn't JSON, or isn't `{ model, state, questions }` with valid questions |
+| 413 | `payload_too_large` | The body has more than `maxQuestions` questions |
 | 400 | `model_not_allowed` | The model isn't in `allowedModels` |
 | Jev's status | Jev's type, for example `rate_limit_error` | Jev returned an error. `Retry-After` and `retry-after-ms` are forwarded, and `retryAfterMs` is set in the body. |
 | 504 | `upstream_timeout` | Jev didn't answer within `timeoutMs` |
 | 502 | `upstream_unreachable` | Jev couldn't be reached |
 
-Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and `x-typesafe-request-id` header. The key is never echoed: not in a body, an error message or a header. It is redacted from any text Jev returns. The helper forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
+Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and `x-typesafe-request-id` header. The key is never echoed: not in a body, an error message or a header. It is redacted from the `type`, `message` and `detail` of Jev's error responses; successful responses are returned unchanged. The helper forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
 
 In Node, `require("@specstory/ai-data-grid/server")` works as well as `import`. Core's CommonJS build is ES modules, like the rest of the package, so `require` relies on Node's `require(esm)` (Node 20.19+, 22.12+ and 24).
 
@@ -1718,12 +1721,13 @@ For browser demos (Storybook, the sample apps), the repository has an unpublishe
 
 ```bash
 npm run build
-JEV_API_KEY=… node scripts/jev-dev-proxy.mjs [--port 8787] [--allow-origin https://my-storybook.example.com] [--allow-model jev-preview]
+JEV_API_KEY=… node scripts/jev-dev-proxy.mjs [--port 8787] [--host 0.0.0.0] [--allow-origin https://my-storybook.example.com]… [--allow-model <model>]…
 ```
 
 Then point the grid at it: `connection: { mode: "endpoint", url: "http://localhost:8787/api/jev" }` (any path works).
 
-- It allows `http://localhost:<any port>` and `http://127.0.0.1:<any port>`, plus only the exact origins passed with `--allow-origin`. It never allows `*`, and it refuses `--allow-origin *`.
+- It allows `http://localhost:<any port>` and `http://127.0.0.1:<any port>`, plus only the exact origins passed with `--allow-origin`. It never allows `*`, and it refuses `--allow-origin *`, `--allow-origin null` and values that aren't origins.
+- `--allow-model` replaces the default model list (`jev-latest`) instead of adding to it, so pass `--allow-model jev-latest` too if you still want it.
 - `authorize` checks the same list, so a request without an allowed `Origin` header (including one from `curl` without `-H "Origin: …"`) gets a 403 and never reaches Jev.
 - It answers CORS preflights for allowed origins, and exposes `retry-after`, `retry-after-ms` and `x-typesafe-request-id` to the browser.
 - It logs the method, path, status and time of each request, never the key, headers or bodies.
@@ -1757,7 +1761,7 @@ const aiFill = { ...config, connection: jev.connection }; // or { mode: "endpoin
 
 A question no rule answers gets a generated answer. Generated answers depend only on the seed, the state and the question (not on call order or question ids), and always pass `parseJevAnswer`: Choice probabilities sum to 1 and the choice is the most probable option, a Score is the probability-weighted position with a legend, and a Noul is in [0, 1].
 
-The returned `MockJev` has `connection` (`{ mode: "custom", send }`), `send`, `fetch`, `calls` and `reset()`. Its `fetch` behaves like Jev for URLs ending in `/v1/systemone` (it needs an `Authorization` header) and like an endpoint built with `createJevHandler` for any other URL. `calls` logs every call as a `MockJevCall`: its `index`, `via` (`send` or `fetch`), `url`, `authorized` (whether an `Authorization` header was sent; its value is never recorded), `request`, `startedAt`, `status` (`pending`, `answered`, `failed` or `aborted`), `httpStatus`, the injected `error` kind and the `response`.
+The returned `MockJev` has `connection` (`{ mode: "custom", send }`), `send`, `fetch`, `calls` and `reset()`. Its `fetch` behaves like Jev for URLs ending in `/v1/systemone` (it needs an `Authorization` header) and like an endpoint for any other URL: it takes the request body and answers with Jev's body or a `JevEndpointErrorBody`, but runs none of `createJevHandler`'s checks (method, `authorize`, models, sizes). `calls` logs every call as a `MockJevCall`: its `index`, `via` (`send` or `fetch`), `url`, `authorized` (whether an `Authorization` header was sent; its value is never recorded), `request`, `startedAt`, `status` (`pending`, `answered`, `failed` or `aborted`), `httpStatus`, the `error` kind for failed calls and the `response`. An injected `timeout` ends as `aborted` when the request is cancelled, and injected `malformed` and `evaluation` errors end as `answered` with status 200, since those are bad answers rather than failed calls.
 
 ### Models
 
@@ -1782,9 +1786,9 @@ Before anything is sent, a fill works out which cells it evaluates and which it 
 | `not-applicable` | The column is disabled by a configuration issue, its `fillScopes` doesn't include the scope, or `applies` returned false |
 | `populated` | The destination isn't empty by `isEmpty`, and the scope or `overwrite` doesn't allow evaluating it (only `selection` with `overwrite: "suggest"` or `"apply"`, and `column` with `"apply"`, do) |
 | `missing-input` | `missingInput` is `"skip"` (the default) and `isMissing` is true |
-| `cached` | The cell already has a suggested, review or withheld result for the same question, input and model |
+| `cached` | The cell already has a suggested, review or withheld result for the same question, input and model, not marked `manual`, and its destination hasn't changed since |
 
-A fill is refused with a `configuration` error, before any request, when the configuration has a grid-level issue or the fill covers more than `maxCellsPerRun` cells. A `state` accessor that throws gives that cell a `configuration` error.
+A fill is refused with a `configuration` error, before any request, when the configuration has a grid-level issue or the fill would evaluate more than `maxCellsPerRun` cells (skipped cells don't count). A refused fill only calls `onError`: it doesn't call `onRunStart` or `onRunEnd`. An `applies`, `isEmpty`, `isMissing`, `state` or grid `rowState` callback that throws gives that cell a `configuration` error.
 
 ### Requests, the cache and dedup
 
@@ -1804,9 +1808,9 @@ A fill is refused with a `configuration` error, before any request, when the con
 | `maxRetries` | 2 | Retries after the first attempt, for retryable failures only |
 | `backoff` | 500 ms → 5 s, jitter 0.25 | The delay doubles from `initialMs` up to `maxMs`, minus up to `jitter` of it at random |
 
-- **Retried:** network errors, timeouts, and HTTP 408, 429, 500–599 and 529. **Never retried:** 400, 401, 403, 404, 413 and 422.
+- **Retried:** network errors, timeouts, and HTTP 408, 429, 500–599 (except an endpoint's 500 `server_configuration`) and 529. **Never retried:** every other 4xx status, including 400, 401, 403, 404, 405, 413 and 422.
 - **Server delays.** A `retry-after-ms` or `Retry-After` header (or the endpoint body's `retryAfterMs`) of up to 60 s is honored instead of the backoff. A longer one falls back to the backoff.
-- **Rate limits.** A 429 or 529 that is still failing after the retries fails that request's cells with a retryable `rate-limit` or `overloaded` error, and pauses the whole queue for the server's delay (or `backoff.maxMs` when there is none), at most 60 s.
+- **Rate limits.** A 429, 503 or 529 that is still failing after the retries fails that request's cells with a retryable `rate-limit` or `overloaded` error, and pauses the whole queue for the server's delay (or `backoff.maxMs` when there is none), at most 60 s.
 - **Authentication.** A 401 or 403 aborts the whole run: one `authentication` error goes to `onError`, listing every unfinished cell, and no further request is made for the run.
 - **Partial success.** Every cell settles on its own. Cells that succeeded keep their results when others fail, and a retry re-runs only the failed cells, with the scope and mode they had.
 - **Committing once.** A result is written at most once. A second commit of the same result is refused and reported as `commit-blocked`, so a retry or a repeated accept can't write twice.
@@ -1816,7 +1820,7 @@ A fill is refused with a `configuration` error, before any request, when the con
 - **Cancel** drops the run's queued requests, aborts its in-flight requests (unless another run is waiting on the same request), and puts its cells back to the result they had before. The run ends with `cancelled: true`.
 - **Late responses are ignored.** Every request for a cell gets a new sequence number, and a response settles a cell only when it belongs to the latest request for that row id and column id, from the same run. So a cancelled request, an older request that arrives after a newer one, or a retry can never attach its answer to a different cell, or overwrite a newer request's result.
 - **Checked again on arrival.** When an answer arrives, the row's input is fingerprinted again and the destination compared with its value at request time. If the input changed (a source was edited, or the data changed outside the grid), the answer is stored as `stale`. If the destination changed, it is also marked `manual`. Neither is ever committed.
-- **Deleted rows.** If the row is gone when an answer arrives, the result is dropped and `onResult` reports it with status `cancelled` and `reason: "row-missing"`. Rows are found by id, never by display position, so sorting or filtering while a request is pending can't move a result to another row.
+- **Deleted rows.** If the row is gone when an answer arrives, or when the app reports changed rows while a decided result waits, the result is dropped and `onResult` reports it with status `cancelled` and `reason: "row-missing"`. An error response for a deleted row is stored as an error. Rows are found by id, never by display position, so sorting or filtering while a request is pending can't move a result to another row.
 
 ### Re-evaluation without a request
 
@@ -1824,11 +1828,11 @@ Changing a column's `policy`, `output` (including `format`, labels and values), 
 
 ### Errors
 
-Every `AIFillError` has a `kind`, a `message` and `retryable`, plus `httpStatus` and `requestId` (the `x-typesafe-request-id` header) where they apply, and the affected `cells` (or `columnId` for a column-level error). Errors never erase data.
+Every `AIFillError` has a `kind`, a `message` and `retryable`, plus `httpStatus` and `requestId` (the `x-typesafe-request-id` header) where they apply, and the affected `cells` (or `columnId` for a column-level error). Errors never write to the grid, though a failed request replaces the cell's earlier stored answer with the error.
 
 | Kind | Scope | Retryable | Produced by |
 |---|---|---|---|
-| `configuration` | Run, column or cell | no | An invalid configuration, direct mode in a browser without `dangerouslyAllowBrowser`, a fill over `maxCellsPerRun`, a throwing `state` accessor or `connection.headers()`, HTTP 400, 404 and 405, and an endpoint's 500 `server_configuration` |
+| `configuration` | Run, column or cell | no | An invalid configuration, direct mode in a browser without `dangerouslyAllowBrowser`, a fill over `maxCellsPerRun`, an incomplete output mapping, a throwing `applies`, `isEmpty`, `isMissing`, `state`, `rowState` or `connection.headers()`, HTTP 400, 404 and 405, and an endpoint's 500 `server_configuration` |
 | `authentication` | Run | no | HTTP 401 and 403. Aborts the run. |
 | `rate-limit` | Cells | yes | HTTP 429 after the retries |
 | `overloaded` | Cells | yes | HTTP 529 and 503 after the retries |
@@ -1846,11 +1850,11 @@ Every `AIFillError` has a `kind`, a `message` and `retryable`, plus `httpStatus`
 
 | Callback | When |
 |---|---|
-| `onRunStart({ runId, columnIds, cells, apply })` | A run starts. `cells` counts the cells it evaluates. |
+| `onRunStart({ runId, columnIds, cells, apply })` | A run starts (not for a refused fill). `cells` counts the cells it evaluates. |
 | `onRunProgress({ runId, done, total })` | After each cell settles |
 | `onResult(event)` | For every settled cell: suggested, review, withheld, error and stale results, and `row-missing` drops. The event carries the result metadata: `runId`, `rowId`, `columnId`, `requestedModel`, `model`, the short `questionFingerprint` and `inputFingerprint`, the `answer`, and `timings` (`queuedAt`, `sentAt`, `receivedAt`). Re-evaluation after a configuration change doesn't call it. |
-| `onRunEnd(summary)` | The run ends, including when cancelled: `{ runId, cancelled, counts, skipped }`, with `counts` by status and `skipped` by reason |
-| `onError(error)` | Once per failed request (once per run for `authentication`), and for each cell error. A `decide` that returns `apply` for a column without `autoApply` is reported once per column. |
+| `onRunEnd(summary)` | A started run ends, including when cancelled: `{ runId, cancelled, counts, skipped }`, with `counts` by status and `skipped` by reason |
+| `onError(error)` | For a refused fill, once per failed request for each run waiting on it (once per run for `authentication`), and for each cell error. A `decide` that returns `apply` for a column without `autoApply` is reported once per column and message for the grid's lifetime. |
 | `onReject({ cells })` | Results are rejected. Nothing is written. |
 | `onCommit({ commitId, source, edits })` | Results are written, with each edit's previous and next cell and its metadata |
 

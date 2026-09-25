@@ -112,7 +112,7 @@ The full documentation (quickstart guide, API reference, guides and FAQ) is at *
 
 The API reference, including the HTML/CSS prerequisites, is also in this repository at [packages/core/API.md](packages/core/API.md).
 
-**In development: AI Fill.** AI-filled columns (powered by TypeSafe's Jev) are being built into `@specstory/ai-data-grid` itself, not a separate package. They can't be used yet: the `aiFill` prop on `DataEditor` doesn't exist in this version. The "AI Fill" chapter of [API.md](packages/core/API.md#ai-fill) describes the configuration being built.
+**In development: AI Fill.** AI-filled columns (powered by TypeSafe's Jev) are being built into `@specstory/ai-data-grid` itself, not a separate package. They can't fill a grid yet: the `aiFill` prop on `DataEditor` doesn't exist in this version. Two supporting entry points already work: `@specstory/ai-data-grid/server` (`createJevHandler`, a route handler that keeps your TypeSafe key on your server) and `@specstory/ai-data-grid/testing` (`createMockJev`, a mock Jev for tests). The "AI Fill" chapter of [API.md](packages/core/API.md#ai-fill) describes both and the configuration being built.
 
 ## Migrating from 6.x
 
