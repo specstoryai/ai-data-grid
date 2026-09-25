@@ -5,7 +5,7 @@
 
 <p align="center">Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed.</p>
 
-Supports React 16.12 or later, including 17, 18 and 19 (peer range `^16.12.0 || 17.x || 18.x || 19.x`). `lodash` is a peer dependency.
+Needs React 19 (`react` and `react-dom` peer range `^19.0.0`). React 16, 17 and 18 are not supported. `lodash` is a peer dependency.
 
 # Installation
 
@@ -42,7 +42,7 @@ return <DataEditor {...moveArgs} getCellContent={sortArgs.getCellContent} rows={
 
 ## Migrating from 6.x
 
-The API is unchanged from the 6.x source package. Change the package names only:
+The API is unchanged from the 6.x source package, but 7.0.0 needs React 19. If your app is on React 16, 17 or 18, upgrade it to React 19 first. Then change the package names only:
 
 | 6.x package | 7.0.0 package |
 | --- | --- |

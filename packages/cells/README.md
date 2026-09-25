@@ -5,7 +5,7 @@
 
 <p align="center">Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed.</p>
 
-Supports React 16.12 or later, including 17, 18 and 19 (peer range `^16.12.0 || 17.x || 18.x || 19.x`).
+Needs React 19 (`react` and `react-dom` peer range `^19.0.0`). React 16, 17 and 18 are not supported.
 
 Current cells
 
@@ -78,9 +78,29 @@ The ArticleCell uses `@toast-ui/editor` to provide its editor. To make sure it w
 import "@toast-ui/editor/dist/toastui-editor.css";
 ```
 
+### React 19 and the `@toast-ui/react-editor` peer warning
+
+The ArticleCell editor uses `@toast-ui/react-editor`, which declares a `react ^17.0.1` peer dependency. It works with React 19, but npm reports the mismatch when you install this package:
+
+- With npm's default settings the install succeeds (exit code 0) with a warning that starts `npm warn ERESOLVE overriding peer dependency` and names `@toast-ui/react-editor`. Only your React 19 is installed.
+- With `--strict-peer-deps` (or `strict-peer-deps=true` in `.npmrc`) the install fails with `npm error code ERESOLVE`.
+
+To remove the warning and make strict installs pass, tell npm to use your app's React for that package by adding this to your app's `package.json` (your app must list `react` and `react-dom` as dependencies):
+
+```json
+"overrides": {
+    "@toast-ui/react-editor": {
+        "react": "$react",
+        "react-dom": "$react-dom"
+    }
+}
+```
+
+Setting `legacy-peer-deps=true` in `.npmrc` also removes the warning, but npm then stops installing peer dependencies automatically, so you must install `lodash`, `marked` and `react-responsive-carousel` yourself.
+
 ## Migrating from 6.x
 
-The API is unchanged from the 6.x cells package. Change the package names only:
+The API is unchanged from the 6.x cells package, but 7.0.0 needs React 19. If your app is on React 16, 17 or 18, upgrade it to React 19 first. Then change the package names only:
 
 | 6.x package | 7.0.0 package |
 | --- | --- |

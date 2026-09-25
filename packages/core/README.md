@@ -5,7 +5,7 @@
 
 <p align="center">Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed.</p>
 
-`@specstory/ai-data-grid` is the core package of AI Data Grid. Version 7.0.0 is API-compatible with the 6.x releases it was forked from, so existing users only change import paths (see [Migrating from 6.x](#migrating-from-6x)).
+`@specstory/ai-data-grid` is the core package of AI Data Grid. Version 7.0.0 is API-compatible with the 6.x releases it was forked from, but it needs React 19. Existing users on React 19 only change import paths (see [Migrating from 6.x](#migrating-from-6x)).
 
 Companion packages:
 
@@ -29,7 +29,7 @@ Source: https://github.com/specstoryai/ai-data-grid
 
 # ⚡ Quick Start
 
-The packages support React 16.12 or later, including 17, 18 and 19 (peer range `^16.12.0 || 17.x || 18.x || 19.x`). Install the data grid:
+The packages need React 19 (`react` and `react-dom` peer range `^19.0.0`). React 16, 17 and 18 are not supported. Install the data grid:
 
 ```shell
 npm i @specstory/ai-data-grid
@@ -99,6 +99,8 @@ The API reference, including the HTML/CSS prerequisites, is in `API.md`, which s
 
 ## Migrating from 6.x
 
+7.0.0 needs React 19 (`^19.0.0`). React 16, 17 and 18 are not supported, so if your app is on one of them, upgrade it to React 19 first, then switch packages.
+
 7.0.0 keeps every exported name and prop, `DataEditor`, the `--gdg-*` CSS variables and the `gdg-` class names. Change only the package names in your `package.json` and imports:
 
 | 6.x package | 7.0.0 package |
@@ -153,7 +155,7 @@ There are some hacks you can do like setting timers and entering into a "low fid
 
 **I want to use this with Next.js / Vercel, but I'm getting weird errors**
 
-The easiest way to use the grid with Next is to create a component which wraps up your grid and then import it as a dynamic.
+The easiest way to use the grid with Next is to create a component which wraps up your grid and then import it as a dynamic. With the App Router, `ssr: false` is only allowed in a Client Component, so put `"use client";` at the top of the file that calls `dynamic`.
 
 home.tsx
 

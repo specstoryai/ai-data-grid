@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-8 round 2, correcting the build description after SPST-10 verification of PR #12)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1). React 19 only (WP2), hosted Storybook (WP3) and the docs site (WP4) are documented when they land.
+**Last updated:** 2026-09-25 (SPST-13, documenting WP2 / PR #14)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), and React 19 only with the `test-projects/` sample apps (WP2, PR #14). Hosted Storybook (WP3) and the docs site (WP4) are documented when they land.
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -13,7 +13,7 @@ The root `package.json` (name `root`, version `7.0.0`) declares three npm worksp
 
 | Workspace | npm name | Depends on | Peer dependencies |
 | --- | --- | --- | --- |
-| `packages/core` | `@specstory/ai-data-grid` | `@linaria/react`, `canvas-hypertxt`, `react-number-format` | `react`, `react-dom` (`^16.12.0 \|\| 17.x \|\| 18.x \|\| 19.x`), `lodash`, `marked`, `react-responsive-carousel` |
+| `packages/core` | `@specstory/ai-data-grid` | `@linaria/react`, `canvas-hypertxt`, `react-number-format` | `react`, `react-dom` (`^19.0.0`), `lodash`, `marked`, `react-responsive-carousel` |
 | `packages/cells` | `@specstory/ai-data-grid-cells` | `@specstory/ai-data-grid` `7.0.0` (exact), `@linaria/react`, `@toast-ui/editor`, `@toast-ui/react-editor`, `react-select` | `react`, `react-dom` (same range) |
 | `packages/source` | `@specstory/ai-data-grid-source` | `@specstory/ai-data-grid` `7.0.0` (exact) | `react`, `react-dom` (same range), `lodash` |
 
@@ -46,7 +46,7 @@ This is unchanged from upstream apart from the names.
 
 ### Renamed
 
-- Package names: `@glideapps/glide-data-grid` → `@specstory/ai-data-grid`, `-cells` → `@specstory/ai-data-grid-cells`, `-source` → `@specstory/ai-data-grid-source`. Every import in `src/`, tests and stories uses the new names, except in `test-projects/`.
+- Package names: `@glideapps/glide-data-grid` → `@specstory/ai-data-grid`, `-cells` → `@specstory/ai-data-grid-cells`, `-source` → `@specstory/ai-data-grid-source`. Every import in `src/`, tests, stories and (since WP2) `test-projects/` uses the new names.
 - Version `7.0.0` everywhere. `update-version.sh` writes the root and package versions and the `@specstory/ai-data-grid` dependency of `cells` and `source`.
 - Storybook: stories are titled `AI-Data-Grid/*`. `.storybook/manager.ts` uses the theme `aiDataGridTheme` (`brandTitle: "AI Data Grid"`, `brandUrl` → the repo, no brand image).
 - User-visible "Glide Data Grid" text in shipped JSDoc and `API.md`.
@@ -79,6 +79,85 @@ This is unchanged from upstream apart from the names.
 
 `.github/workflows/ci.yml`, job `test`, on `pull_request` and on `push` to `main`, `ubuntu-latest`, Node from `.nvmrc`: `npm ci` → `npm run build` → `npm test -- --run` → `npm run test-cells -- --run` → `npm run test-source -- --run`. Upstream's `node.js`, `beta`, `release` and `storybook` workflows and `.github/dependabot.yml` were deleted. `ci.yml` is not a required check on `main` yet.
 
+## React 19
+
+### Support model
+
+- `react` / `react-dom` peer dependencies are `^19.0.0` in all three packages. React 16, 17 and 18 are not supported. Core's other peers (`lodash`, `marked`, `react-responsive-carousel`) and source's `lodash` peer are unchanged.
+- The repository develops and tests against React 19 only. The root devDependencies `@types/react` / `@types/react-dom` are `^19`. Upstream's `test-18` / `test-19` scripts and `setup-react-18-test.sh` / `setup-react-19-test.sh` were deleted.
+- `forwardRef` is kept on `DataEditor`, `DataEditorAll` and `DataGrid`. It still works in React 19, and removing it is out of scope for 7.0.
+
+### Type fallout, fixed internally
+
+React 19's types required only internal changes:
+
+- `useRef<T>()` calls now pass `undefined` (22 call sites); the two `useRef() as MutableRefObject` casts keep the cast and pass the now-required argument.
+- Internal `React.VFC` became `React.FC`.
+- `packages/source/src/use-undo-redo.ts` checks `gridRef.current !== null` explicitly, because `RefObject<T>.current` is no longer typed as nullable.
+
+No exported type changed. The emitted `.d.ts` differs from WP1 only in two internal, non-exported declarations, both caused by `@types/react` 19: `GroupRename` is `React.FC<Props>` (was `React.VFC`), and `DataGrid`'s default export is `React.NamedExoticComponent<…>` (was `MemoExoticComponent<ForwardRefExoticComponent<…>>`). The export-name snapshots (see [How the API is guarded](#how-the-api-is-guarded)) are unchanged.
+
+### Tests
+
+The 11 hook test files use `renderHook` and `act` from `@testing-library/react`. `@testing-library/react-hooks` and `react-test-renderer` were removed from the root devDependencies, and `react-dom/test-utils` (deprecated in React 19) is no longer imported. The three tests that used `result.all` count renders instead. Test counts are unchanged: core 388, cells 65, source 8.
+
+### Root `overrides`
+
+These apply to this repository's install only; they don't reach the published packages.
+
+| Override | Reason |
+| --- | --- |
+| `storybook: "$storybook"` | Unchanged from WP1. |
+| `@types/react: "$@types/react"`, `@types/react-dom: "$@types/react-dom"` | `@types/react-transition-group` pulled in an 18.x copy that broke `react-select`'s types. |
+| `@emotion/react: "^11.14.0"` | Emotion 11.10's types reference the global `JSX` namespace, which React 19's types removed. `react-select` 5.x depends on Emotion. |
+| `csstype: "3.1.3"` | csstype 3.2's readonly tuples break Emotion's `CSSInterpolation`. |
+
+The root `.npmrc` keeps `legacy-peer-deps=true`.
+
+### `@toast-ui/react-editor` (cells article editor)
+
+Kept. It declares a `react ^17.0.1` peer and is unmaintained, but the article cell editor works under React 19: `scripts/check-article-cell-editor.mjs` opens it in the Storybook custom-cells story, types, saves, reopens and cancels with no console errors (5 of 5 runs during WP2; 1 run on 2026-09-25 during SPST-13).
+
+Install impact for users, measured with npm 11.19 on 2026-09-25 by installing the packed tarballs next to `react@19` / `react-dom@19` in an empty app with no `.npmrc`:
+
+- default npm: exit 0, with `npm warn ERESOLVE overriding peer dependency` for `@toast-ui/react-editor@3.2.3`; one `react` (19.x) is installed. `npm ci` from the resulting lockfile also succeeds with the warning.
+- `--strict-peer-deps`: fails with `npm error code ERESOLVE`.
+- an app-level `overrides` entry `"@toast-ui/react-editor": { "react": "$react", "react-dom": "$react-dom" }`: no warning, and `--strict-peer-deps` passes. This is the workaround in the cells README.
+- `legacy-peer-deps=true`: no warning, but npm no longer auto-installs peers (`lodash`, `marked`, `react-responsive-carousel` were missing).
+
+If a future React breaks it, the fallback is a small wrapper around `@toast-ui/editor`, which is already a cells dependency.
+
+## Sample apps (`test-projects/`)
+
+`test-projects/bootstrap-projects.sh` (`npm run test-projects`) is a tarball harness:
+
+1. If any package's `dist/` is missing, it runs `npm run build --workspaces`.
+2. It runs `npm pack --workspace packages/<pkg>` for core, cells and source into `test-projects/.packs/`.
+3. For `vite-app` and `next-app`, it deletes `node_modules` and `package-lock.json`, runs `npm install` with all three tarballs, then `npm run build`.
+
+This tests what users install (the tarballs, with their `LICENSE`, `exports` map and CSS paths) against a single React 19, instead of symlinked workspace sources.
+
+| Sample | Stack | Build | Serve |
+| --- | --- | --- | --- |
+| `vite-app` | Vite 8, `@vitejs/plugin-react` 6, React 19, TypeScript 5.9 | `tsc --noEmit && vite build` | `npm run preview` |
+| `next-app` | Next 16 App Router, React 19, TypeScript 5.9 | `next build` | `npm start` (`next start`) |
+
+- Both render a `DataEditor` with text, number and boolean columns plus the star cell from `@specstory/ai-data-grid-cells`, and import `@specstory/ai-data-grid/dist/index.css`.
+- `next-app/app/page.tsx` is a `"use client"` page that loads `components/Grid.tsx` with `next/dynamic` and `ssr: false`, because the grid needs `window`.
+- Each sample has `.npmrc` with `legacy-peer-deps=true`, and depends on `file:../.packs/specstory-ai-data-grid*-7.0.0.tgz`.
+- `test-projects/.gitignore` ignores `.packs/`, `node_modules/`, `dist/`, `.next/` and `package-lock.json`. The sample lockfiles are regenerated on every run and never committed.
+- Not in CI.
+- Upstream's `cra5-gdg` (Create React App, pinned to React 17, crashed at runtime with two copies of React) and `next-gdg` (Next 12.1, build failed) were deleted.
+
+On 2026-09-25 (SPST-13) a run took 14 s with a warm npm cache and left about 400 MB (`next-app`) and 110 MB (`vite-app`) of `node_modules`. Both samples resolved React 19.3.0.
+
+### Check scripts
+
+Both need Playwright's Chromium and aren't in CI.
+
+- `scripts/check-test-project.mjs <base-url> <sample-node_modules-dir>` scans the given `node_modules` (including nested and scoped `node_modules`) for `react` packages, then loads the URL in headless Chromium, waits for a `<canvas>` (30 s) and 2 s more. It fails if there's no canvas, any console or page error, or the `react` copies don't share exactly one version. Missing arguments print the usage and exit 2.
+- `scripts/check-article-cell-editor.mjs [url]` defaults to `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`. It double-clicks the article cell at fixed canvas coordinates (the Article column, index 8, at x = 1250 + 75 px; row 1, at y = 36 + 34 + 17 px), retrying up to 3 times, then types, saves, reopens and cancels. Console errors fail it, except `Failed to load resource` 404s (the story's image cell with an undefined URL).
+
 ## Storybook
 
 - Storybook 9 with `@storybook/react-vite` (`.storybook/main.cjs`), stories from `**/src/**/*.stories.tsx`, Linaria through `@wyw-in-js/vite`.
@@ -92,11 +171,12 @@ This is unchanged from upstream apart from the names.
 
 ## Known limitations and risks
 
-- **React peer range is still 16.12–19** at this stage, while the 7.0.0 CHANGELOG section already says React 19 is required. WP2 narrows the range to `^19.0.0`.
+- **`@toast-ui/react-editor` is unmaintained and declares a `react ^17.0.1` peer.** npm warns on install of `-cells` (see [above](#toast-uireact-editor-cells-article-editor)). Fallback if React breaks it: a wrapper around `@toast-ui/editor`.
+- **The article-editor check aims by canvas coordinates.** A layout change to the custom-cells story breaks `scripts/check-article-cell-editor.mjs` until its coordinates are updated.
+- **`check-test-project.mjs` counts React versions, not copies.** Two copies of the same React version would pass.
 - **`@glideapps/ts-helper` is still a core devDependency** (with its dependencies `@glideapps/graphs` and `@glideapps/ts-necessities` in the lockfile). It's the external tool behind `cycle-check`, not shipped code.
 - **Emitted `.d.ts` files aren't byte-for-byte reproducible, in all three packages.** The parallel esm and cjs `tsc` runs write the same declaration directory: `dist/dts-tmp` in core and cells, `dist/dts` in source. Whichever run finishes last wins, so the `//# sourceMappingURL` trailer is present in some builds and missing in others. In repeated builds on 2026-09-25 the number of `.d.ts` files with the trailer varied: core 40, 87 and 0 of 87; cells 0, 17, 17, 5 and 0 of 17; source's `index.d.ts` had it in 1 of 4 builds. Pre-existing.
 - **Failing `Vercel` status on PRs without `docs/`.** The docs Vercel project (WP4) builds every branch, and fails on branches that don't contain `docs/`. It stops once WP4 is on `main` and branches have merged it.
-- **`test-projects/`, `test-18`, `test-19`, `test-projects` script.** `test-projects/` is broken and still uses the old package names. `test-18`/`test-19` reinstall React and Testing Library with `npm i -D`, rewriting `package.json` and the lockfile. WP2 removes or replaces them.
 - **The core tarball ships source, tests and stories** because core has no `files` field (see above).
 - **`.devcontainer/` is stale.** It pins a Node 14 image and runs a `.devcontainer/run.sh` that doesn't exist. It isn't documented as a way to work on the repo.
 - `packages/cells/test/date-picker-cell.test.tsx` was fixed in WP1: it rendered the wrong cell and left a `findByDisplayValue` promise unawaited, which failed CI intermittently.
@@ -119,10 +199,17 @@ This is unchanged from upstream apart from the names.
 | 2026-09-25 | SPST-2 / PR #12 | Add a Playwright Storybook smoke test with a per-story allowlist, and keep it out of CI. | It catches runtime errors in every story. Some stories load third-party images, which makes it too flaky for CI. |
 | 2026-09-25 | SPST-2 / PR #12 | Keep `@glideapps/ts-helper` as a core devDependency for `cycle-check`. | It's a build tool, not shipped code or branding, and there is no drop-in replacement yet. |
 | 2026-09-25 | SPST-8 | The package READMEs, which ship in the tarballs, don't link to images, a hosted Storybook or a docs site. | The repository is private, so its images and links don't resolve for npm users, and neither hosted site exists yet. |
+| 2026-09-25 | SPST-6 | React 19 only: `react` / `react-dom` peer `^19.0.0` in all three packages; drop React 16–18. | One React version to build and test against. It's why 7.0.0 is a major version. |
+| 2026-09-25 | SPST-6 | Keep `forwardRef` on `DataEditor`, `DataEditorAll` and `DataGrid` in 7.0. | It works in React 19. Removing it is out of scope for an API-compatible 7.0 and can wait for a later major. |
+| 2026-09-25 | SPST-4, PR #14 | Replace `@testing-library/react-hooks` (and `react-test-renderer`, `react-dom/test-utils`) with `renderHook` / `act` from `@testing-library/react`. | `@testing-library/react-hooks` is deprecated and doesn't support React 18 or 19, and `react-dom/test-utils` is deprecated in React 19. RTL's `renderHook` is the replacement. |
+| 2026-09-25 | SPST-4, PR #14 | Add root `overrides` for `@types/react`, `@types/react-dom`, `@emotion/react` and `csstype`. | Transitive dependencies pulled in React 18 types or types incompatible with React 19's; overrides fix the dev install without touching the published packages. |
+| 2026-09-25 | SPST-4, PR #14 | Keep `@toast-ui/react-editor` instead of replacing it. | The article editor works under React 19 (checked headless). Its `react ^17` peer only causes an npm warning, with a documented `overrides` workaround. Replacing it is a fallback, not needed now. |
+| 2026-09-25 | SPST-4, PR #14 | Replace the CRA sample with `vite-app`, and `next-gdg` (Next 12, Pages Router) with `next-app` (Next 16 App Router, grid loaded with `ssr: false`). | CRA is deprecated, and upstream's CRA sample was pinned to React 17 and crashed with two Reacts. The Next 12.1 sample no longer built. |
+| 2026-09-25 | SPST-4, PR #14 | The samples install `npm pack` tarballs, and their lockfiles are gitignored and regenerated each run. | Tests exactly what users install (tarball contents, `exports`, CSS paths) with one React. The tarballs are rebuilt on every run, so committed sample lockfiles would go stale. |
+| 2026-09-25 | SPST-4, PR #14 | Keep `test-projects` and its check scripts out of CI. | CI stays install, build, lint and unit tests. The harness installs ~500 MB and needs a browser for the checks. |
 
 ## Open follow-ups
 
-- React 19 only: peer range `^19.0.0`, and remove or replace `test-projects/`, `test-18` and `test-19` (WP2, SPST-4).
 - Deploy Storybook to Vercel and link it from the READMEs (WP3, SPST-5).
 - Docs site (WP4, SPST-3), then link it from the READMEs.
 - Rename the `glide-*` runtime identifiers in 8.0.
@@ -131,3 +218,5 @@ This is unchanged from upstream apart from the names.
 - Replace `@glideapps/ts-helper` for `cycle-check`.
 - Decide whether the core tarball should get a `files` field, and fix or delete `.devcontainer/`.
 - First npm publish under `@specstory` (needs Jake's approval).
+- `@toast-ui/react-editor` is unmaintained with a `react ^17` peer. If a React release breaks it, replace it with a small wrapper around `@toast-ui/editor`.
+- `scripts/check-article-cell-editor.mjs` aims at the article cell by canvas coordinates; make it find the cell some other way if the story changes often.
