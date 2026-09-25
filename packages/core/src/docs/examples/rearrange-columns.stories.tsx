@@ -31,7 +31,7 @@ export default {
     ],
 };
 
-export const RearrangeColumns: React.VFC = () => {
+export const RearrangeColumns: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(60);
 
     // This is a dirty hack because the mock generator doesn't really support changing this. In a real data source

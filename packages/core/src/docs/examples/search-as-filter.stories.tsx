@@ -26,7 +26,7 @@ export default {
     ],
 };
 
-export const SearchAsFilter: React.VFC = () => {
+export const SearchAsFilter: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const [showSearch, setShowSearch] = React.useState(false);

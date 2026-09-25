@@ -23,7 +23,7 @@ export default {
     ],
 };
 
-export const AutomaticRowMarkers: React.VFC = () => {
+export const AutomaticRowMarkers: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     const dataEditor = (

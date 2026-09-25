@@ -18,7 +18,7 @@ The public API is unchanged. To migrate, change only your import paths to the ne
 
 ## React support
 
-This release requires React 19 (`react` / `react-dom` `^19.0.0`). Support for React 16, 17 and 18 is dropped. (Landed in the WP2 work package.)
+This release requires React 19 (`react` / `react-dom` `^19.0.0`). Support for React 16, 17 and 18 is dropped.
 
 ---
 

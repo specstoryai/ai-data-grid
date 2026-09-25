@@ -26,7 +26,7 @@ export default {
     ],
 };
 
-export const RightToLeft: React.VFC = () => {
+export const RightToLeft: React.FC = () => {
     const { cols, getCellContent, setCellValue, onColumnResize } = useMockDataGenerator(60, false);
 
     const realCols = React.useMemo(() => {

@@ -37,7 +37,7 @@ interface OverscrollProps {
     overscrollY: number;
 }
 
-export const Overscroll: React.VFC<OverscrollProps> = p => {
+export const Overscroll: React.FC<OverscrollProps> = p => {
     const { overscrollX, overscrollY } = p;
     const { cols, getCellContent } = useMockDataGenerator(20);
 

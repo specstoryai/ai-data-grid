@@ -38,7 +38,7 @@ export default {
     ],
 };
 
-export const MultiSelectColumns: React.VFC = () => {
+export const MultiSelectColumns: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100);
 
     return (

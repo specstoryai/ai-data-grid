@@ -32,7 +32,7 @@ export default {
     ],
 };
 
-export const ShadowDOM: React.VFC = () => {
+export const ShadowDOM: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(20, false, false);
 
     return (

@@ -25,7 +25,7 @@ interface DummyItem {
     update: number;
 }
 
-export const StreamingData: React.VFC = () => {
+export const StreamingData: React.FC = () => {
     const highlightDataRef = React.useRef([
         {
             name: "Deidre Morris",

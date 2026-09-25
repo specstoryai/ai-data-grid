@@ -14,7 +14,7 @@ export default {
     ],
 };
 
-export const FAQ: React.VFC = () => {
+export const FAQ: React.FC = () => {
     return (
         <DocWrapper>
             <Marked>

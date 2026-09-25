@@ -83,7 +83,7 @@ function useCollapsableColumnGroups(cols: readonly GridColumn[]) {
     };
 }
 
-export const ColumnGroupCollapse: React.VFC = () => {
+export const ColumnGroupCollapse: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100, true, true);
 
     const groupHeaderArgs = useCollapsableColumnGroups(cols);

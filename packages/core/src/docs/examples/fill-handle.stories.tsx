@@ -59,7 +59,7 @@ export default {
     },
 };
 
-export const FillHandle: React.VFC<{
+export const FillHandle: React.FC<{
     fillHandleEnabled: boolean;
     shape: "square" | "circle";
     size: number;

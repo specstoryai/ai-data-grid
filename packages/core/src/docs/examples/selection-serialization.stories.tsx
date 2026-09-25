@@ -22,7 +22,7 @@ export default {
     ],
 };
 
-export const SelectionSerialization: React.VFC = () => {
+export const SelectionSerialization: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(30, true, true);
 
     // Load selection from localStorage on mount
@@ -111,7 +111,7 @@ export const SelectionSerialization: React.VFC = () => {
     );
 };
 
-export const SelectionRoundTrip: React.VFC = () => {
+export const SelectionRoundTrip: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(30, true, true);
     
     const [originalSelection, setOriginalSelection] = React.useState<GridSelection>({

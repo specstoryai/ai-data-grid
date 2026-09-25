@@ -24,7 +24,7 @@ export default {
     ],
 };
 
-export const ObserveVisibleRegion: React.VFC = () => {
+export const ObserveVisibleRegion: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100);
 
     const [visibleRegion, setVisibleRegion] = React.useState<Rectangle>({ x: 0, y: 0, width: 0, height: 0 });

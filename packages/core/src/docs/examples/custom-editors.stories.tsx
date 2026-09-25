@@ -70,7 +70,7 @@ const provideEditor: ProvideEditorCallback<TextCell> = cell => {
     return undefined;
 };
 
-export const CustomEditors: React.VFC = () => {
+export const CustomEditors: React.FC = () => {
     const { cols, getCellContent, setCellValue } = useMockDataGenerator(10, false);
 
     return (

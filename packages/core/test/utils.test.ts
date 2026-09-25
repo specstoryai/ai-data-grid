@@ -1,5 +1,4 @@
-import { renderHook, cleanup } from "@testing-library/react-hooks";
-import { act } from "react-dom/test-utils";
+import { renderHook, cleanup, act } from "@testing-library/react";
 import { useStateWithReactiveInput } from "../src/common/utils.js";
 import { expect, describe, test, afterEach } from "vitest";
 
@@ -77,51 +76,72 @@ describe("useStateWithReactiveInput", () => {
     });
 
     test("set state with identity does not re-render", () => {
-        const { result } = renderHook(({ initialValue }) => useStateWithReactiveInput(initialValue), {
-            initialProps: { initialValue: 20 },
-        });
+        let renderCount = 0;
+        const { result } = renderHook(
+            ({ initialValue }) => {
+                renderCount++;
+                return useStateWithReactiveInput(initialValue);
+            },
+            {
+                initialProps: { initialValue: 20 },
+            }
+        );
 
-        expect(result.all.length).toBe(1);
+        expect(renderCount).toBe(1);
 
         act(() => {
             result.current[1](x => x);
         });
 
-        expect(result.all.length).toBe(1);
+        expect(renderCount).toBe(1);
     });
 
     test("set state with increment re-render", () => {
-        const { result } = renderHook(({ initialValue }) => useStateWithReactiveInput(initialValue), {
-            initialProps: { initialValue: 20 },
-        });
+        let renderCount = 0;
+        const { result } = renderHook(
+            ({ initialValue }) => {
+                renderCount++;
+                return useStateWithReactiveInput(initialValue);
+            },
+            {
+                initialProps: { initialValue: 20 },
+            }
+        );
 
-        expect(result.all.length).toBe(1);
+        expect(renderCount).toBe(1);
 
         act(() => {
             result.current[1](x => x + 1);
         });
 
-        expect(result.all.length).toBe(2);
+        expect(renderCount).toBe(2);
     });
 
     test("set state with identity does not re-render after state change", () => {
-        const { result, rerender } = renderHook(({ initialValue }) => useStateWithReactiveInput(initialValue), {
-            initialProps: { initialValue: 20 },
-        });
+        let renderCount = 0;
+        const { result, rerender } = renderHook(
+            ({ initialValue }) => {
+                renderCount++;
+                return useStateWithReactiveInput(initialValue);
+            },
+            {
+                initialProps: { initialValue: 20 },
+            }
+        );
 
-        expect(result.all.length).toBe(1);
+        expect(renderCount).toBe(1);
 
         rerender({ initialValue: 50 });
 
         expect(result.current[0]).toBe(50);
 
-        expect(result.all.length).toBe(2);
+        expect(renderCount).toBe(2);
 
         act(() => {
             result.current[1](x => x);
         });
 
         expect(result.current[0]).toBe(50);
-        expect(result.all.length).toBe(2);
+        expect(renderCount).toBe(2);
     });
 });

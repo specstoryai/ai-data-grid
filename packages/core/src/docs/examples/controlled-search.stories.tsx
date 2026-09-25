@@ -35,7 +35,7 @@ export default {
     ],
 };
 
-export const ControlledSearch: React.VFC = () => {
+export const ControlledSearch: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const [showSearch, setShowSearch] = React.useState(false);

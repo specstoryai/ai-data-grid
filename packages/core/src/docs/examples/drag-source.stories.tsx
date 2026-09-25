@@ -32,7 +32,7 @@ export default {
     ],
 };
 
-export const DragSource: React.VFC<{ isDraggable: boolean | "header" | "cell" }> = p => {
+export const DragSource: React.FC<{ isDraggable: boolean | "header" | "cell" }> = p => {
     const { cols, getCellContent, onColumnResize } = useMockDataGenerator(200);
 
     return (

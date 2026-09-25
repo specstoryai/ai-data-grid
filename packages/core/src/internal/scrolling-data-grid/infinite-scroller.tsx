@@ -290,7 +290,7 @@ export const InfiniteScroller: React.FC<Props> = p => {
     const onScrollRef = React.useRef(onScroll);
     onScrollRef.current = onScroll;
 
-    const lastProps = React.useRef<{ width?: number; height?: number }>();
+    const lastProps = React.useRef<{ width?: number; height?: number }>(undefined);
 
     const didFirstScroll = React.useRef(false);
     // if this is not a layout effect there will be a flicker when changing the number of freezeColumns

@@ -31,7 +31,7 @@ export default {
     ],
 };
 
-export const ColumnGroups: React.VFC = () => {
+export const ColumnGroups: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(20, true, true);
 
     return (

@@ -1,4 +1,4 @@
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import { useDeepMemo } from "../src/common/utils.js";
 import { expect, describe, it, afterEach } from "vitest";
 

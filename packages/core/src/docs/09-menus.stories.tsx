@@ -135,7 +135,7 @@ const data: DummyItem[] = [
     },
 ];
 
-export const Menus: React.VFC = () => {
+export const Menus: React.FC = () => {
     const getContent = React.useCallback((cell: Item): GridCell => {
         const [col, row] = cell;
         const dataRow = data[row];

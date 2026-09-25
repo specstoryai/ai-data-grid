@@ -33,7 +33,7 @@ export default {
     ],
 };
 
-export const RowGrouping: React.VFC<any> = (p: { freezeColumns: number }) => {
+export const RowGrouping: React.FC<any> = (p: { freezeColumns: number }) => {
     const { cols, getCellContent } = useMockDataGenerator(100);
     const rows = 100_000;
 

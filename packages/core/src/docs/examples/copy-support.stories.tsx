@@ -46,7 +46,7 @@ export default {
     ],
 };
 
-export const CopySupport: React.VFC = () => {
+export const CopySupport: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useMockDataGenerator(10, false);
 
     return (

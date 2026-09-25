@@ -38,7 +38,7 @@ export default {
     ],
 };
 
-export const ResizableColumns: React.VFC = () => {
+export const ResizableColumns: React.FC = () => {
     const { cols, getCellContent, onColumnResize } = useMockDataGenerator(60);
 
     return (

@@ -168,7 +168,7 @@ const possibleTags = [
     },
 ];
 
-export const CustomCells: React.VFC = () => {
+export const CustomCells: React.FC = () => {
     return (
         <BeautifulWrapper title="Custom cells" description={<Description>Some of our extension cells.</Description>}>
             <DataEditor
@@ -557,7 +557,7 @@ export const CustomCells: React.VFC = () => {
     },
 };
 
-export const CustomCellEditing: React.VFC = () => {
+export const CustomCellEditing: React.FC = () => {
     const data = React.useRef<any[][]>([[]]);
 
     return (

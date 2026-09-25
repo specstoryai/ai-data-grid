@@ -1,4 +1,4 @@
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import { useRemAdjuster } from "../src/data-editor/use-rem-adjuster.js";
 import { expect, describe, it, afterEach } from "vitest";
 

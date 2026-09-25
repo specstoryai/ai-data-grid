@@ -38,7 +38,7 @@ interface RowAndHeaderSizesProps {
     rowHeight: number;
     headerHeight: number;
 }
-export const RowAndHeaderSizes: React.VFC<RowAndHeaderSizesProps> = p => {
+export const RowAndHeaderSizes: React.FC<RowAndHeaderSizesProps> = p => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     return (

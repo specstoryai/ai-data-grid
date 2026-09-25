@@ -25,7 +25,7 @@ export default {
     ],
 };
 
-export const ThemePerColumn: React.VFC = () => {
+export const ThemePerColumn: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const realCols = React.useMemo(() => {

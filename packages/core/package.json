@@ -64,8 +64,8 @@
     "peerDependencies": {
         "lodash": "^4.17.19",
         "marked": "^16.0.10",
-        "react": "^16.12.0 || 17.x || 18.x || 19.x",
-        "react-dom": "^16.12.0 || 17.x || 18.x || 19.x",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
         "react-responsive-carousel": "^3.2.7"
     },
     "devDependencies": {

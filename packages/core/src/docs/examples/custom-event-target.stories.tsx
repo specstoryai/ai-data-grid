@@ -27,7 +27,7 @@ export default {
     ],
 };
 
-export const CustomEventTarget: React.VFC = () => {
+export const CustomEventTarget: React.FC = () => {
     // Create columns
     const [cols] = React.useState<GridColumn[]>(() => {
         return [

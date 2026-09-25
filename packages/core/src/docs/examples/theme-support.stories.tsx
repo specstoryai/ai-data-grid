@@ -98,7 +98,7 @@ const hotdogStand = {
     checkboxMaxSize: 40,
 };
 
-export const ThemeSupport: React.VFC = () => {
+export const ThemeSupport: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const [theme, setTheme] = React.useState<Partial<Theme>>({});

@@ -154,7 +154,7 @@ function useAsyncData<TRowType>(
     };
 }
 
-export const ServerSideData: React.VFC = () => {
+export const ServerSideData: React.FC = () => {
     const ref = React.useRef<DataEditorRef | null>(null);
 
     const getRowData = React.useCallback(async (r: Item) => {

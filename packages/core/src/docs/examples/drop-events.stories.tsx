@@ -28,7 +28,7 @@ export default {
 // A few supported mime types for drag and drop into cells.
 const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/gif", "image/bmp", "image/jpeg"]);
 
-export const DropEvents: React.VFC = () => {
+export const DropEvents: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const [highlights, setHighlights] = React.useState<DataEditorProps["highlightRegions"]>([]);
