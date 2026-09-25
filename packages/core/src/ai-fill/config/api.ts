@@ -16,11 +16,12 @@ import type {
  * The AI cells an action applies to:
  * - `{ cells }`: these cells, by `[rowId, columnId]`
  * - `{ selection: true }`: the AI cells in the grid's current selection
- * - `{ column, filter }`: the cells of one AI column that hold a result.
- *   `eligible` is the `suggested` results, `review` the `review` results, and
- *   `all` both. `accept` with `eligible` is "Accept all eligible", which never
- *   includes `review` results. The filter applies to every method, so
- *   `retry` and `rerunStale` find nothing to re-run with a column target.
+ * - `{ column, filter }`: the cells of one AI column that hold a result the
+ *   method acts on. `all` is every such result, `eligible` only the
+ *   `suggested` ones and `review` only the `review` ones. `accept` with
+ *   `eligible` is "Accept all eligible", which never includes `review`
+ *   results. `retry` and `rerunStale` act on failed and stale results, so
+ *   they take `all`: with `eligible` or `review` they select nothing.
  */
 export type AIFillTarget =
     | { readonly cells: readonly (readonly [AIRowId, AIColumnId])[] }
@@ -139,11 +140,23 @@ export interface AIFillApi {
      * `undefined` when nothing was written.
      */
     accept(target: AIFillTarget): string | undefined;
-    /** Marks the decided or stale results in the target `rejected`. Nothing is written. Returns how many were rejected. */
+    /**
+     * Marks the decided or stale results in the target (`suggested`,
+     * `review`, `withheld` and `stale`) `rejected`. Nothing is written.
+     * Returns how many were rejected.
+     */
     reject(target: AIFillTarget): number;
-    /** Re-runs the failed cells in the target (default: every failed cell). */
+    /**
+     * Re-runs the failed cells in the target (default: every failed cell). A
+     * `{ column }` target needs the `all` filter, and a row that isn't
+     * displayed is skipped as `unloaded`.
+     */
     retry(target?: AIFillTarget): AIFillRun;
-    /** Re-runs the stale cells in the target (default: every stale cell). */
+    /**
+     * Re-runs the stale cells in the target (default: every stale cell). A
+     * `{ column }` target needs the `all` filter, and a row that isn't
+     * displayed is skipped as `unloaded`.
+     */
     rerunStale(target?: AIFillTarget): AIFillRun;
     /**
      * Writes a commit's previous values back, by row id, through the same batch
@@ -166,7 +179,8 @@ export interface AIFillApi {
     notifyRowsChanged(rowIds?: readonly AIRowId[]): void;
     /**
      * Drops the results in the target, or cancels every run and drops every
-     * result. Cells still waiting for Jev keep waiting. Nothing is written.
+     * result. A `{ column, filter: "all" }` target drops every result in the
+     * column. Cells still waiting for Jev keep waiting. Nothing is written.
      */
     clear(target?: AIFillTarget): void;
 }
