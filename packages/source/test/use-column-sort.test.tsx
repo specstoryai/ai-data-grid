@@ -1,5 +1,5 @@
 import { compareSmart, useColumnSort } from "../src/use-column-sort.js";
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook } from "@testing-library/react";
 import { GridCellKind, type GridCell } from "@specstory/ai-data-grid";
 import { expect, describe, test } from "vitest";
 

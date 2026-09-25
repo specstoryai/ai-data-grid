@@ -32,7 +32,7 @@ export default {
     ],
 };
 
-export const PreventDiagonalScroll: React.VFC = () => {
+export const PreventDiagonalScroll: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(200);
 
     return (

@@ -28,7 +28,7 @@ export default {
     ],
 };
 
-export const ScrollShadows: React.VFC = () => {
+export const ScrollShadows: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     const [selection, setSelection] = React.useState<GridSelection>({

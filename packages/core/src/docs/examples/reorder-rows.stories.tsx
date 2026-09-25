@@ -30,7 +30,7 @@ export default {
     ],
 };
 
-export const ReorderRows: React.VFC = () => {
+export const ReorderRows: React.FC = () => {
     const cols = React.useMemo<GridColumn[]>(
         () => [
             {

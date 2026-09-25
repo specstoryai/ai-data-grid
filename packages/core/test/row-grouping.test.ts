@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import {
     expandRowGroups,
     flattenRowGroups,

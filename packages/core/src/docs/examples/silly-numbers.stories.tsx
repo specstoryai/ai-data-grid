@@ -24,7 +24,7 @@ export default {
     ],
 };
 
-export const SillyNumbers: React.VFC = () => {
+export const SillyNumbers: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     return (

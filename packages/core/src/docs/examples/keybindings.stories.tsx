@@ -15,7 +15,7 @@ export default {
     ],
 };
 
-export const CustomKeybindings: React.VFC = () => {
+export const CustomKeybindings: React.FC = () => {
     const { getCellContent, cols, setCellValue } = useMockDataGenerator(30, false);
 
     const keybindingStyle = {

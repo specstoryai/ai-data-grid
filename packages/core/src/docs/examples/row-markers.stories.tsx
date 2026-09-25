@@ -37,7 +37,7 @@ interface RowMarkersProps {
     headerDisabled: boolean;
 }
 
-export const RowMarkers: React.VFC<RowMarkersProps> = p => {
+export const RowMarkers: React.FC<RowMarkersProps> = p => {
     const { cols, getCellContent } = useMockDataGenerator(10, false);
 
     return (

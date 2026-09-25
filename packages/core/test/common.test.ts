@@ -1,4 +1,4 @@
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import { useResizeDetector } from "../src/common/resize-detector.js";
 import { maybe, deepEqual } from "../src/common/support.js";
 import { makeAccessibilityStringForArray } from "../src/common/utils.js";

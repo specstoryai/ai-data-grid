@@ -297,7 +297,7 @@ function ignoreTab(e: React.KeyboardEvent) {
     }
 }
 
-const LinkTitleEditor: React.VFC<LinkTitleEditorProps> = p => {
+const LinkTitleEditor: React.FC<LinkTitleEditorProps> = p => {
     const { link, onChange, title, onDelete, focus } = p;
     return (
         <div className="gdg-link-title-editor">

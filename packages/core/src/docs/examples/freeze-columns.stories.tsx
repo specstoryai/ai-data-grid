@@ -30,7 +30,7 @@ export default {
     ],
 };
 
-export const FreezeColumns: React.VFC<any> = (p: { freezeColumns: number }) => {
+export const FreezeColumns: React.FC<any> = (p: { freezeColumns: number }) => {
     const { cols, getCellContent } = useMockDataGenerator(100);
 
     return (

@@ -33,7 +33,7 @@ export default {
     ],
 };
 
-export const CustomHeaderIcons: React.VFC = () => {
+export const CustomHeaderIcons: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const realCols = React.useMemo(() => {

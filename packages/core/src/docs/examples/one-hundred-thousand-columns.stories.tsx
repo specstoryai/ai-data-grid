@@ -24,7 +24,7 @@ export default {
     ],
 };
 
-export const OneHundredThousandCols: React.VFC = () => {
+export const OneHundredThousandCols: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100_000);
 
     return <DataEditor {...defaultProps} getCellContent={getCellContent} columns={cols} rows={1000} />;

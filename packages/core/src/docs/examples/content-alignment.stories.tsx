@@ -31,7 +31,7 @@ export default {
     ],
 };
 
-export const ContentAlignment: React.VFC = () => {
+export const ContentAlignment: React.FC = () => {
     const { cols, getCellContent } = useAllMockedKinds();
 
     const mangledGetCellContent = React.useCallback<typeof getCellContent>(

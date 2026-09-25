@@ -16,7 +16,7 @@ export default {
     ],
 };
 
-export const GridColumns: React.VFC = () => {
+export const GridColumns: React.FC = () => {
     const basicGetCellContent = React.useCallback((cell: Item): GridCell => {
         return {
             kind: GridCellKind.Text,

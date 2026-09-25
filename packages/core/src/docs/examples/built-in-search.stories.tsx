@@ -41,7 +41,7 @@ export default {
     ],
 };
 
-export const BuiltInSearch: React.VFC = () => {
+export const BuiltInSearch: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const [showSearch, setShowSearch] = React.useState(false);

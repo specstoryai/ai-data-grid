@@ -61,7 +61,7 @@ const trailingRowOptionsColumnIndexesTheme: Record<number, Partial<Theme>> = {
     },
 };
 
-export const TrailingRowOptions: React.VFC = () => {
+export const TrailingRowOptions: React.FC = () => {
     const { cols, getCellContent, setCellValueRaw, setCellValue } = useMockDataGenerator(60, false);
 
     const [numRows, setNumRows] = React.useState(50);

@@ -29,7 +29,7 @@ interface DummyItem {
     email: string;
 }
 
-export const CopyPaste: React.VFC = () => {
+export const CopyPaste: React.FC = () => {
     const dataRef = React.useRef([
         {
             name: "Deidre Morris",

@@ -230,7 +230,7 @@ const cols: GridColumn[] = [
     },
 ];
 
-export const UseDataSource: React.VFC = () => {
+export const UseDataSource: React.FC = () => {
     const cache = React.useRef<Record<string, string>>({});
 
     const rows = 100_000;
@@ -308,7 +308,7 @@ export const UseDataSource: React.VFC = () => {
     },
 };
 
-export const UndoRedo: React.VFC = () => {
+export const UndoRedo: React.FC = () => {
     const { cols: columns, getCellContent, setCellValue } = useMockDataGenerator(6);
 
     const gridRef = React.useRef<DataEditorRef>(null);

@@ -25,7 +25,7 @@ export default {
     ],
 };
 
-export const AppendRowHandle: React.VFC = () => {
+export const AppendRowHandle: React.FC = () => {
     const { cols, getCellContent, setCellValueRaw, setCellValue } = useMockDataGenerator(60, false);
 
     const [numRows, setNumRows] = React.useState(50);

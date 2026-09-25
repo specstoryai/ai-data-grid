@@ -1,0 +1,28 @@
+{
+    "name": "vite-app",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc --noEmit && vite build",
+        "preview": "vite preview"
+    },
+    "dependencies": {
+        "@specstory/ai-data-grid": "file:../.packs/specstory-ai-data-grid-7.0.0.tgz",
+        "@specstory/ai-data-grid-cells": "file:../.packs/specstory-ai-data-grid-cells-7.0.0.tgz",
+        "@specstory/ai-data-grid-source": "file:../.packs/specstory-ai-data-grid-source-7.0.0.tgz",
+        "lodash": "^4.17.21",
+        "marked": "^16.1.2",
+        "react": "^19.1.1",
+        "react-dom": "^19.1.1",
+        "react-responsive-carousel": "^3.2.23"
+    },
+    "devDependencies": {
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "@vitejs/plugin-react": "^6.0.0",
+        "typescript": "~5.9.2",
+        "vite": "^8.0.0"
+    }
+}

@@ -23,7 +23,7 @@ export default {
     ],
 };
 
-export const ControlledSelection: React.VFC = () => {
+export const ControlledSelection: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(30, true, true);
 
     const [selection, setSelection] = React.useState<GridSelection>({

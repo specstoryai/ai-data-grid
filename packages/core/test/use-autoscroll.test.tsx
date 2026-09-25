@@ -1,4 +1,4 @@
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import { useAutoscroll } from "../src/data-editor/use-autoscroll.js";
 import { vi, expect, describe, it, afterEach } from "vitest";
 

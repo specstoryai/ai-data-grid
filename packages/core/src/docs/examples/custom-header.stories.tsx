@@ -20,7 +20,7 @@ export default {
     ],
 };
 
-export const CustomDrawing: React.VFC = () => {
+export const CustomDrawing: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(1000, true, true);
 
     const drawHeader: DrawHeaderCallback = React.useCallback((args, draw) => {
