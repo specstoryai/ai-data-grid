@@ -5,7 +5,7 @@ description: AI Data Grid is a fast canvas-based React data grid. These docs cov
 
 Welcome to the official documentation for AI Data Grid, the powerful, flexible, and efficient data grid designed for modern web applications. Whether you're a seasoned developer or just starting out, our documentation will guide you through the features and functionalities of AI Data Grid, helping you to integrate and leverage its capabilities in your projects.
 
-AI Data Grid is forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed. Version 7.0.0 is API-compatible with Glide Data Grid 6.x, so migrating only requires changing your import paths.
+AI Data Grid is forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed. Version 7.0.0 is API-compatible with Glide Data Grid 6.x. To migrate, upgrade your app to React 19 first (React 16, 17 and 18 are not supported), then change the package names in your `package.json` and your imports.
 
 <CardGroup cols={2}>
   <Card title="Extended QuickStart Guide" icon="rocket" href="/docs/extended-quickstart-guide">
@@ -36,6 +36,8 @@ AI Data Grid is forked from Glide Data Grid by Glide (typeguard, Inc.), MIT lice
 * **Cell rendering can be fully customized**.
 * **Much much more...**
 
+Lots of fun examples are in our [Storybook](https://ai-data-grid-storybook.vercel.app).
+
 ## ⚡ Quick Start
 
 AI Data Grid requires React 19. Install the data grid:
@@ -43,6 +45,10 @@ AI Data Grid requires React 19. Install the data grid:
 ```shell
 npm i @specstory/ai-data-grid
 ```
+
+<Note title="Not on npm yet">
+  7.0.0 hasn't been published to npm yet. Until it is, build the packages from the repository and install the tarballs, as described in the repository README's [Installing before the npm release](https://github.com/specstoryai/ai-data-grid#installing-before-the-npm-release) section.
+</Note>
 
 You may also need to install the peer dependencies if you don't have them already:
 
