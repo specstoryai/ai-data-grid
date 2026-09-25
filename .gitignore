@@ -9,3 +9,6 @@ storybook-build/
 coverage/
 *.tsbuildinfo
 gen-docs/
+.specstory/
+.runstory/
+runstory.toml
