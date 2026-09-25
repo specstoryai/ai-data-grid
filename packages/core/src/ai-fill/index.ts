@@ -33,6 +33,7 @@ export type { JevEndpointErrorBody } from "./contract/endpoint.js";
 
 export type * from "./config/types.js";
 export type * from "./config/results.js";
+export type * from "./config/api.js";
 export { validateAIFillConfig, type AIFillConfigIssue, type ValidateAIFillConfigOptions } from "./config/validate.js";
 
 export { isAIDestinationEmpty } from "./policy/cells.js";

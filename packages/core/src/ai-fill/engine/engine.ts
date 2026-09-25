@@ -474,12 +474,12 @@ export class AIFillEngine {
 
     /** Re-runs failed cells (all of them, or those in `target`), each with the scope and mode it had. */
     retry(target?: readonly AICellRef[]): AIRunHandle {
-        return this.rerun(record => record.status === "error", target);
+        return this.run(this.planRerun("error", target));
     }
 
     /** Re-runs stale cells (all of them, or those in `target`), each with the scope and mode it had. */
     rerunStale(target?: readonly AICellRef[]): AIRunHandle {
-        return this.rerun(record => record.status === "stale", target);
+        return this.run(this.planRerun("stale", target));
     }
 
     /**
@@ -778,7 +778,13 @@ export class AIFillEngine {
         };
     }
 
-    private rerun(select: (record: AICellRecord) => boolean, target?: readonly AICellRef[]): AIRunHandle {
+    /**
+     * Plans a re-run of the failed (`error`) or `stale` cells, all of them or
+     * those in `target`, each with the scope and mode it had. {@link retry} and
+     * {@link rerunStale} run this plan.
+     */
+    planRerun(status: "error" | "stale", target?: readonly AICellRef[]): AIFillPlan {
+        const select = (record: AICellRecord) => record.status === status;
         const wanted = target === undefined ? undefined : new Set(target.map(ref => cellKey(ref.rowId, ref.columnId)));
         const groups = new Map<string, { scope: AIFillScope; mode: AIFillMode; cells: [AIRowId, AIColumnId][] }>();
         for (const record of this.store.all()) {
@@ -801,7 +807,7 @@ export class AIFillEngine {
                 countInto(skipped, reason, count);
             }
         }
-        return this.run({
+        return {
             scope: first?.scope ?? "selection",
             mode: first?.mode ?? "suggest",
             cells: plans.flatMap(plan => plan.cells),
@@ -810,7 +816,7 @@ export class AIFillEngine {
             columnIds: [...new Set(plans.flatMap(plan => plan.columnIds))],
             requests: plans.reduce((sum, plan) => sum + plan.requests, 0),
             ...(error === undefined ? {} : { error }),
-        });
+        };
     }
 
     private startFlight(run: RunState, planned: PlannedRequest<AIPlannedCell>): void {

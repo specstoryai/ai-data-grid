@@ -662,6 +662,7 @@ export function validateAIFillConfig(
         "onCommit",
         "onReject",
         "onError",
+        "onReady",
     ]) {
         c.optionalFunction(raw, key, "");
     }

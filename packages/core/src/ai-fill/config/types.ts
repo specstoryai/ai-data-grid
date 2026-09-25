@@ -23,6 +23,7 @@ import type {
     AIPolicyDecision,
     AIRowId,
 } from "./results.js";
+import type { AIFillApi } from "./api.js";
 
 // ---------------------------------------------------------------------------
 // Connection and execution
@@ -439,4 +440,9 @@ export interface AIFillConfig {
     readonly onCommit?: (event: AICommitEvent) => void;
     readonly onReject?: (event: AIRejectEvent) => void;
     readonly onError?: (error: AIFillError) => void;
+    /**
+     * Called once, when AI Fill has loaded and its API exists. The same API is
+     * `ref.current.aiFill` from then on.
+     */
+    readonly onReady?: (api: AIFillApi) => void;
 }
