@@ -1,18 +1,20 @@
 'use client'
 
 import { useDocsSearch } from 'fumadocs-core/search/client'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 export function SearchTrigger() {
   const [open, setOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // Portals need document.body, so only render them on the client. Detect
+  // that without setState-in-effect (see ThemeToggle).
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  )
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -87,12 +89,18 @@ function SearchDialog({ onClose }: SearchDialogProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const resultsRef = useRef<HTMLUListElement>(null)
 
-  const results = query.data && query.data !== 'empty' ? query.data : []
+  const results = useMemo(
+    () => (query.data && query.data !== 'empty' ? query.data : []),
+    [query.data]
+  )
 
-  // Reset selection when results change
-  useEffect(() => {
+  // Reset selection when the results change by adjusting state during
+  // render, instead of calling setState in an effect.
+  const [prevResults, setPrevResults] = useState(results)
+  if (prevResults !== results) {
+    setPrevResults(results)
     setSelectedIndex(0)
-  }, [results])
+  }
 
   const handleSelect = useCallback(
     (url: string) => {

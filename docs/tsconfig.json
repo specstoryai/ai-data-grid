@@ -14,6 +14,11 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    // Only auto-include docs' own @types. Without this, tsc walks up into the
+    // library's root node_modules/@types (e.g. prosemirror-*) and fails.
+    "types": [
+      "node"
+    ],
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
