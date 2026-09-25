@@ -19,3 +19,4 @@ jobs:
             - run: npm test -- --run
             - run: npm run test-cells -- --run
             - run: npm run test-source -- --run
+            - run: npm run test-ai -- --run

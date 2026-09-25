@@ -2,7 +2,7 @@
 
 # Tarball harness for the sample apps.
 #
-# Packs the three built workspace packages into test-projects/.packs/ (gitignored),
+# Packs the four built workspace packages into test-projects/.packs/ (gitignored),
 # installs those tarballs into each sample, then builds each sample. This tests
 # exactly what users install: the npm tarballs with their LICENSE, exports map
 # and CSS paths, against a single React 19.
@@ -14,7 +14,7 @@ PACKS="$ROOT/test-projects/.packs"
 
 cd "$ROOT"
 
-if [ ! -d packages/core/dist ] || [ ! -d packages/cells/dist ] || [ ! -d packages/source/dist ]; then
+if [ ! -d packages/core/dist ] || [ ! -d packages/cells/dist ] || [ ! -d packages/source/dist ] || [ ! -d packages/ai/dist ]; then
     echo "Package dist/ output missing; building workspaces first..."
     npm run build --workspaces
 fi
@@ -22,7 +22,7 @@ fi
 rm -rf "$PACKS"
 mkdir -p "$PACKS"
 
-for PKG in core cells source; do
+for PKG in core cells source ai; do
     npm pack --workspace "packages/$PKG" --pack-destination "$PACKS" > /dev/null
 done
 

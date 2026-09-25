@@ -16,6 +16,7 @@
         "test": "cd packages/core && npm run test --",
         "test-source": "cd packages/source && npm run test",
         "test-cells": "cd packages/cells && npm run test",
+        "test-ai": "cd packages/ai && npm run test",
         "test-projects": "cd test-projects/ && ./bootstrap-projects.sh"
     },
     "type": "commonjs",
@@ -24,7 +25,8 @@
     "workspaces": [
         "./packages/core",
         "./packages/cells",
-        "./packages/source"
+        "./packages/source",
+        "./packages/ai"
     ],
     "devDependencies": {
         "@babel/cli": "^7.27.2",
