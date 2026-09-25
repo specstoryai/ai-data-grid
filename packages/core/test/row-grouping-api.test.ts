@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import { useRowGrouping } from "../src/data-editor/row-grouping-api.js";
 import type { RowGroupingOptions } from "../src/data-editor/row-grouping.js";
 

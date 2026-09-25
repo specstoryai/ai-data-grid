@@ -25,7 +25,7 @@ export default {
     ],
 };
 
-export const CellActivatedEvent: React.VFC<Pick<DataEditorCoreProps, "cellActivationBehavior">> = p => {
+export const CellActivatedEvent: React.FC<Pick<DataEditorCoreProps, "cellActivationBehavior">> = p => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const getCellContentMangled = React.useCallback(

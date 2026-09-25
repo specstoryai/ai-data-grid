@@ -786,7 +786,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
     const searchInputRef = React.useRef<HTMLInputElement | null>(null);
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
     const [mouseState, setMouseState] = React.useState<MouseState>();
-    const lastSent = React.useRef<[number, number]>();
+    const lastSent = React.useRef<[number, number]>(undefined);
 
     const safeWindow = typeof window === "undefined" ? null : window;
 
@@ -971,7 +971,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
     }, [gridSelectionOuter, rowMarkerOffset]);
     const gridSelection = gridSelectionOuterMangled ?? gridSelectionInner;
 
-    const abortControllerRef = React.useRef() as React.MutableRefObject<AbortController>;
+    const abortControllerRef = React.useRef<AbortController>(undefined) as React.MutableRefObject<AbortController>;
     if (abortControllerRef.current === undefined) abortControllerRef.current = new AbortController();
 
     React.useEffect(() => () => abortControllerRef?.current.abort(), []);
@@ -1815,8 +1815,8 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         [columns, columnsIn, hasRowMarkers, trailingRowOptions?.targetColumn]
     );
 
-    const lastSelectedRowRef = React.useRef<number>();
-    const lastSelectedColRef = React.useRef<number>();
+    const lastSelectedRowRef = React.useRef<number>(undefined);
+    const lastSelectedColRef = React.useRef<number>(undefined);
 
     const themeForCell = React.useCallback(
         (cell: InnerGridCell, pos: Item): FullTheme => {
@@ -2086,13 +2086,13 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         ]
     );
     const isActivelyDraggingHeader = React.useRef(false);
-    const lastMouseSelectLocation = React.useRef<readonly [number, number]>();
+    const lastMouseSelectLocation = React.useRef<readonly [number, number]>(undefined);
     const touchDownArgs = React.useRef(visibleRegion);
     const mouseDownData = React.useRef<{
         time: number;
         button: number;
         location: Item;
-    }>();
+    }>(undefined);
     const onMouseDown = React.useCallback(
         (args: GridMouseEventArgs) => {
             isPrevented.current = false;
@@ -2724,7 +2724,7 @@ const DataEditorImpl: React.ForwardRefRenderFunction<DataEditorRef, DataEditorPr
         [mapper, rowGroupingSelectionBehavior]
     );
 
-    const hoveredRef = React.useRef<GridMouseEventArgs>();
+    const hoveredRef = React.useRef<GridMouseEventArgs>(undefined);
     const onItemHoveredImpl = React.useCallback(
         (args: GridMouseEventArgs) => {
             // make sure we still have a button down

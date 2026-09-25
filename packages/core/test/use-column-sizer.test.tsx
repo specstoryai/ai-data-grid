@@ -1,4 +1,4 @@
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import { type GridCell, GridCellKind, type GridColumn, type Rectangle } from "../src/index.js";
 import { getDataEditorTheme, mergeAndRealizeTheme } from "../src/common/styles.js";
 import type { DataGridSearchProps } from "../src/internal/data-grid-search/data-grid-search.js";

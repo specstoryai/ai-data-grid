@@ -29,7 +29,7 @@ export default {
     ],
 };
 
-export const AllCellKinds: React.VFC = () => {
+export const AllCellKinds: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     return (

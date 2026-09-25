@@ -44,7 +44,7 @@ const zeroBounds = {
     right: 0,
 };
 
-export const Tooltips: React.VFC = () => {
+export const Tooltips: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     const [tooltip, setTooltip] = React.useState<{ val: string; bounds: IBounds } | undefined>();

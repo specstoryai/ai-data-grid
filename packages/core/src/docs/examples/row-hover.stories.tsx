@@ -32,7 +32,7 @@ export default {
     ],
 };
 
-export const RowHover: React.VFC = () => {
+export const RowHover: React.FC = () => {
     const { cols, getCellContent } = useAllMockedKinds();
 
     const [hoverRow, setHoverRow] = React.useState<number | undefined>(undefined);

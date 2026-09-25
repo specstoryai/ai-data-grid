@@ -35,7 +35,7 @@ export default {
     ],
 };
 
-export const AddData: React.VFC = () => {
+export const AddData: React.FC = () => {
     const { cols, getCellContent, setCellValueRaw, setCellValue } = useMockDataGenerator(60, false);
 
     const [numRows, setNumRows] = React.useState(50);

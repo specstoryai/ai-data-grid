@@ -11,7 +11,7 @@
   <img alt="AI Data Grid with sample data" src="media/data-grid.png">
 </picture>
 
-AI Data Grid is SpecStory's maintained hard fork of a canvas-based React data grid. Version 7.0.0 is API-compatible with the 6.x releases it was forked from: if you already use the grid, you only change your import paths (see [Migrating from 6.x](#migrating-from-6x)).
+AI Data Grid is SpecStory's maintained hard fork of a canvas-based React data grid. Version 7.0.0 is API-compatible with the 6.x releases it was forked from, but it needs React 19: if you already use the grid on React 19, you only change your import paths (see [Migrating from 6.x](#migrating-from-6x)).
 
 ## Packages
 
@@ -38,7 +38,7 @@ AI Data Grid is SpecStory's maintained hard fork of a canvas-based React data gr
 
 # ⚡ Quick Start
 
-The packages support React 16.12 or later, including 17, 18 and 19 (peer range `^16.12.0 || 17.x || 18.x || 19.x`). Install the data grid:
+The packages need React 19 (`react` and `react-dom` peer range `^19.0.0`). React 16, 17 and 18 are not supported. Install the data grid:
 
 ```shell
 npm i @specstory/ai-data-grid
@@ -112,6 +112,8 @@ The API reference, including the HTML/CSS prerequisites, is in [packages/core/AP
 
 ## Migrating from 6.x
 
+7.0.0 needs React 19 (`^19.0.0`). React 16, 17 and 18 are not supported, so if your app is on one of them, upgrade it to React 19 first, then switch packages.
+
 7.0.0 keeps every exported name and prop, `DataEditor`, the `--gdg-*` CSS variables and the `gdg-` class names. Change only the package names in your `package.json` and imports:
 
 | 6.x package | 7.0.0 package |
@@ -152,6 +154,10 @@ Please read the [Prerequisites section in the docs](packages/core/API.md).
 
 Please read the [Prerequisites section in the docs](packages/core/API.md).
 
+**npm warns `ERESOLVE overriding peer dependency` for `@toast-ui/react-editor` when I install the cells package**
+
+The article cell's editor declares a `react ^17.0.1` peer. npm installs anyway with React 19, and the editor works. See the [cells README](packages/cells/README.md#react-19-and-the-toast-uireact-editor-peer-warning) to silence the warning or to install with `--strict-peer-deps`.
+
 **Does it work with screen readers and other a11y tools?**
 
 Yes. Unfortunately none of the primary developers are accessibility users so there are likely flaws in the implementation we are not aware of. Bug reports welcome!
@@ -186,42 +192,53 @@ There are some hacks you can do like setting timers and entering into a "low fid
 
 **I want to use this with Next.js / Vercel, but I'm getting weird errors**
 
-The easiest way to use the grid with Next is to create a component which wraps up your grid and then import it as a dynamic.
+The grid needs the browser (`window` and a canvas), so don't render it on the server. Put it in its own component and load that with `next/dynamic` and `ssr: false`. With the App Router, `ssr: false` is only allowed in a Client Component, so the file that calls `dynamic` starts with `"use client";`.
 
-home.tsx
+`app/page.tsx`
 
 ```tsx
-import type { NextPage } from "next";
+"use client";
+
 import dynamic from "next/dynamic";
-import styles from "../styles/Home.module.css";
 
-const Grid = dynamic(
-    () => {
-        return import("../components/Grid");
-    },
-    { ssr: false }
-);
+const Grid = dynamic(() => import("../components/Grid").then(m => m.Grid), { ssr: false });
 
-export const Home: NextPage = () => {
-    return (
-        <div className={styles.container}>
-            <main className={styles.main}>
-                <h1 className={styles.title}>Hi</h1>
-                <Grid />
-            </main>
-        </div>
-    );
-};
+export default function Home() {
+    return <Grid />;
+}
 ```
 
-grid.tsx
+`components/Grid.tsx`
 
 ```tsx
-import React from "react";
-import DataEditor from "@specstory/ai-data-grid";
+"use client";
 
-export default function Grid() {
-    return <DataEditor {...args} />;
+import * as React from "react";
+import { DataEditor, GridCellKind, type GridCell, type GridColumn, type Item } from "@specstory/ai-data-grid";
+import "@specstory/ai-data-grid/dist/index.css";
+
+const data = [
+    { firstName: "Ada", lastName: "Lovelace" },
+    { firstName: "Grace", lastName: "Hopper" },
+];
+
+const columns: GridColumn[] = [
+    { title: "First Name", width: 150 },
+    { title: "Last Name", width: 150 },
+];
+
+function getCellContent([col, row]: Item): GridCell {
+    const person = data[row];
+    const text = col === 0 ? person.firstName : person.lastName;
+    return { kind: GridCellKind.Text, data: text, displayData: text, allowOverlay: false };
+}
+
+export function Grid() {
+    return (
+        <div style={{ height: 400 }}>
+            <DataEditor columns={columns} rows={data.length} getCellContent={getCellContent} width="100%" height="100%" />
+        </div>
+    );
 }
 ```
 

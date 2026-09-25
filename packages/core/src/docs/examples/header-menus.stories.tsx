@@ -72,7 +72,7 @@ const SimpleMenu = styled.div`
     }
 `;
 
-export const HeaderMenus: React.VFC = () => {
+export const HeaderMenus: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useAllMockedKinds();
 
     const realCols = React.useMemo(() => {

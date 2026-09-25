@@ -29,7 +29,7 @@ export default {
     ],
 };
 
-export const UnevenRows: React.VFC = () => {
+export const UnevenRows: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     return (

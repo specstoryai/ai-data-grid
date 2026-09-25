@@ -55,7 +55,7 @@ a new line char ""more quotes"" plus a tab  ."	https://google.com`}
     ],
 };
 
-export const PasteSupport: React.VFC = () => {
+export const PasteSupport: React.FC = () => {
     const { cols, getCellContent, onColumnResize, setCellValue } = useMockDataGenerator(50, false);
 
     return (

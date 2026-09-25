@@ -37,7 +37,7 @@ interface PaddingProps {
     paddingBottom: number;
 }
 
-export const Padding: React.VFC<PaddingProps> = p => {
+export const Padding: React.FC<PaddingProps> = p => {
     const { paddingRight, paddingBottom } = p;
     const { cols, getCellContent } = useMockDataGenerator(20);
 

@@ -33,7 +33,7 @@ export default {
     ],
 };
 
-export const WrappingText: React.VFC<{
+export const WrappingText: React.FC<{
     alignment: "left" | "center" | "right";
     length: number;
     hyperWrapping: boolean;

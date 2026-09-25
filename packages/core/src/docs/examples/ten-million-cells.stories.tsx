@@ -19,7 +19,7 @@ export default {
     ],
 };
 
-export const TenMillionCells: React.VFC = () => {
+export const TenMillionCells: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100);
 
     return (

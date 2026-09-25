@@ -134,7 +134,7 @@ const fixedData: DummyItem[] = [
     },
 ];
 
-export const EditingData: React.VFC = () => {
+export const EditingData: React.FC = () => {
     const dataRef = React.useRef([
         {
             name: "Deidre Morris",

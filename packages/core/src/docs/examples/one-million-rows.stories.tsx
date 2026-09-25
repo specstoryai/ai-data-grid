@@ -21,7 +21,7 @@ export default {
     ],
 };
 
-export const OneMillionRows: React.VFC = () => {
+export const OneMillionRows: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(6);
 
     return (

@@ -20,7 +20,7 @@ export default {
     ],
 };
 
-export const ScaledView: React.VFC = () => {
+export const ScaledView: React.FC = () => {
     const { cols, getCellContent, onColumnResize } = useMockDataGenerator(60);
 
     return (

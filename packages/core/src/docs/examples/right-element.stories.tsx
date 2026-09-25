@@ -30,7 +30,7 @@ export default {
     ],
 };
 
-export const RightElement: React.VFC = () => {
+export const RightElement: React.FC = () => {
     const { cols, getCellContent, setCellValue } = useMockDataGenerator(8, false);
 
     const columns = React.useMemo(() => cols.map(c => ({ ...c, grow: 1 })), [cols]);

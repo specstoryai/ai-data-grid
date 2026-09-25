@@ -33,7 +33,7 @@ export default {
     ],
 };
 
-export const HighlightCells: React.VFC = () => {
+export const HighlightCells: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100);
 
     const [gridSelection, setGridSelection] = React.useState<GridSelection>({

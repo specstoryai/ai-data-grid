@@ -1,4 +1,4 @@
-import { renderHook, cleanup } from "@testing-library/react-hooks";
+import { renderHook, cleanup } from "@testing-library/react";
 import { useAnimationQueue } from "../src/internal/data-grid/use-animation-queue.js";
 import { vi, expect, describe, it, beforeEach, afterEach } from "vitest";
 import { CellSet } from "../src/internal/data-grid/cell-set.js";

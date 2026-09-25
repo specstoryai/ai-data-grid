@@ -34,7 +34,7 @@ export default {
     ],
 };
 
-export const ValidateData: React.VFC = () => {
+export const ValidateData: React.FC = () => {
     const { cols, getCellContent, setCellValue } = useMockDataGenerator(60, false);
 
     return (

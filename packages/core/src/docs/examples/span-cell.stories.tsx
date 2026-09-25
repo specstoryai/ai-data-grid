@@ -39,7 +39,7 @@ export default {
     ],
 };
 
-export const SpanCell: React.VFC = () => {
+export const SpanCell: React.FC = () => {
     const { cols, getCellContent } = useMockDataGenerator(100, true, true);
 
     const mangledGetCellContent = React.useCallback<typeof getCellContent>(

@@ -42,7 +42,7 @@ export default {
     ],
 };
 
-export const ObscuredDataGrid: React.VFC = () => {
+export const ObscuredDataGrid: React.FC = () => {
     const { cols, getCellContent, setCellValue } = useMockDataGenerator(60, false);
 
     return (
