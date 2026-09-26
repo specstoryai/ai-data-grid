@@ -59,7 +59,7 @@ Run these from the root. CI runs the first five.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 854 (464 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 857 (467 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
