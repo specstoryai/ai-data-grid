@@ -53,17 +53,14 @@ export const AIFillUIView: React.FC<{ readonly ui: AIFillUI }> = ({ ui }) => {
             break;
         }
         case "confirm": {
-            const { scope, columns, mode } = popup.request;
+            const request = popup.request;
             open = (
                 <AIConfirm
                     session={session}
-                    request={popup.request}
+                    request={request}
                     portal={portal}
                     vars={vars}
-                    onConfirm={() => {
-                        ui.close(true);
-                        ui.startFill(scope, columns, mode);
-                    }}
+                    onConfirm={() => ui.confirmFill(request)}
                     onClose={focusGrid => ui.close(focusGrid)}
                 />
             );

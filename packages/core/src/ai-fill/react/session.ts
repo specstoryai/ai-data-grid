@@ -452,7 +452,8 @@ export class AIFillSession {
         return this.engine?.planRerun(status, refs);
     }
 
-    private start(plan: AIFillPlan | undefined): AIFillRun {
+    /** Starts a planned fill as it is, without planning again. The scope confirmation starts the plan it compared this way. */
+    start(plan: AIFillPlan | undefined): AIFillRun {
         const engine = this.engine;
         if (engine === undefined || plan === undefined) {
             const error: AIFillError = { kind: "configuration", message: "AI Fill isn't running", retryable: false };

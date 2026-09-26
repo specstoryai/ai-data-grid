@@ -1,4 +1,5 @@
 import { isHotkey } from "../../../common/is-hotkey.js";
+import { deepEqual } from "../../../common/support.js";
 import type { DataEditorProps } from "../../../data-editor/data-editor.js";
 import {
     CompactSelection,
@@ -22,6 +23,24 @@ export interface AIFillRequest {
     readonly columns: readonly AIColumnId[] | undefined;
     readonly mode: AIFillMode;
     readonly plan: AIFillPlan;
+    /** The columns the statement lists. */
+    readonly columnIds: readonly AIColumnId[];
+    /** The row-scope label, for column-wide fills. */
+    readonly rows: string | undefined;
+    /** Set when the user confirmed, but the scope had changed since the statement was shown. */
+    readonly changed: boolean;
+}
+
+/** What the scope statement shows, for telling whether the scope changed while it was open. */
+function statement({ plan, columnIds, rows }: AIFillRequest): unknown {
+    return {
+        cells: [...plan.cells, ...plan.failed].map(cell => `${cell.rowId}\u0000${cell.columnId}`).sort(),
+        skipped: plan.skipped,
+        columnIds,
+        rows,
+        requests: plan.requests,
+        error: plan.error?.message,
+    };
 }
 
 /** The built-in popup that is open. Only one is open at a time. */
@@ -354,25 +373,57 @@ export class AIFillUI implements AIFillSessionUI {
         );
     }
 
+    /** Plans a fill, with what the scope statement shows for it. */
+    private request(
+        scope: AIFillScope,
+        columns: readonly AIColumnId[] | undefined,
+        mode: AIFillMode
+    ): AIFillRequest | undefined {
+        const plan = this.session.planFill(scope, columns, mode);
+        if (plan === undefined) return undefined;
+        const columnIds = plan.columnIds.length > 0 ? plan.columnIds : (columns ?? this.session.aiColumnIds(undefined));
+        const rows =
+            scope === "column" || scope === columnEmpty ? this.session.currentConfig().rowScope?.().label : undefined;
+        return { scope, columns, mode, plan, columnIds, rows, changed: false };
+    }
+
     /**
      * Starts a fill from the UI. It asks for confirmation first when it can't
      * run, covers more than `confirmAbove` cells, is a `column` fill, or is
-     * "Fill and apply".
+     * "Fill and apply". Confirming goes through {@link confirmFill}, which
+     * starts only the scope the dialog showed.
      */
     requestFill(scope: AIFillScope, columns: readonly AIColumnId[] | undefined, mode: AIFillMode): void {
-        const plan = this.session.planFill(scope, columns, mode);
-        if (plan === undefined) return;
+        const request = this.request(scope, columns, mode);
+        if (request === undefined) return;
+        const { plan } = request;
         const cells = plan.cells.length + plan.failed.length;
         const confirmAbove = this.session.engine?.execution.confirmAbove ?? 100;
         if (plan.error !== undefined || scope === "column" || mode === "apply" || cells > confirmAbove) {
-            this.setPopup({ kind: "confirm", request: { scope, columns, mode, plan } });
+            this.setPopup({ kind: "confirm", request });
             return;
         }
-        this.startFill(scope, columns, mode);
+        this.startPlan(plan);
     }
 
-    startFill(scope: AIFillScope, columns: readonly AIColumnId[] | undefined, mode: AIFillMode): void {
-        const run = this.session.fill(scope, columns, mode);
+    /**
+     * The user confirmed a scope statement. The fill is planned again; if the
+     * scope changed while the dialog was open (a filter, or new data), nothing
+     * starts, and the dialog shows the new scope and asks again.
+     */
+    confirmFill(shown: AIFillRequest): void {
+        const request = this.request(shown.scope, shown.columns, shown.mode);
+        if (request !== undefined && !deepEqual(statement(request), statement(shown))) {
+            this.setPopup({ kind: "confirm", request: { ...request, changed: true } });
+            this.announce("The scope changed while the dialog was open. Check it and confirm again");
+            return;
+        }
+        this.close(true);
+        this.startPlan(request?.plan);
+    }
+
+    private startPlan(plan: AIFillPlan | undefined): void {
+        const run = this.session.start(plan);
         this.announce(run.error === undefined ? `Evaluating ${plural(run.cells, "cell")}` : run.error.message);
     }
 
