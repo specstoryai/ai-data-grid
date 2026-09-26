@@ -321,7 +321,7 @@ export class AIFillUI implements AIFillSessionUI {
     }
 
     private rejectSelected(): boolean {
-        const refs = this.session.resolve({ selection: true }, ["suggested", "review", "withheld", "stale"]);
+        const refs = this.session.rejectable({ selection: true });
         if (refs.length === 0) return false;
         this.reject(refs);
         return true;
@@ -437,21 +437,42 @@ export class AIFillUI implements AIFillSessionUI {
         mode: AIFillMode = "suggest"
     ): AIMenuItem {
         const plan = this.session.planFill(scope, columns, mode);
-        const count = plan === undefined ? 0 : plan.cells.length + plan.failed.length;
-        let reason = plan?.error?.message;
-        if (reason === undefined && count === 0) {
-            const skipped = Object.entries(plan?.skipped ?? {}).map(
-                ([key, n]) => `${n} ${skipLabels[key as AISkipReason]}`
-            );
-            reason = skipped.length === 0 ? "No cells to fill" : `No cells to fill: ${skipped.join(", ")}`;
-        }
+        const { count, reason } = planned(plan, "No cells to fill", "No cells to fill");
         return this.item(id, label(count), () => this.requestFill(scope, columns, mode), reason);
     }
 
-    private records(columnId: AIColumnId | undefined, status: string): AICellRef[] {
-        return (this.session.engine?.store.all() ?? []).filter(
-            record => record.status === status && (columnId === undefined || record.columnId === columnId)
+    /**
+     * "Retry N failed" or "Re-run N stale": `api.retry` or `api.rerunStale`
+     * with the same target, labelled with the cells that run would evaluate.
+     * Results on rows that aren't displayed are skipped as `unloaded`, so they
+     * don't count.
+     */
+    private rerunItem(status: "error" | "stale", column: AIColumnId | undefined): AIMenuItem {
+        const target = column === undefined ? undefined : ({ column, filter: "all" } as const);
+        const failed = status === "error";
+        const { count, reason } = planned(
+            this.session.planRerun(status, target),
+            failed ? "Nothing failed" : "Nothing is stale",
+            failed ? "Nothing to retry" : "Nothing to re-run"
         );
+        return this.item(
+            failed ? "retry-failed" : "rerun-stale",
+            failed ? `Retry ${count} failed` : `Re-run ${count} stale`,
+            () => this.session.rerun(status, target),
+            reason
+        );
+    }
+
+    /** The results "Review next" can reach: in these columns, with one of these statuses, on a displayed row. */
+    private reviewable(columns: readonly AIColumnId[], statuses: readonly string[]): number {
+        const wanted = new Set(columns.filter(id => this.session.host.colIndex(id) !== undefined));
+        this.session.host.invalidate();
+        return (this.session.engine?.store.all() ?? []).filter(
+            record =>
+                wanted.has(record.columnId) &&
+                statuses.includes(record.status) &&
+                this.session.host.rowIndex(record.rowId) !== undefined
+        ).length;
     }
 
     private eligible(columns: readonly AIColumnId[]): AICellRef[] {
@@ -462,9 +483,7 @@ export class AIFillUI implements AIFillSessionUI {
     private resultItems(columns: readonly AIColumnId[], column: AIColumnId | undefined): AIMenuItem[] {
         const eligible = this.eligible(columns);
         const review = column === undefined ? suggestions : ["review"];
-        const toReview = columns.flatMap(id => review.flatMap(status => this.records(id, status))).length;
-        const failed = this.records(column, "error");
-        const stale = this.records(column, "stale");
+        const toReview = this.reviewable(columns, review);
         const running = this.session.runState().active.length > 0;
         const items = [
             this.item(
@@ -481,30 +500,18 @@ export class AIFillUI implements AIFillSessionUI {
             ),
         ];
         if (column !== undefined) {
-            const all = this.session.resolve({ column, filter: "all" }, suggestions);
+            // The same results as `api.reject({ column, filter: "all" })`: suggested, review, withheld and stale.
+            const all = this.session.rejectable({ column, filter: "all" });
             items.push(
                 this.item(
                     "reject-all",
                     "Reject all suggestions",
                     () => this.reject(all),
-                    all.length === 0 ? "No suggestions" : undefined
+                    all.length === 0 ? "Nothing to reject" : undefined
                 )
             );
         }
-        items.push(
-            this.item(
-                "retry-failed",
-                `Retry ${failed.length} failed`,
-                () => this.session.rerun("error", column === undefined ? undefined : { cells: cellsOf(failed) }),
-                failed.length === 0 ? "Nothing failed" : undefined
-            ),
-            this.item(
-                "rerun-stale",
-                `Re-run ${stale.length} stale`,
-                () => this.session.rerun("stale", column === undefined ? undefined : { cells: cellsOf(stale) }),
-                stale.length === 0 ? "Nothing is stale" : undefined
-            )
-        );
+        items.push(this.rerunItem("error", column), this.rerunItem("stale", column));
         if (running) items.push(this.item("cancel", "Cancel", () => this.session.engine?.cancel()));
         return items;
     }
@@ -630,6 +637,19 @@ export class AIFillUI implements AIFillSessionUI {
     }
 }
 
-function cellsOf(refs: readonly AICellRef[]): (readonly [AIRowId, AIColumnId])[] {
-    return refs.map(ref => [ref.rowId, ref.columnId] as const);
+/**
+ * The cells a plan would evaluate, and why an item is disabled: the plan's
+ * error, `none` when nothing matched, or `skippedPrefix` and the skip reasons
+ * when everything that matched is skipped.
+ */
+function planned(
+    plan: AIFillPlan | undefined,
+    none: string,
+    skippedPrefix: string
+): { count: number; reason: string | undefined } {
+    const count = plan === undefined ? 0 : plan.cells.length + plan.failed.length;
+    if (plan?.error !== undefined) return { count, reason: plan.error.message };
+    if (count > 0) return { count, reason: undefined };
+    const skipped = Object.entries(plan?.skipped ?? {}).map(([key, n]) => `${n} ${skipLabels[key as AISkipReason]}`);
+    return { count, reason: skipped.length === 0 ? none : `${skippedPrefix}: ${skipped.join(", ")}` };
 }

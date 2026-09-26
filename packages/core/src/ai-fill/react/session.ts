@@ -173,7 +173,7 @@ export class AIFillSession {
             fill: (scope, options) => this.fill(scope, options?.columns, options?.mode ?? "suggest"),
             cancel: runId => this.engine?.cancel(runId),
             accept: target => this.commit(this.acceptable(target), "accept"),
-            reject: target => this.engine?.reject(this.resolve(target, rejectable)).length ?? 0,
+            reject: target => this.engine?.reject(this.rejectable(target)).length ?? 0,
             retry: target => this.rerun("error", target),
             rerunStale: target => this.rerun("stale", target),
             revertCommit: commitId => this.revert(commitId),
@@ -438,9 +438,14 @@ export class AIFillSession {
     }
 
     rerun(status: "error" | "stale", target: AIFillTarget | undefined): AIFillRun {
+        return this.start(this.planRerun(status, target));
+    }
+
+    /** Works out what `retry` (`error`) or `rerunStale` (`stale`) would do, without starting it. */
+    planRerun(status: "error" | "stale", target: AIFillTarget | undefined): AIFillPlan | undefined {
         this.host.invalidate();
         const refs = target === undefined ? undefined : this.resolve(target, [status]);
-        return this.start(this.engine?.planRerun(status, refs));
+        return this.engine?.planRerun(status, refs);
     }
 
     private start(plan: AIFillPlan | undefined): AIFillRun {
@@ -552,6 +557,11 @@ export class AIFillSession {
             const status = engine.getRecord(ref.rowId, ref.columnId)?.status;
             return status !== undefined && wanted.includes(status);
         });
+    }
+
+    /** The results in a target that `reject` covers: suggested, review, withheld and stale. */
+    rejectable(target: AIFillTarget): AICellRef[] {
+        return this.resolve(target, rejectable);
     }
 
     /**
