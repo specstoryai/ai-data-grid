@@ -164,6 +164,8 @@ interface RunState {
     readonly pending: Map<string, PendingCell>;
     readonly flights: Set<Flight>;
     readonly counts: { [S in AICellStatus]?: number };
+    /** The cells counted as `suggested`, with their request, so an auto-apply can recount them as `applied`. */
+    readonly suggested: Map<string, number>;
     readonly skipped: { readonly [R in AISkipReason]?: number };
     readonly total: number;
     done: number;
@@ -398,6 +400,7 @@ export class AIFillEngine {
             pending: new Map(),
             flights: new Set(),
             counts: {},
+            suggested: new Map(),
             skipped: plan.skipped,
             total: plan.error === undefined ? plan.cells.length + plan.failed.length : 0,
             done: 0,
@@ -522,7 +525,9 @@ export class AIFillEngine {
      * and writes only the cells in `committed`. A result that already has a
      * commit id is returned in `alreadyCommitted`, is not committed again and is
      * reported once to `onError` as `commit-blocked`, so a retry or a repeated
-     * accept can't write twice.
+     * accept can't write twice. An `auto-apply` commit also recounts its
+     * results from `suggested` to `applied` in the run that settled them, while
+     * that run is still going.
      */
     recordCommit(input: AICommitInput): AICommitResult {
         const commitId = `commit-${++this.commitCounter}`;
@@ -537,6 +542,9 @@ export class AIFillEngine {
             });
         }
         if (committed.length === 0) return { commitId: undefined, committed: [], alreadyCommitted };
+        if (input.source === "auto-apply") {
+            for (const record of committed) this.countApplied(record);
+        }
         const byKey = new Map(committed.map(record => [cellKey(record.rowId, record.columnId), record]));
         const edits = input.edits.flatMap(edit => {
             const record = byKey.get(cellKey(edit.rowId, edit.columnId));
@@ -1096,8 +1104,26 @@ export class AIFillEngine {
         }
 
         countInto(run.counts, status);
+        if (status === "suggested") run.suggested.set(key, pending.requestSeq);
         if (event !== undefined) notify(this.config.onResult, event);
         notify(this.config.onRunProgress, { runId: run.runId, done: run.done, total: run.total });
+    }
+
+    /**
+     * Moves an auto-applied result from `suggested` to `applied` in the counts
+     * of the run that settled it, while that run is still going. The commit
+     * path queues its auto-apply when the result settles, before the run's
+     * finish is queued (see `scheduleFinish`), so the write lands first and
+     * `onRunEnd` counts it as `applied`.
+     */
+    private countApplied(record: AICellRecord): void {
+        const run = this.runs.get(record.runId);
+        const key = cellKey(record.rowId, record.columnId);
+        if (run === undefined || run.finished || run.suggested.get(key) !== record.requestSeq) return;
+        run.suggested.delete(key);
+        if (run.counts.suggested === 1) delete run.counts.suggested;
+        else countInto(run.counts, "suggested", -1);
+        countInto(run.counts, "applied");
     }
 
     private scheduleFinish(run: RunState): void {

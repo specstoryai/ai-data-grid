@@ -171,7 +171,11 @@ export class AIFillSession {
     constructor(readonly grid: React.RefObject<DataEditorRef | null>) {
         this.api = {
             fill: (scope, options) => this.fill(scope, options?.columns, options?.mode ?? "suggest"),
-            cancel: runId => this.engine?.cancel(runId),
+            cancel: runId => {
+                // Results that already passed auto-apply are written first, so the summary counts them as applied.
+                this.applyPending();
+                this.engine?.cancel(runId);
+            },
             accept: target => this.commit(this.acceptable(target), "accept"),
             reject: target => this.engine?.reject(this.rejectable(target)).length ?? 0,
             retry: target => this.rerun("error", target),
@@ -873,12 +877,18 @@ export class AIFillSession {
         queueMicrotask(() => this.flush());
     }
 
+    /** Writes the results queued for auto-apply. */
+    private applyPending(): void {
+        if (this.engine === undefined || this.autoApply.size === 0) return;
+        const apply = [...this.autoApply.values()];
+        this.autoApply.clear();
+        this.commit(apply, "auto-apply");
+    }
+
     private flush(): void {
         this.flushQueued = false;
         if (this.engine === undefined) return;
-        const apply = [...this.autoApply.values()];
-        this.autoApply.clear();
-        if (apply.length > 0) this.commit(apply, "auto-apply");
+        this.applyPending();
         const cells: { cell: Item }[] = [];
         for (const ref of this.repaint.values()) {
             const location = this.host.locate(ref.rowId, ref.columnId);

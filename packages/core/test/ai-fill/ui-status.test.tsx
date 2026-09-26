@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { AIFillStatus, type AIFillConfig } from "../../src/index.js";
 import { standardBeforeEach } from "../test-utils.js";
 import { contactColumns, contactConfig, contactRows, contactRules, col } from "./fixtures/contacts.js";
+import { persona } from "./fixtures/definitions.js";
 import { gatedJev, rangeSelection, renderAIGrid, settle } from "./fixtures/harness.js";
 import { dialog, gridKey, statusBar } from "./fixtures/ui.js";
 
@@ -124,6 +125,36 @@ describe("status bar (§8.3)", () => {
         fireEvent.click(within(bar).getByText("Retry 1 failed"));
         await jev.release();
         expect(h.api().getCellState("r2", "persona")?.status).toBe("suggested");
+    });
+
+    test("after Fill and apply the summary counts what was applied first, and a blocked result as suggested", async () => {
+        const jev = gatedJev({ rules: contactRules });
+        const validateCell = vi.fn((_cell: unknown, value: { data?: unknown }) => value.data !== "ECON");
+        const h = renderAIGrid({
+            rows: contactRows(),
+            columns: contactColumns,
+            props: { validateCell },
+            aiFill: ({ getRowId }) =>
+                contactConfig(jev.connection, getRowId, {
+                    columns: {
+                        persona: {
+                            ...persona,
+                            policy: { ready: { minProbability: 0.8 }, autoApply: { minProbability: 0.85 } },
+                        },
+                    },
+                }),
+        });
+        await settle();
+        const bar = statusBar() as HTMLElement;
+        h.setSelection(rangeSelection(col.persona, 0, 1, 4));
+        act(() => {
+            h.api().fill("selection", { mode: "apply" });
+        });
+        await jev.release();
+        expect(h.row("r1").persona).toBe("Champion");
+        expect(bar.textContent).toContain(
+            "Done: 1 applied · 2 suggested · 1 review · 0 withheld · 0 errors · 0 skipped"
+        );
     });
 
     test("statusBar: false hides the built-in bar, and <AIFillStatus> works on its own", async () => {

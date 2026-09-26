@@ -7,7 +7,7 @@ import {
     type Item,
     type ValidatedGridCell,
 } from "../../src/internal/data-grid/data-grid-types.js";
-import type { AICommitEvent, AIFillError } from "../../src/ai-fill/config/results.js";
+import type { AICommitEvent, AIFillError, AIRunSummary } from "../../src/ai-fill/config/results.js";
 import type { AIFillConfig, ChoiceColumnDefinition } from "../../src/ai-fill/config/types.js";
 import { contactColumns, contactConfig, contactRows, contactRules, col } from "./fixtures/contacts.js";
 import { persona, seniority } from "./fixtures/definitions.js";
@@ -434,6 +434,58 @@ describe("AI Fill in the grid: accept, reject and commit guards (SPST-16 AC 4)",
         });
         expect(setup.h.api().getCellState("r3", "persona")?.status).toBe("review");
         expect(setup.h.row("r3").persona).toBe("");
+    });
+
+    test("a Fill and apply run counts what auto-apply wrote as applied, in onRunEnd and getRunState().last", async () => {
+        const policy = { ready: { minProbability: 0.8 }, autoApply: { minProbability: 0.85 } };
+        const validateCell = vi.fn((_cell: unknown, value: { data?: unknown }) => value.data !== "ECON");
+        const summaries: AIRunSummary[] = [];
+        const statusesAtEnd: (string | undefined)[][] = [];
+        const rowIds = ["r1", "r2", "r3", "r4"];
+        const setup = await contacts(
+            () => ({
+                columns: { persona: { ...persona, policy } },
+                onRunEnd: summary => {
+                    summaries.push(summary);
+                    statusesAtEnd.push(rowIds.map(id => setup.h.api().getCellState(id, "persona")?.status));
+                },
+            }),
+            { props: { validateCell } }
+        );
+        setup.h.setSelection(rangeSelection(col.persona, 0, 1, 4));
+        setup.h.api().fill("selection", { mode: "apply" });
+        await setup.jev.release();
+
+        // r1 (0.9) is written; r2 (0.85) passes autoApply but validateCell blocks it; r3 is review;
+        // r4 is "none of the above", which has no value to write.
+        expect(setup.h.row("r1").persona).toBe("Champion");
+        expect(setup.h.api().getCellState("r2", "persona")?.blocked?.reason).toBe("validation");
+        expect(statusesAtEnd).toEqual([["applied", "suggested", "review", "suggested"]]);
+        expect(summaries).toHaveLength(1);
+        expect(summaries[0]).toMatchObject({ cancelled: false, counts: { applied: 1, suggested: 2, review: 1 } });
+        expect(Object.values(summaries[0].counts).reduce((sum, n) => sum + (n ?? 0), 0)).toBe(4);
+        expect(setup.h.api().getRunState().last).toEqual(summaries[0]);
+    });
+
+    test("a cancelled Fill and apply run counts the results it already applied as applied", async () => {
+        const policy = { ready: { minProbability: 0.8 }, autoApply: { minProbability: 0.85 } };
+        const summaries: AIRunSummary[] = [];
+        const setup = await contacts(() => ({
+            columns: { persona: { ...persona, policy } },
+            // Cancel as soon as r1's answer settles, before its auto-apply would otherwise be written.
+            onResult: event => {
+                if (event.rowId === "r1") setup.h.api().cancel();
+            },
+            onRunEnd: summary => summaries.push(summary),
+        }));
+        setup.h.setSelection(rangeSelection(col.persona, 0, 1, 4));
+        setup.h.api().fill("selection", { mode: "apply" });
+        await setup.jev.release();
+
+        expect(setup.h.row("r1").persona).toBe("Champion");
+        expect(setup.h.api().getCellState("r1", "persona")?.status).toBe("applied");
+        expect(summaries).toEqual([expect.objectContaining({ cancelled: true, counts: { applied: 1, cancelled: 3 } })]);
+        expect(setup.h.api().getRunState().last).toEqual(summaries[0]);
     });
 
     test("a grid without edit handlers can't commit", async () => {

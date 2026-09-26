@@ -512,7 +512,7 @@ export class AIFillUI implements AIFillSessionUI {
             );
         }
         items.push(this.rerunItem("error", column), this.rerunItem("stale", column));
-        if (running) items.push(this.item("cancel", "Cancel", () => this.session.engine?.cancel()));
+        if (running) items.push(this.item("cancel", "Cancel", () => this.session.api.cancel()));
         return items;
     }
 
@@ -606,7 +606,7 @@ export class AIFillUI implements AIFillSessionUI {
             );
         }
         if (this.session.runState().active.length > 0) {
-            items.push(this.item("cancel", "Cancel", () => this.session.engine?.cancel()));
+            items.push(this.item("cancel", "Cancel", () => this.session.api.cancel()));
         }
         return items;
     }
