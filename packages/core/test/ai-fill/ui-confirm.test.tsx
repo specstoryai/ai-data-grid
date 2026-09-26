@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { cleanup, fireEvent, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { AIFillConfig } from "../../src/ai-fill/config/types.js";
 import { standardBeforeEach } from "../test-utils.js";
@@ -38,10 +38,10 @@ function rows(): HarnessRow[] {
     ];
 }
 
-function contacts(overrides: Partial<AIFillConfig> = {}) {
+function contacts(overrides: Partial<AIFillConfig> = {}, data: HarnessRow[] = rows()) {
     const jev = gatedJev({ rules: contactRules });
     const h = renderAIGrid({
-        rows: rows(),
+        rows: data,
         columns: contactColumns,
         aiFill: ({ getRowId }) =>
             contactConfig(jev.connection, getRowId, {
@@ -162,5 +162,114 @@ describe("scope statement (§8.2, SPST-16 AC 4)", () => {
         fireEvent.click(within(open).getByText("Close"));
         await settle();
         expect(jev.requests).toHaveLength(0);
+    });
+});
+
+describe("the scope changes while the dialog is open", () => {
+    const applyConfig: Partial<AIFillConfig> = {
+        columns: { persona: { ...persona, policy: { autoApply: { minProbability: 0.8 } } } },
+    };
+    const changedNotice = "The scope changed while this dialog was open. Check it and confirm again.";
+
+    function liveRegion(): string | null | undefined {
+        return document.querySelector("#portal .gdg-ai-sr")?.textContent;
+    }
+
+    test("rows added: confirming shows the new scope and asks again, and sends nothing until then", async () => {
+        const { jev, h } = contacts(applyConfig, contactRows());
+        h.setView(["r1"]);
+        await settle();
+        openColumnMenu(h, "persona");
+        await settle();
+        await pick("Fill and apply…");
+        let open = dialog() as HTMLElement;
+        expect(definitions(open)["To evaluate"]).toBe("1 cells");
+
+        // A filter is cleared while the dialog is open: r1–r4 are displayed now.
+        h.setView(["r1", "r2", "r3", "r4"]);
+        await settle();
+        expect(definitions(dialog() as HTMLElement)["To evaluate"]).toBe("1 cells");
+        fireEvent.click(within(dialog() as HTMLElement).getByText("Fill and apply 1 cells"));
+        await settle();
+
+        open = dialog() as HTMLElement;
+        expect(open).not.toBeNull();
+        expect(within(open).getByText(changedNotice)).toBeTruthy();
+        expect(definitions(open)["To evaluate"]).toBe("4 cells");
+        expect(definitions(open).Requests).toBe("About 4");
+        expect(liveRegion()).toBe("The scope changed while the dialog was open. Check it and confirm again");
+        expect(open.contains(document.activeElement)).toBe(true);
+        expect(document.activeElement?.textContent).toBe("Fill and apply 4 cells");
+        expect(jev.requests).toHaveLength(0);
+        expect(h.api().getRunState().active).toEqual([]);
+        expect(h.row("r1").persona).toBe("");
+
+        fireEvent.click(within(open).getByText("Fill and apply 4 cells"));
+        await settle();
+        expect(dialog()).toBeNull();
+        expect(gridFocused(h)).toBe(true);
+        expect(
+            h
+                .api()
+                .getRunState()
+                .active.map(run => run.total)
+        ).toEqual([4]);
+        await jev.release();
+        expect(jev.requests).toHaveLength(4);
+        expect(h.row("r1").persona).toBe("Champion");
+    });
+
+    test("same count, different cells: confirming asks again, and the fill covers the cells shown", async () => {
+        const { jev, h } = contacts(applyConfig, contactRows());
+        h.setView(["r1"]);
+        await settle();
+        openColumnMenu(h, "persona");
+        await settle();
+        await pick("Fill and apply…");
+        h.setView(["r2"]);
+        await settle();
+        fireEvent.click(within(dialog() as HTMLElement).getByText("Fill and apply 1 cells"));
+        await settle();
+
+        const open = dialog() as HTMLElement;
+        expect(within(open).getByText(changedNotice)).toBeTruthy();
+        expect(definitions(open)["To evaluate"]).toBe("1 cells");
+        expect(jev.requests).toHaveLength(0);
+
+        fireEvent.click(within(open).getByText("Fill and apply 1 cells"));
+        await settle();
+        expect(dialog()).toBeNull();
+        expect(jev.requests.map(request => JSON.stringify(request.state))).toEqual([expect.stringContaining("Globex")]);
+        expect(JSON.stringify(jev.requests)).not.toContain("Acme");
+    });
+
+    test("rows removed: confirming from getMenuItems asks again; an unchanged scope then starts at once", async () => {
+        const { jev, h } = contacts(applyConfig, contactRows());
+        await settle();
+        const item = h
+            .api()
+            .getMenuItems({ column: "persona" })
+            .find(entry => entry.id === "fill-apply");
+        act(() => item?.run());
+        await settle();
+        expect(definitions(dialog() as HTMLElement)["To evaluate"]).toBe("4 cells");
+
+        h.setView(["r1", "r2"]);
+        await settle();
+        fireEvent.click(within(dialog() as HTMLElement).getByText("Fill and apply 4 cells"));
+        await settle();
+        const open = dialog() as HTMLElement;
+        expect(within(open).getByText(changedNotice)).toBeTruthy();
+        expect(definitions(open)["To evaluate"]).toBe("2 cells");
+        expect(jev.requests).toHaveLength(0);
+
+        fireEvent.click(within(open).getByText("Fill and apply 2 cells"));
+        await settle();
+        expect(dialog()).toBeNull();
+        await jev.release();
+        expect(jev.requests.map(request => JSON.stringify(request.state))).toEqual([
+            expect.stringContaining("Acme"),
+            expect.stringContaining("Globex"),
+        ]);
     });
 });

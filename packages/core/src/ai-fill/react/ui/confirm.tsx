@@ -36,22 +36,23 @@ export function dialogKeys(event: React.KeyboardEvent<HTMLElement>, onClose: () 
  * The scope statement shown before a large, column-wide or "Fill and apply"
  * fill (SPST-17 §8.2): the columns, the row scope, the cells to evaluate and to
  * skip by reason, the estimated requests, and whether anything will be written.
- * Nothing is sent until the user confirms.
+ * Nothing is sent until the user confirms. Confirming plans the fill again: if
+ * the scope changed while the dialog was open, it shows the new scope and asks
+ * again instead of starting.
  */
 export const AIConfirm: React.FC<AIConfirmProps> = ({ session, request, portal, vars, onConfirm, onClose }) => {
-    const { plan, scope, mode } = request;
+    const { plan, scope, mode, columnIds, rows } = request;
     const primary = React.useRef<HTMLButtonElement | null>(null);
     const dialog = React.useRef<HTMLDivElement | null>(null);
     const id = React.useId();
 
+    // On open, and when a confirm finds the scope changed, focus the confirm button, or the dialog when it can't confirm.
     React.useEffect(() => {
-        (primary.current ?? dialog.current)?.focus();
-    }, []);
+        const button = primary.current;
+        (button !== null && !button.disabled ? button : dialog.current)?.focus();
+    }, [request]);
 
     const cells = plan.cells.length + plan.failed.length;
-    const columns = plan.columnIds.length > 0 ? plan.columnIds : (request.columns ?? session.aiColumnIds(undefined));
-    const rows =
-        scope === "column" || scope === "column-empty" ? session.currentConfig().rowScope?.().label : undefined;
     const skipped = Object.entries(plan.skipped) as [AISkipReason, number][];
     const apply = mode === "apply";
 
@@ -68,6 +69,11 @@ export const AIConfirm: React.FC<AIConfirmProps> = ({ session, request, portal, 
             tabIndex={-1}
             onKeyDown={event => dialogKeys(event, () => onClose(true))}>
             <h2 id={id}>{apply ? "Fill and apply" : "Fill"}</h2>
+            {request.changed && (
+                <p className="gdg-ai-review">
+                    The scope changed while this dialog was open. Check it and confirm again.
+                </p>
+            )}
             {plan.error !== undefined ? (
                 <p className="gdg-ai-error" role="alert">
                     {plan.error.message}
@@ -75,7 +81,7 @@ export const AIConfirm: React.FC<AIConfirmProps> = ({ session, request, portal, 
             ) : (
                 <dl>
                     <dt>Columns</dt>
-                    <dd>{columns.map(column => session.columnTitle(column)).join(", ")}</dd>
+                    <dd>{columnIds.map(column => session.columnTitle(column)).join(", ")}</dd>
                     <dt>Rows</dt>
                     <dd>{rows ?? (scope === "selection-empty" ? "Empty cells in the selection" : "The selection")}</dd>
                     <dt>To evaluate</dt>

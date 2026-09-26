@@ -195,7 +195,12 @@ export interface AIRunProgressEvent {
     readonly total: number;
 }
 
-/** Passed to `onRunEnd`: every outcome of the run, counted. */
+/**
+ * Passed to `onRunEnd`: every outcome of the run, counted. `counts` has each
+ * result under the status it settled with, except that a result the run's
+ * auto-apply wrote counts as `applied`. A result that passed `autoApply` but
+ * that a commit guard kept from being written stays `suggested`.
+ */
 export interface AIRunSummary {
     readonly runId: string;
     readonly cancelled: boolean;
