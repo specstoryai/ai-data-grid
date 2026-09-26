@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-24: AI Fill WP-AI2, PR #17 at `6e39c452`)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged), and AI Fill's execution layer with the `/server` and `/testing` subpaths (WP-AI2, SPST-23 / PR #17, stacked on PR #16, not merged).
+**Last updated:** 2026-09-26 (SPST-27: AI Fill WP-AI3 fix round 1, PR #18 at `869d65de`)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged), AI Fill's execution layer with the `/server` and `/testing` subpaths (WP-AI2, SPST-23 / PR #17, stacked on PR #16, not merged), and AI Fill's grid integration: the `aiFill` prop, rendering, fill, commit and undo (WP-AI3, SPST-26 / PR #18, stacked on PR #17, not merged).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -36,7 +36,7 @@ Because the JS doesn't import any CSS, consumers must import it themselves: `@sp
 
 | Package | `files` | Contents |
 | --- | --- | --- |
-| core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 978 files at PR #17 (862 at PR #16, 768 before AI Fill): `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
+| core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 1,029 files at PR #18 (978 at PR #17, 862 at PR #16, 768 before AI Fill): `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
 | cells | `["dist"]` | 120 files: `dist/`, `LICENSE`, `README.md`, `package.json` |
 | source | `["dist"]` | 41 files: `dist/` (including two `tsconfig.*.tsbuildinfo` files), `LICENSE`, `README.md`, `package.json` |
 
@@ -63,7 +63,7 @@ This is unchanged from upstream apart from the names.
 
 `packages/{core,cells,source}/test/public-api-exports.test.ts` build a TypeScript program for the package's `src/index.ts`, list the module's exports with the type checker, sort them, and compare them with a hard-coded `expectedExports` list taken from 6.0.4-alpha25: 151 names in core, 27 in cells, 5 in source. These added one test per package (core 388, cells 65, source 8; the baseline was 387, 64, 7). They check names only, not prop or type shapes.
 
-Since WP-AI1, core's list is `upstreamExports` (the 151 names) plus `aiFillExports` (93 names since WP-AI2), 244 in total. A second core test checks that all 151 upstream names are kept and that every added name matches the AI Fill naming rule `/AI|Jev|^(?:Choice|Score|Noul)/` (see [AI Fill](#ai-fill-in-development)). A third pins the `/server` (4 names) and `/testing` (5 names) entries exactly; the naming rule doesn't apply to them.
+Since WP-AI1, core's list is `upstreamExports` (the 151 names) plus `aiFillExports` (97 names since WP-AI3), 248 in total. A second core test checks that all 151 upstream names are kept and that every added name matches the AI Fill naming rule `/AI|Jev|^(?:Choice|Score|Noul)/` (see [AI Fill](#ai-fill-in-development)). A third pins the `/server` (4 names) and `/testing` (5 names) entries exactly; the naming rule doesn't apply to them.
 
 ## License and attribution
 
@@ -269,31 +269,34 @@ Vercel project ai-data-grid-docs (team spec-story)
 
 ## AI Fill (in development)
 
-AI Fill (SPST-16) is developer-configured AI filling of grid columns with Jev, TypeSafe's Choice, Score and Noul primitives. It is being built into core, `@specstory/ai-data-grid`, in five stacked PRs (WP-AI1 to WP-AI5). The design is SPST-17's plan with its Amendment 1. Two packages exist so far, neither merged: WP-AI1 (PR #16), a pure TypeScript foundation, and WP-AI2 (PR #17, stacked on it), the execution layer (Jev clients, scheduler, cache, result store) plus the `/server` and `/testing` entry points. There is still no React code: `DataEditor`, `data-editor-all.tsx` and `DataEditorRef` don't reference AI Fill, and nothing imports the engine yet, so AI Fill can't fill a grid. Core's dependencies are unchanged; WP-AI2 added two `exports` subpaths and two `cycle-check` roots. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, marked as in development.
+AI Fill (SPST-16) is developer-configured AI filling of grid columns with Jev, TypeSafe's Choice, Score and Noul primitives. It is being built into core, `@specstory/ai-data-grid`, in five stacked PRs (WP-AI1 to WP-AI5). The design is SPST-17's plan with its Amendment 1. Three packages exist so far, none merged: WP-AI1 (PR #16), a pure TypeScript foundation; WP-AI2 (PR #17, stacked on it), the execution layer (Jev clients, scheduler, cache, result store) plus the `/server` and `/testing` entry points; and WP-AI3 (PR #18, stacked on PR #17), the grid integration: the optional `aiFill` prop on `DataEditor`, a lazily loaded controller, canvas rendering of AI states, fills, the commit path and undo. A grid with `aiFill` fills and commits; the built-in UI (menus, confirm dialog, status bar, inspector) is WP-AI4. Core's dependencies are unchanged; WP-AI2 added two `exports` subpaths and two `cycle-check` roots. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, marked as in development.
 
 ### Module layout
 
-All paths are under `packages/core/src/ai-fill/`. Tests are in `packages/core/test/ai-fill/` (347 tests in 17 files; core also gained two export tests in `test/public-api-exports.test.ts`, for 737 in total).
+All paths are under `packages/core/src/ai-fill/`. Tests are in `packages/core/test/ai-fill/` (414 tests in 23 files; core also gained two export tests in `test/public-api-exports.test.ts`, for 804 in total). Source has one more, `packages/source/test/ai-fill-undo.test.tsx` (9 in total).
 
 | Module | Contents | Public |
 | --- | --- | --- |
 | `index.ts` | Barrel of the public names, re-exported by `src/index.ts` with `export *`. | — |
 | `contract/` | Jev request, question and answer types (`types.ts`); `parseJevAnswer` (`parse-answer.ts`), which checks a raw answer against its question and returns a `ParsedJevAnswer` (`ChoiceAnswer`, `ScoreAnswer` or `NoulAnswer`) or a reason; `JevEndpointErrorBody` (`endpoint.ts`). | yes |
-| `config/` | 40 configuration types (`types.ts`), 20 result, event and error types (`results.ts`), and `validateAIFillConfig` (`validate.ts`), which returns every problem as `{ path, message, columnId? }`. | yes |
+| `config/` | 40 configuration types (`types.ts`), 20 result, event and error types (`results.ts`), the API types `AIFillApi`, `AIFillTarget`, `AICellState` and `AIRunState` plus two unexported helpers, `AIActiveRun` and `AIFillRun` (`api.ts`), and `validateAIFillConfig` (`validate.ts`), which returns every problem as `{ path, message, columnId? }`. | yes |
 | `identity/` | `canonicalJson`, `buildQuestion`, `questionFingerprint`, `inputFingerprint`, `cacheKey`, `resolveModel` and `shortHash`. | no |
 | `policy/` | `mapAIOutput` (`map-output.ts`), `evaluateAIPolicy` (`evaluate-policy.ts`), `isAIDestinationEmpty` and `defaultToCell` (`cells.ts`), and the commit-guard helpers (`commit-guards.ts`). | the first three |
 | `transport/` | `createJevTransport` (`client.ts`) for the endpoint, direct and custom modes; `JevTransportError`, `errorFromResponse` and the status mapping (`errors.ts`); `backoffDelay`, `retryDelay` and an abortable `sleep` (`retry.ts`); `isBrowserEnvironment` (`environment.ts`). | no |
 | `engine/` | `AIFillEngine` (`engine.ts`), `AIFillStore` (`store.ts`), `RequestScheduler` (`scheduler.ts`), `TokenBucket` (`token-bucket.ts`), the LRU answer cache (`lru-cache.ts`), `groupRequests` (`requests.ts`), row-state building and missing-input checks (`state.ts`), `defaultExecution` and `resolveExecution` (`defaults.ts`). | no |
+| `react/` | `bridge.ts` (static: `AIFillBridge`, `AIFillControllerProps`, `linkAIFillRef`), `controller.tsx` (the lazy controller), `session.ts` (`AIFillSession`: composition, fills, commits, revert, repaints, shortcuts), `grid-host.ts` (`AIFillGridHost`, the engine's host), `draw.ts` (canvas presentations and the header badge). | no |
 | `server/index.ts` | `createJevHandler`, `toNodeListener`, `JevHandlerOptions`, `JevNodeListener`. | `/server` |
 | `testing/index.ts` | `createMockJev`, `MockJev`, `MockJevOptions`, `MockJevRule`, `MockJevCall`. | `/testing` |
 
-Planned layers that don't exist yet: `react/` (the `aiFill` prop's controller, the bridge and the UI) and `stories/`.
+Planned layers that don't exist yet: `react/ui/` (the built-in UI, WP-AI4) and `stories/` (WP-AI5).
 
 ### Public API
 
 WP-AI1 adds 92 core exports (151 → 243): 5 functions (`validateAIFillConfig`, `parseJevAnswer`, `evaluateAIPolicy`, `mapAIOutput`, `isAIDestinationEmpty`) and 87 types (20 contract types, the 40 config and 20 result types, and 7 helper types: `ParseJevAnswerResult`, `AIFillConfigIssue`, `ValidateAIFillConfigOptions`, `MapAIOutputResult`, `MapAIOutputError`, `EvaluateAIPolicyInput`, `AIPolicyEvaluation`). The configuration, result and event types already describe the later layers (connection modes, execution limits, fill scopes, observers); only the functions above run in this stage.
 
 WP-AI2 adds one type to `.` (`JevEndpointErrorBody`, 244 in total) and makes `AIResultEvent` gain an optional `reason?: "row-missing"`. The `/server` entry exports 4 names and `/testing` 5 (see the table above). The engine and transport are internal: tests and `scripts/jev-live-check.mjs` import them by path.
+
+WP-AI3 adds four types to `.` (`AIFillApi`, `AIFillTarget`, `AICellState`, `AIRunState`; 248 in total), the optional `aiFill` prop on `DataEditorAllProps` (the exported `DataEditor`), the optional `DataEditorRef.aiFill` member, and `onReady` on `AIFillConfig`. The prop and the member add no export names. There is no `AIFillDataEditor` and no public `useAIFill` hook. The five public functions are still exported, now as constants read from module namespaces (see the decision log).
 
 ### Behaviour worth knowing
 
@@ -307,7 +310,7 @@ WP-AI2 adds one type to `.` (`JevEndpointErrorBody`, 244 in total) and makes `AI
 
 ### Execution (WP-AI2)
 
-Nothing calls the engine yet; WP-AI3's controller will construct an `AIFillEngine` with the config and a host whose `readCell(rowId, columnId, sources)` reads the destination and source cells by row id (or returns `undefined` for a missing row). The user-facing behaviour is in API.md's "Execution and errors" section; this is the data flow behind it.
+WP-AI3's session constructs the `AIFillEngine` with the config and an `AIFillGridHost` whose `readCell(rowId, columnId, sources)` reads the destination and source cells by row id (or returns `undefined` when the row isn't displayed; see [Grid integration](#grid-integration-wp-ai3)). The user-facing behaviour is in API.md's "Execution and errors" section; this is the data flow behind it.
 
 ```
 fill(target) ─► plan()                       per cell: applies / fillScopes / populated / missing-input /
@@ -332,8 +335,70 @@ fill(target) ─► plan()                       per cell: applies / fillScopes 
 - **Store** (`engine/store.ts`): one record per `(rowId, columnId)`, never per display row. Statuses in flight are `queued` and `pending`; decided ones are `suggested`, `review` and `withheld`. Each enqueue bumps `requestSeq` and keeps the previous record, which `cancel` restores. A record keeps its identity (question fingerprint, input fingerprint, model), the destination snapshot, timings and, once committed, a commit id.
 - **Transport** (`transport/client.ts`): every mode sends the same `JevRequest`. The endpoint client adds `connection.headers()` on each attempt; the direct client posts to `${baseURL}/v1/systemone` with a bearer key, refuses in a browser without `dangerouslyAllowBrowser` (no request), warns once per page with it, turns a browser network failure into a `network` error pointing to endpoint mode, and redacts the key from error text. Every result and error carries `x-typesafe-request-id` when present.
 - **Scheduler** (`engine/scheduler.ts`, `token-bucket.ts`): limits are read again before every dispatch, so `setConfig` applies to queued work. The bucket holds `max(1, ceil(maxRequestsPerMinute / 60))` tokens and starts full. A final 429, 503 or 529 pauses the whole queue for `min(server delay ?? backoff.maxMs, 60 s)`.
-- **Engine API** (internal): `plan`, `run`, `fill`, `retry` (failed cells, same scope and mode), `rerunStale`, `cancel`, `reject`, `recordCommit`, `markEdited`, `notifyRowsChanged`, `setConfig`, `getRecord`, `subscribe`, `metadata` and `dispose`. `recordCommit` reserves a write: WP-AI3's commit path calls it after its guards and immediately before writing, and writes only the cells it returns in `committed`. So far it refuses only an already-committed result (`commit-blocked`).
+- **Engine API** (internal): `plan`, `run`, `fill`, `retry` (failed cells, same scope and mode), `rerunStale`, `cancel`, `reject`, `recordCommit`, `markEdited`, `notifyRowsChanged`, `setConfig`, `getRecord`, `subscribe`, `metadata` and `dispose`. `recordCommit` reserves a write: WP-AI3's commit path calls it after its guards and immediately before writing, and writes only the cells it returns in `committed`. It refuses an already-committed result (`commit-blocked`); the other guards run in the commit path. WP-AI3 also exposed `planRerun(status, target?)`, which `retry` and `rerunStale` now run through, so the session can report a re-run's plan.
 - **Callbacks** go through one `notify` helper: a throwing app callback is rethrown in a microtask, so it reaches the console without stopping the engine.
+
+### Grid integration (WP-AI3)
+
+The user-facing behaviour is in API.md ("Quick start (`aiFill` prop)", "Rows, identity and staleness", "Committing, validation and undo"). This is how it is built.
+
+**The prop and the lazy controller.** `DataEditorAllImpl` (`src/data-editor-all.tsx`, exported as `DataEditor`) takes `aiFill?: AIFillConfig`. Five hooks run on every render whether or not it is set: a `bridge` state, refs to the core grid's handle and to the API, and two stable callbacks (the merged ref and `onBridge`). Every other AI hook is in the lazy controller. While `aiFill` is set it also renders `<Suspense fallback={null}><AIFillController …/></Suspense>` as a sibling of the core `DataEditor`, where `AIFillController = React.lazy(() => import("./ai-fill/react/controller.js"))`. Setting or clearing the prop only adds or removes that sibling, so the grid is never remounted.
+
+```
+render DataEditor(aiFill)
+  ├─ core DataEditor ◄── props = bridge ? bridge.compose(rest, aiFill) : rest
+  │                      ref   = aiFill ? mergedRef : app ref
+  └─ Suspense ─► AIFillController (lazy chunk)
+                   ├─ useState(new AIFillSession(gridRef)); session.update(props, config) each render
+                   ├─ layout effect: session.attach(onBridge) → new AIFillEngine(config, AIFillGridHost)
+                   │                  → onBridge({ api, compose }) → setBridge → re-render with composed props
+                   │                  → config.onReady(api) once;  cleanup: session.detach()
+                   └─ layout effect: session.configure(config, columns) → engine.setConfig on change
+```
+
+- **Before the controller loads** the grid gets the app's props unchanged and `ref.current.aiFill` is `undefined`.
+- **Detach** (clearing `aiFill`, or unmounting) disposes the engine (cancelling every run, which aborts in-flight requests) and discards it with its records, clears the session's runs and commits, and calls `onBridge(undefined)`, so the grid gets the app's props again.
+- **Unset**, `DataEditor` passes `{...rest}` and the app's own ref. `test/ai-fill/unconfigured-grid.test.tsx` (committed with its snapshot in `a3390df`, before the prop existed) checks that the DOM, the canvas calls and every app callback are byte-identical, that the controller module is never imported and nothing is fetched, that the ref is the core handle with no `aiFill` key, and that every app prop reaches the core grid with the same identity.
+
+**The bridge and composition** (`react/bridge.ts`, `session.ts` `compose`). The bridge module is the only AI Fill module in the initial bundle. It holds types and `linkAIFillRef`. `compose` is a plain function called during render with the app's props. It returns a copy with these replaced (the SPST-17 A1 table):
+
+| Prop | Composition |
+| --- | --- |
+| `columns` | AI columns get `hasMenu: true` in a shallow copy, memoized on the app's `columns` and the AI column set |
+| `drawCell` | calls the app's `drawCell` (or `drawContent`), then `drawAICell` for cells with a record |
+| `drawHeader` | calls the app's, then `drawAIHeaderBadge` (a ✦ left of the menu button) on AI columns |
+| `onCellsEdited` | always set: observes the edited locations, then returns the app's return value (`undefined` without one) |
+| `onCellEdited` | only when the app passes one: observes, then calls it |
+| `onKeyDown` | the app's first, with `preventDefault` / `cancel` spied; if neither was called, the shortcuts (Mod+Enter accept, Mod+Backspace reject, Mod+Alt+F fill; Mod is ⌘ on macOS, Ctrl elsewhere; never with Shift) |
+| `gridSelection`, `onGridSelectionChange` | untouched when the app controls the selection; wrapped to observe when the app only listens; when it passes neither, AI Fill holds the selection (`heldSelection`) and passes both |
+
+`getCellContent`, `validateCell`, `rows` and the menu callbacks (`onHeaderMenuClick`, `onHeaderContextMenu`, `onCellContextMenu`) pass through untouched until WP-AI4. Each wrapper is memoized on the app handler it wraps (`Memo` in `session.ts`), so it keeps its identity while the app's does. The session keeps the latest unwrapped app props (`update`), and its own writes call the app's handlers directly, so they aren't observed as user edits.
+
+**The merged ref.** With `aiFill` set, the core grid gets `mergedRef`, which stores the core handle and calls `linkAIFillRef(appRef, handle, api)`: the app's ref gets `{ ...handle, aiFill: api }` once the API exists, and the plain handle before (the handle's methods are closures, so a shallow copy is safe). `onBridge` calls it again when the API appears or goes away. The callback is stable per app `ref`.
+
+**Reading the grid** (`AIFillGridHost`). Everything is addressed by `(rowId, columnId)`. `rowIndex(rowId)` uses `rows.getRowIndex` when given and accepts its answer only if it is an integer in range whose `getRowId` is the same id; otherwise it scans `getRowId` over the rows once and caches the map until a microtask clears it. The session calls `invalidate()` before fills, commits, reverts, edits and `notifyRowsChanged`. `colIndex` maps column ids, cached per `columns` array. `readCell` returns `undefined` when the row or column isn't displayed, so to the engine a filtered-out row looks the same as a deleted one.
+
+**Fills** (`session.fill`). `selection` and `selection-empty` take the AI cells in the selection (the app's, the last one observed, or the held one): whole selected columns, selected rows × AI columns, and the current range and range stack, de-duplicated. `column-empty` and `column` need `rowScope` (otherwise a `configuration` error and nothing is sent); `"displayed"` means every displayed row, and a list is used as given, so rows that aren't displayed are skipped as `unloaded` by `engine.plan`. The engine skips a column whose `fillScopes` doesn't list the scope as `not-applicable`.
+
+**Targets** (`session.resolve`). The method passes the statuses it acts on (`accept`: `suggested`, `review`; `reject`: those plus `withheld`, `stale`; `retry`: `error`; `rerunStale`: `stale`; `clear`: every status except in flight), and the target picks the cells: `{ cells }` as given, `{ selection: true }` the AI cells in the selection, `{ column, filter }` every record in the store for that column. A column filter narrows the statuses: `all` keeps them, `eligible` keeps only `suggested`, `review` only `review`. `accept` then drops a column target's rows that aren't displayed; `reject` and `clear` don't, so on a column they also reach results on filtered-out rows. `retry` and `rerunStale` go through `engine.planRerun`, whose `plan()` skips a row that isn't displayed as `unloaded`.
+
+**Store to repaint.** The session subscribes to the engine's record changes. Changed cells are queued and flushed in one microtask: each is located by id and repainted with `ref.updateCells` (no animation loop; `drawAICell` is static). The same flush runs auto-apply: a record that just settled from its own request (its `requestSeq` matches the one seen in flight) as `suggested` with an `apply-candidate` decision in an `apply`-mode run, not manual and not committed, is committed with `source: "auto-apply"`. A result re-decided by a policy change never auto-applies.
+
+**The commit path** (`session.commit`, SPST-17 §8.6 and A5), for `accept` and auto-apply:
+
+1. Results without a value to write (a semantic outcome without `value`, the Noul middle band) are marked `accepted` with a `reviewed-N` commit id, with no write and no `onCommit` (auto-apply skips them).
+2. For each other result, `prepare` re-checks: the grid has an edit handler (else `read-only`); the row is found by id (else the engine's `notifyRowsChanged([rowId])` drops it as `row-missing`); `output.toCell` builds the cell (a throw or `undefined` is `type-mismatch`); then `checkCommitGuards` with a freshly computed input fingerprint: not already committed, identity unchanged (else the record is marked stale), destination unchanged (else manual and stale), writable, `overwriteAllows`, and `validateCell` (a returned cell is used).
+3. Blocked cells get a `blocked` reason (reported by `getCellState` until the record's next request) and one `onError` per reason: `type-mismatch`, or `commit-blocked` for the rest.
+4. If there is no selection, one covering the written cells is set through the app's `onGridSelectionChange` (or the held selection), so `useUndoRedo` records the batch.
+5. `engine.recordCommit` records the commit and calls `onCommit`, and only the cells it returns are written: one `onCellsEdited(items)`, and unless it returned `true`, one `onCellEdited` per item, in the same tick. The cells are then repainted, and AI columns whose `sources` include a written column become stale.
+
+**Invalidation.** Edits reported through the composed `onCellsEdited` / `onCellEdited` go to `engine.markEdited`: an edited AI cell becomes `manual` (and stale if it was pending or decided), and results whose `sources` include the edited column become stale. `api.notifyRowsChanged` invalidates the row map and calls the engine's `notifyRowsChanged`, which re-fingerprints records and drops decided records whose row isn't readable, filtered-out rows included. A changed `aiFill` object goes to `engine.setConfig` (re-decide on a policy change, stale on a question or model change, drop a removed column).
+
+**Undo.**
+
+- `useUndoRedo` (source) works unchanged, because commits go through the app's handlers as one synchronous batch with a selection set first. `packages/source/test/ai-fill-undo.test.tsx` checks it with the real hook: a bulk accept is one undo step, undo restores every cell, redo writes them again once, and no suggestion comes back. `commit-undo-contract.test.tsx` in core checks the batch contract itself.
+- Limits: `useUndoRedo` keys edits by display position (Jake's answer 4 kept it that way), so undo after a re-sort or filter writes to positions, not rows. If the app's `onCellsEdited` returns `true`, the per-cell calls it records don't happen (the same as paste).
+- `api.revertCommit(commitId)` is the id-safe alternative. The session keeps each commit's written cells (`previous`, `next`, ids) in memory. A revert re-locates each cell by id and restores `previous` only where the cell still holds `next`, both cells are writable, and `validateCell` allows it, through the same selection-and-batch path. The commit is forgotten once at least one cell is restored. Records stay `accepted`, so nothing is suggested again. Commits are lost on detach, and nothing persists across reloads.
 
 ### Entry points (`/server` and `/testing`)
 
@@ -392,14 +457,14 @@ Engine-side kinds (`type-mismatch`, `policy-callback`, `commit-blocked`, and `co
 
 AI Fill must cost little for apps that render `DataEditor` without `aiFill`. `test/ai-fill/bundle-budget.test.ts` bundles an entry that imports `DataEditor` and `dist/index.css` from core's built `dist/esm`, with the root esbuild CLI (0.25.12): `--bundle --minify --splitting --format=esm`, with `react`, `react-dom`, `marked`, `lodash` and `react-responsive-carousel` external. Sizes are GNU `gzip -9` of the concatenated output files. It uses the CLI because esbuild's JS API refuses to run under jsdom.
 
-| Measure | Baseline (SPST-17 A7, `main` at `a0a121c`) | Measured by the test (`main`, PR #16 and PR #17) | Limit |
-| --- | --- | --- | --- |
-| Initial JS (entry chunk plus the chunks it imports statically) | 70,374 B | 70,305 B | 71,900 B (+1.5 KB) |
-| CSS | 2,052 B | 2,044 B | 4,600 B (+2.5 KB) |
-| AI Fill modules in the initial chunks | — | none | none except `ai-fill/react/bridge.js`; never `transport/`, `engine/`, `server/` or `testing/` (added in WP-AI2) |
-| Lazy AI Fill chunks | — | 0 B | 40,000 B |
+| Measure | Baseline (SPST-17 A7, `main` at `a0a121c`) | Measured by the test (`main`, PR #16 and PR #17) | Measured at PR #18 (WP-AI3) | Limit |
+| --- | --- | --- | --- | --- |
+| Initial JS (entry chunk plus the chunks it imports statically) | 70,374 B | 70,305 B | 70,624 B (+319 B) | 71,900 B (+1.5 KB) |
+| CSS | 2,052 B | 2,044 B | 2,044 B | 4,600 B (+2.5 KB) |
+| AI Fill modules in the initial chunks | — | none | at most `ai-fill/react/bridge.js` (the test passes) | none except `ai-fill/react/bridge.js`; never `transport/`, `engine/`, `server/` or `testing/` (added in WP-AI2) |
+| Lazy AI Fill chunks | — | 0 B | 24,244 B | 40,000 B |
 
-The A7 figures came from a slightly different measurement than the test's (the test gzips the concatenated files); the limits are A7's. It reads `dist/`, so it needs `npm run build` first. CI builds before testing. WP-AI3 (the bridge) and WP-AI4 (the CSS) are where the numbers are expected to move. The lazy figure is 0 B because nothing imports the engine yet; the Implementor measured the engine with everything it pulls in at about 22.5 KB gzip, which will count against the 40,000 B cap once WP-AI3's controller imports it.
+The A7 figures came from a slightly different measurement than the test's (the test gzips the concatenated files); the limits are A7's. It reads `dist/`, so it needs `npm run build` first. CI builds before testing. WP-AI3's numbers were measured on 2026-09-25 from a clean `npm ci` and `npm run build` at `31660d73`, and the lazy chunks again on 2026-09-26 at `869d65de` after fix round 1 (initial JS and CSS unchanged). The initial JS grew by 319 B for the lazy import, the prop wiring and the bridge. The lazy chunks (the controller, session, host, drawing and the engine with everything it imports) are 24,244 B, leaving 15,756 B for WP-AI4's UI. WP-AI4 (the CSS and the UI) is where the numbers move next. In the Implementor's `npm run test-projects` run, Vite also emitted the controller as its own chunk (about 23.8 kB gzip) in `test-projects/vite-app`.
 
 ## Known limitations and risks
 
@@ -419,10 +484,13 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - `packages/cells/test/date-picker-cell.test.tsx` was fixed in WP1: it rendered the wrong cell and left a `findByDisplayValue` promise unawaited, which failed CI intermittently.
 - Open `npm audit` findings remain in the root install; run `npm audit` for the current list.
 - **Browsers can't call Jev directly today.** TypeSafe's API rejects CORS preflights from every origin tried during planning (SPST-17 §1), so direct mode only works from Node. In a browser it refuses without `dangerouslyAllowBrowser`, and with it a call fails as a `network` error that points to endpoint mode. Browser apps need endpoint mode (their own server, for example with `createJevHandler`) or, for demos, `scripts/jev-dev-proxy.mjs`.
-- **AI Fill can't fill a grid yet.** The execution engine exists but nothing constructs it: the `aiFill` prop, `DataEditorRef.aiFill`, the controller and the built-in UI arrive in WP-AI3 and WP-AI4. `/server` and `/testing` work now.
-- **Documented but not yet acted on:** `execution.confirmAbove` (WP-AI4's confirm dialog), `rows.getRowIndex` (WP-AI3's commit path), and the validation, read-only, overwrite and staleness causes of `commit-blocked` (WP-AI3). API.md and the TSDoc say so.
+- **AI Fill has no built-in UI yet.** A grid with `aiFill` fills, draws, commits and reverts, but fills and accepts start only from `ref.current.aiFill` and the keyboard shortcuts. The menus, confirm dialog, status bar and inspector are WP-AI4, and the menu callbacks pass through untouched until then.
+- **Documented but not yet acted on:** `execution.confirmAbove` (WP-AI4's confirm dialog). API.md and the TSDoc say so.
+- **A filtered-out row counts as a deleted row** wherever AI Fill has to find it (accepted for WP-AI3 by the Orchestrator). The only deletion signal is that `getRowId` / `getRowIndex` no longer reach the id among the displayed rows. So an answer that arrives while its row is filtered out is dropped as `row-missing`; `notifyRowsChanged()` while a filter is on drops the decided results of hidden rows; and an `accept({ cells })` naming a hidden row drops that result. A decided result on a hidden row otherwise keeps its record, and "Accept all eligible" skips it. SPST-17 §5 said a filtered-out row keeps its record in every case. Follow-up: an optional app signal for "row still exists".
+- **`useUndoRedo` is position-based.** Undo after a re-sort or filter writes to display positions, and an `onCellsEdited` that returns `true` hides AI Fill's writes from it, as with paste. `revertCommit` is the id-safe path. Commits live in memory only.
 - **`npm test` in core needs a build.** `bundle-budget.test.ts` and `server-load.test.ts` read `dist/` and fail on a fresh clone until `npm run build` has run, and they test stale output after source changes. The bundle budget also needs the `gzip` binary.
-- **Lazy-chunk headroom.** The engine and what it imports come to about 22.5 KB gzip (Implementor's measurement), leaving about 17.5 KB of the 40,000 B lazy cap for WP-AI3's controller and WP-AI4's UI.
+- **Lazy-chunk headroom.** The lazy AI chunks are 24,244 B gzip at WP-AI3, leaving 15,756 B of the 40,000 B cap for WP-AI4's UI.
+- **`AIFillRun` and `AIActiveRun` aren't exported.** They are the return type of `fill` / `retry` / `rerunStale` and the element type of `AIRunState.active`. Apps can reach them only through those types (for example `ReturnType<AIFillApi["fill"]>`).
 - **`require("@specstory/ai-data-grid/server")` needs `require(esm)`** (Node 20.19+, 22.12+ or 24), because core's `dist/cjs` is ES modules. Older Node versions must use `import`.
 - **Jev's error-body shape isn't fully documented,** so the transport reads the message from `error.message`, `message` or `detail`. A new shape would still map by status, with a generic message.
 - **`scripts/jev-live-check.mjs`'s header comment** counts "at most 4 live calls (3 without --skip-401)", one per question; it sends 2 HTTP requests (1 with `--skip-401`). It also points to `docs/content/docs/ai-fill/live-validation.mdx`, which WP-AI5 hasn't created yet.
@@ -469,7 +537,7 @@ The A7 figures came from a slightly different measurement than the test's (the t
 | 2026-09-25 | SPST-3, PR #11 (`df5948a`) | Lint `docs/` with the ESLint CLI (`eslint .`, flat config extending `eslint-config-next/core-web-vitals`). Set `agentRules: false` in `docs/next.config.mjs`. Restrict `docs/tsconfig.json` to `"types": ["node"]`. | Next.js 16 removed `next lint`, so the scaffold's lint script was broken. `next dev` otherwise leaves untracked agent-rule files. Without the `types` restriction, the build type-check picks up the root library's broken `@types` packages. |
 | 2026-09-25 | SPST-3 / PR #11 (`aca129ec`) | The docs site's "Not on npm yet" notes link to the README's "Installing before the npm release" section instead of copying the tarball steps. The FAQ's custom-rendering answer links the Custom Drawing story (`ai-data-grid-dataeditor-demos--custom-drawing`) in place of the GitBook's `draw-custom-cells` story, which no longer exists. | The tarball steps stay in one place and are removed in one place at the first npm publish. Custom Drawing shows canvas `drawCell` / `drawHeader` painting, which is what that answer is about. |
 | 2026-09-25 | SPST-16 (Jake), SPST-17 Amendment 1 | AI Fill is part of core, `@specstory/ai-data-grid` (`packages/core/src/ai-fill/`), not a separate package. WP-AI1's first delivery in `packages/ai` was moved into core. | Jake: "this is one package, an ai-data-grid". One install and one version for users. |
-| 2026-09-25 | SPST-17 Amendment 1 | Apps opt in with an optional `aiFill` prop on `DataEditor`, loaded lazily through a small static bridge. An unconfigured grid is unchanged. (Planned for WP-AI3; not built yet.) | Keeps the 6.x-compatible API and costs apps without AI Fill almost nothing. |
+| 2026-09-25 | SPST-17 Amendment 1 | Apps opt in with an optional `aiFill` prop on `DataEditor`, loaded lazily through a small static bridge. An unconfigured grid is unchanged. (Built in WP-AI3, PR #18; see below.) | Keeps the 6.x-compatible API and costs apps without AI Fill almost nothing. |
 | 2026-09-25 | SPST-17 §1 | Call Jev's HTTP API with `fetch`, and don't depend on the TypeSafe SDK. The request and response types are ours (`contract/types.ts`), pinned by `test/ai-fill/fixtures/jev-contract.ts`. | The SDK is pre-1.0 and had a breaking change days before planning. The grid needs its own retry, cancellation and scheduling anyway, and core gets no new dependency. |
 | 2026-09-25 | SPST-17 §4, SPST-19 | Compare gate thresholds exactly, as raw IEEE doubles, with no epsilon or rounding; display rounding never feeds a decision. | Predictable, documentable gates: with `minProbability: 0.8`, 0.79 is withheld and 0.80 is shown. |
 | 2026-09-25 | SPST-17, SPST-19 | Key cached answers by the exact canonical-JSON strings, not hashes. `shortHash` (FNV-1a, our own code, so `THIRD_PARTY_NOTICES.md` is unchanged) is for display only. | A hash collision can't attach a wrong answer to a cell. |
@@ -491,6 +559,20 @@ The A7 figures came from a slightly different measurement than the test's (the t
 | 2026-09-25 | SPST-23 / PR #17 | Tests run behind a live-Jev `fetch` guard in `vitest.setup.ts`, and that setup skips its DOM-only part when there's no `window`, so `// @vitest-environment node` works in core. | Tests must never reach `api.typesafe.ai`, even by mistake. `/server` must be tested without a DOM. |
 | 2026-09-25 | SPST-23 / PR #17 | Engine details: the token bucket allows a burst of one second's worth of requests; the queue pause falls back to `backoff.maxMs` without a server delay; cancel restores each cell's previous record; re-evaluation after `setConfig` doesn't fire `onResult`; a throwing app callback is rethrown in a microtask; a result that was already committed is refused as `commit-blocked`. | Smooth rate limiting without starving the first requests; cancel leaves the grid as it was; `onResult` reports answers from Jev, not policy replays; app bugs stay visible without breaking AI Fill; a result is written at most once. |
 | 2026-09-25 | SPST-23 / PR #17 | `AIFillRunSummary` wasn't added; WP-AI1's `AIRunSummary` is the run summary type. `AIResultEvent` gained an optional `reason: "row-missing"`. | Avoids a duplicate public type. The engine needs a way to report an answer dropped because its row is gone. |
+| 2026-09-25 | SPST-17 Amendment 1 (A1), SPST-26 / PR #18 | Built as planned: an optional `aiFill` prop on `DataEditor` (`data-editor-all.tsx`), with no `AIFillDataEditor` wrapper component. `DataEditorRef` gains an optional `aiFill` member. | Apps keep their existing `DataEditor` and ref and add one prop; there is no second component to migrate to. |
+| 2026-09-25 | SPST-17 Amendment 1 (A1, A7), SPST-26 / PR #18 | The controller loads with `React.lazy` in a `Suspense` sibling of the grid, and only the static `react/bridge.ts` is in the initial bundle. Until it loads, the grid renders with the app's props. | Keeps apps without `aiFill` within the budget (+319 B initial JS at WP-AI3). A sibling rather than a wrapper means setting or clearing the prop never remounts the grid. |
+| 2026-09-25 | SPST-17 Amendment 1 (A1), SPST-26 / PR #18 | `useAIFill` is not public. The controller's logic is a plain class (`AIFillSession`), and the API is only `ref.current.aiFill` and `onReady`. | One way in for apps, and no hook API to keep compatible. A class is testable without React and keeps the lazy chunk self-contained. |
+| 2026-09-25 | SPST-17 A5, SPST-26 / PR #18 | Before a commit or revert, if the grid has no selection, AI Fill sets one covering the written cells (through the app's `onGridSelectionChange`, or its held selection). | `useUndoRedo` ignores edits made without a selection. With one set first, a bulk accept is one undo step. |
+| 2026-09-25 | SPST-17 Amendment 1 (A-Q1), SPST-26 / PR #18 | Add `packages/source/test/ai-fill-undo.test.tsx`, a round trip through the real `useUndoRedo`, taking source to 9 tests (exports stay at 5). It imports core by package name, so it tests core's built `dist/`. | The undo contract spans two packages; a core-only test with a fake hook couldn't prove it. |
+| 2026-09-25 | SPST-26 / PR #18 | `src/ai-fill/index.ts` exports the five public functions as constants read from module namespaces, with their TSDoc on those constants, instead of `export { … } from`. | With re-exports, esbuild's code splitting put the modules in a grid's initial chunk once the lazy chunk also imported them (78,544 B initial JS, over the limit). |
+| 2026-09-25 | SPST-26 / PR #18 | A `rows.getRowIndex` answer is used only when `getRowId` at that index returns the same id; otherwise the row counts as missing. Without `getRowIndex`, a per-task scan of `getRowId` is used. | A wrong or stale index can't redirect a read or a write to another row. |
+| 2026-09-25 | SPST-26 / PR #18 | A `{ column }` target for `accept` covers only displayed rows. | "Accept all eligible" must not write to rows the user can't see. |
+| 2026-09-25 | SPST-26 / PR #18, Orchestrator | An answer for a row that isn't displayed is dropped as `row-missing`, like a deleted row. Accepted as a known limitation of WP-AI3, with a follow-up. | The only deletion signal (`getRowIndex(id)` is `undefined`) can't tell a filtered row from a deleted one, and writing to a row that might be gone is worse than asking to fill it again. |
+| 2026-09-25 | SPST-26 / PR #18 | `onCellsEdited` is always composed (AI Fill needs to see edits even when the app has no handler) and returns the app's value, or `undefined` without one. `onCellEdited` is composed only when the app passes it. | Returning `undefined` keeps the grid's default of calling `onCellEdited`, so an app with only `onCellEdited` behaves as before, and `true` still suppresses the per-cell calls. |
+| 2026-09-25 | SPST-26 / PR #18 | A grid with neither `onCellEdited` nor `onCellsEdited` can't commit: every write is blocked as `read-only`. | AI Fill writes only through the app's handlers, never into the app's data. |
+| 2026-09-25 | SPST-26 / PR #18 | A `toCell` failure at commit time is reported as `type-mismatch`, not `commit-blocked`. | It is the same failure as a value that doesn't fit when the answer arrives, and apps handle it the same way. |
+| 2026-09-25 | SPST-26 / PR #18 | A result without a value to write (a semantic outcome without `value`, or the Noul middle band) is marked `accepted` on accept, with no write and no `onCommit`. Auto-apply skips it. | The user has reviewed it, so it shouldn't stay a suggestion, but there is nothing to write. |
+| 2026-09-26 | SPST-26 / PR #18 (fix round 1), Orchestrator decision 2026-09-25 23:48 UTC | For a `{ column, filter }` target the method decides which statuses count, as for every other target (`accept`: `suggested`, `review`; `reject`: also `withheld`, `stale`; `retry`: `error`; `rerunStale`: `stale`; `clear`: every status except in flight), and the filter narrows them: `all` keeps them all, `eligible` only `suggested`, `review` only `review`. `accept` is unchanged. | The first build replaced the method's statuses with the filter's, so `retry` / `rerunStale` on a column re-ran nothing and `reject` / `clear` skipped withheld, failed and stale results; WP-AI4's column menu needs them. |
 
 ## Open follow-ups
 
@@ -509,5 +591,6 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - First npm publish under `@specstory` (needs Jake's approval).
 - `@toast-ui/react-editor` is unmaintained with a `react ^17` peer. If a React release breaks it, replace it with a small wrapper around `@toast-ui/editor`.
 - `scripts/check-article-cell-editor.mjs` aims at the article cell by canvas coordinates; make it find the cell some other way if the story changes often.
-- AI Fill: WP-AI3 (the `aiFill` prop, wiring the engine, `rows.getRowIndex` and the commit guards), WP-AI4 (built-in UI, including `confirmAbove`) and WP-AI5 (Storybook, docs site guide, live check). Remove the "in development" note from `packages/core/API.md` when the `aiFill` prop lands.
+- AI Fill: WP-AI4 (built-in UI, including `confirmAbove` and the AI menus) and WP-AI5 (Storybook, docs site guide, live check). Remove the "in development" note from `packages/core/API.md` when the built-in UI lands.
+- AI Fill: an optional app signal for "row still exists", so a result or answer for a filtered-out row can be kept instead of dropped as `row-missing` (SPST-17 §5).
 - Fix `scripts/jev-live-check.mjs`'s header comment (call count, and the `live-validation.mdx` path) when WP-AI5 creates that page.

@@ -81,7 +81,7 @@ describe("AI Fill in the grid: identity while pending (SPST-16 AC 5)", () => {
         await jev.release();
         expect(h.api().getCellState("r1", "persona")?.output?.value).toBe("Champion");
         expect(h.api().getCellState("r2", "persona")?.output?.value).toBe("ECON");
-        // r3 isn't displayed: its answer is kept for when it comes back.
+        // r3 isn't displayed, so accept-all writes r1 and r2 only (r3's answer is dropped; see below).
         h.api().accept({ column: "persona", filter: "eligible" });
         expect(h.row("r1").persona).toBe("Champion");
         expect(h.row("r2").persona).toBe("ECON");

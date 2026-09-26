@@ -528,9 +528,10 @@ export class AIFillSession {
     }
 
     /**
-     * The cells of a target whose record has one of `statuses`. For a column
-     * target, the filter decides: `eligible` is `suggested`, `review` is
-     * `review`, and `all` is both.
+     * The cells of a target whose record has one of `statuses`, the statuses
+     * the calling method acts on. A column target's filter narrows them:
+     * `all` keeps them all, `eligible` keeps only `suggested` and `review`
+     * only `review`.
      */
     resolve(target: AIFillTarget, statuses: readonly Status[]): AICellRef[] {
         const engine = this.engine;
@@ -538,8 +539,10 @@ export class AIFillSession {
         let refs: AICellRef[];
         let wanted = statuses;
         if ("column" in target) {
-            wanted =
-                target.filter === "eligible" ? ["suggested"] : target.filter === "review" ? ["review"] : acceptable;
+            if (target.filter !== "all") {
+                const only: Status = target.filter === "eligible" ? "suggested" : "review";
+                wanted = statuses.filter(status => status === only);
+            }
             refs = engine.store.all().filter(record => record.columnId === target.column);
         } else {
             const cells = "cells" in target ? target.cells : this.selectionCells(undefined);

@@ -1547,13 +1547,13 @@ What AI Fill adds to your props (each app handler is wrapped and still called, n
 | `columns` | AI columns get `hasMenu: true`, in a shallow copy. Other column objects are passed as they are. |
 | `drawCell` | Calls your `drawCell` (or draws the cell's content), then draws the AI state of cells with a result |
 | `drawHeader` | Calls your `drawHeader` (or draws the header), then draws a ✦ badge on AI columns |
-| `onCellEdited`, `onCellsEdited` | Watches edits made in the grid (an edited AI cell becomes `manual` and stale; results whose `sources` were edited become stale), then calls yours with the same arguments and returns its value |
+| `onCellEdited`, `onCellsEdited` | Watches edits made in the grid (an edited AI cell becomes `manual` and stale; results whose `sources` were edited become stale), then calls yours with the same arguments and returns its value. `onCellsEdited` is always passed, even when you don't pass one (it then returns `undefined`, so the grid still calls `onCellEdited`); `onCellEdited` is wrapped only when you pass it. |
 | `onKeyDown` | Calls yours first. If it called `preventDefault()` or `cancel()`, AI Fill does nothing. Otherwise AI Fill's shortcuts act (see [Keyboard](#keyboard)). A shortcut with nothing to act on is left to the grid. |
 | `onHeaderMenuClick`, `onHeaderContextMenu`, `onCellContextMenu` | On AI columns and cells, AI Fill's menu opens instead, and ends with "More options…", which calls yours with the original arguments. Other columns and cells go straight to yours. With `menus: "compose"` or `"off"`, passed through untouched. See [Menus in apps that already have menus](#menus-in-apps-that-already-have-menus). |
 | `onCellClicked` | Calls yours, then opens the inspector when the click was on an AI cell's marker, at the cell's right edge |
 | `className` | Adds `gdg-ai-grid` and a per-grid `gdg-ai-grid-<n>` class to yours. The built-in status bar uses it to find the grid's element. |
 | `gridSelection`, `onGridSelectionChange` | Passed through when you control the selection. When you only pass `onGridSelectionChange`, AI Fill also notes each selection the grid reports. When you pass neither, AI Fill holds the selection. |
-| `getCellContent`, `validateCell`, `portalElementRef`, everything else | Passed through untouched. AI Fill reads `getCellContent` and calls `validateCell` when it fills and commits, and its popups use `portalElementRef`. |
+| `getCellContent`, `validateCell`, `portalElementRef`, everything else | Passed through untouched. AI Fill reads `getCellContent` when it fills, draws, commits and reverts, calls `validateCell` only when it commits or reverts, and puts its popups in `portalElementRef`. |
 
 ### The API (`AIFillApi`)
 
@@ -1578,7 +1578,9 @@ What AI Fill adds to your props (each app handler is wrapped and still called, n
 
 None of these send a request except `fill`, `retry`, `rerunStale` and the menu items that fill.
 
-A **target** (`AIFillTarget`) is `{ cells: [rowId, columnId][] }`, `{ selection: true }` (the AI cells in the grid's selection) or `{ column, filter }`. For a column, `filter` is `"eligible"` (the `suggested` results), `"review"` or `"all"` (both). `accept({ column, filter: "eligible" })` is "Accept all eligible": it never includes review results, and it covers only displayed rows, so a filtered-out row keeps its result for when it comes back.
+A **target** (`AIFillTarget`) is `{ cells: [rowId, columnId][] }`, `{ selection: true }` (the AI cells in the grid's selection) or `{ column, filter }`. For a column, `filter` narrows the results the method acts on: `"all"` keeps them all, `"eligible"` only the `suggested` ones and `"review"` only the `review` ones. `accept({ column, filter: "eligible" })` is "Accept all eligible": it never includes review results, and it covers only displayed rows, so a decided result on a filtered-out row is left alone (see [Rows, identity and staleness](#rows-identity-and-staleness) for when such a result is dropped).
+
+The method decides which results a target covers, whatever the target: `accept` takes `suggested` and `review` results, `reject` also `withheld` and `stale` ones, `retry` failed ones, `rerunStale` stale ones, and `clear` every result except cells still waiting for Jev. So `reject({ column, filter: "all" })` rejects every decided or stale result in the column, `clear({ column, filter: "all" })` drops every result in it, and `retry` and `rerunStale` take `filter: "all"` (with `"eligible"` or `"review"` they select nothing). They re-run only displayed rows: a failed or stale cell on a row that isn't displayed is skipped as `unloaded`, and no request goes out for it.
 
 ### Fill scopes
 
@@ -1587,13 +1589,13 @@ A **target** (`AIFillTarget`) is `{ cells: [rowId, columnId][] }`, `{ selection:
 | `selection` | The AI cells in the selection: selected columns, selected rows intersected with the AI columns, and the selected ranges. Populated cells follow `overwrite`. |
 | `selection-empty` | Only the empty AI cells in the selection |
 | `column-empty` | The empty cells of the AI columns within `rowScope`. Needs `rowScope`. |
-| `column` | Every cell of the AI columns within `rowScope`, for columns whose `fillScopes` lists it |
+| `column` | Every cell of the AI columns within `rowScope`. Opt-in: a column takes part only if its `fillScopes` lists `column`. |
 
-`rowScope: () => ({ rows: "displayed", label })` covers the rows displayed now; `rows: rowId[]` covers the listed rows that are displayed. A row that isn't displayed (filtered out) is never read or sent: it is skipped as `unloaded`, like a loading row. Each fill reports its skipped cells by reason (`populated`, `read-only`, `unloaded`, `not-applicable`, `missing-input` and `cached`; see [Planning a fill](#planning-a-fill)), and the scope never widens silently.
+`rowScope: () => ({ rows: "displayed", label })` covers the rows displayed now; `rows: rowId[]` covers the listed rows that are displayed. A row that isn't displayed (filtered out) is never read or sent: it is skipped as `unloaded`, like a loading row. Each fill reports its skipped cells by reason (`populated`, `read-only`, `unloaded`, `not-applicable`, `missing-input` and `cached`; see [Planning a fill](#planning-a-fill)), and the scope never widens silently. Every scope, not only `column`, respects `fillScopes` (default `["selection", "selection-empty", "column-empty"]`): a column whose `fillScopes` doesn't list the fill's scope is skipped as `not-applicable`.
 
 ### Cell states on the canvas
 
-AI Fill draws after the cell's normal content, only for cells with a result, and only when a result changes (no animation loop). Colors come from the grid theme.
+AI Fill draws after the cell's normal content, only for cells with a result, and only when a result changes (no animation loop). Colors come from the grid theme, except the amber review marker and the red error marker.
 
 | State | Drawn as |
 |---|---|
@@ -1745,10 +1747,13 @@ Results are keyed by `(rowId, columnId)`, never by display position:
 
 - **Rows** are identified by `rows.getRowId(row)`, and columns by `GridColumn.id`. Display positions are worked out only at the moment they are needed: when a cell is drawn (row → id) and when a result is written (id → row).
 - **`rows.getRowIndex(rowId)`** answers id → row when you provide it. Its answer is checked against `getRowId`: an index whose row has another id counts as a missing row, so a wrong index can't redirect a read or a write. Without it, AI Fill scans `getRowId` over the rows once and reuses the map until the current task ends.
-- **Sorting, filtering and moving columns** move nothing: results stay with their ids and are drawn wherever their row and column are now. A result on a row that is filtered out stays until the row comes back.
-- **An answer that arrives for a row that isn't displayed** is dropped, and `onResult` reports it with status `cancelled` and `reason: "row-missing"`. AI Fill can't tell a filtered-out row from a deleted one, so it treats both as gone; nothing is written. Fill the row again once it's displayed.
+- **Sorting, filtering and moving columns** move nothing: results stay with their ids and are drawn wherever their row and column are now. A decided result on a row that is filtered out keeps its record, and "Accept all eligible" leaves it alone, until the row comes back, with the exceptions below.
+- **Known limitation: a filtered-out row counts as a deleted row** wherever AI Fill has to look the row up. AI Fill only knows a row through `getRowId` / `getRowIndex` on the displayed rows, so it can't tell a filtered-out row from a deleted one. In these cases a filtered-out row's result is dropped, `onResult` reports it with status `cancelled` and `reason: "row-missing"`, and nothing is written:
+    - an answer that arrives while the row is filtered out (fill the row again once it's displayed);
+    - `notifyRowsChanged()` called while a filter hides the row (with no ids, or with its id): its decided results are dropped;
+    - `accept` with a `{ cells }` target that names the hidden row: the commit path finds the row missing and drops the result.
 - **Edits in the grid.** An edit to a source column makes the row's results in the AI columns that list it `stale`, whether they are pending or decided. An edit to an AI cell makes its result `manual` and `stale`: it is never auto-applied or accepted. A late answer for a stale cell is stored as stale and never shown as a suggestion.
-- **Changes outside the grid.** Call `api.notifyRowsChanged(rowIds?)` after changing rows without the grid's edit handlers. Their results are fingerprinted again: a changed input makes a result stale, a changed destination makes it `manual` and stale, and a decided result whose row is gone is dropped with `row-missing`. You don't have to call it for safety: every answer and every commit re-checks the inputs and the destination.
+- **Changes outside the grid.** Call `api.notifyRowsChanged(rowIds?)` after changing rows without the grid's edit handlers. Their results are fingerprinted again: a changed input makes a result stale, a changed destination makes it `manual` and stale, and a decided result whose row is gone, or filtered out (see the limitation above), is dropped with `row-missing`. You don't have to call it for safety: every answer and every commit re-checks the inputs and the destination.
 - **Accepted results** keep their commit id. They are never suggested again, including after an undo. Filling again is always explicit.
 
 The fingerprints behind these checks:
@@ -1765,20 +1770,20 @@ The fingerprints behind these checks:
 
 **The commit path.** For each result, right before writing:
 
-1. The row is found again by id. A row that is gone is `row-missing`, and its result is dropped.
+1. The row is found again by id. A row that is gone, or filtered out, is `row-missing`, and its result is dropped.
 2. The value is turned into a cell with `output.toCell` (by default, by the destination's kind). A value that no longer fits is `type-mismatch`.
 3. The inputs are fingerprinted again and the destination compared with its value at request time. A changed input makes the result `stale`, and a changed destination makes it `manual` and stale.
 4. The destination must be writable (an editable kind, not `readonly`), and the `overwrite` policy and the fill's scope must allow the write: an empty cell always, a populated one never under `"never"` or in the `-empty` scopes, only by `accept` in the `selection` scope under `"suggest"`, and under `"apply"` also by auto-apply.
 5. `validateCell(location, next, current)` runs: `false` blocks the write, and a returned cell is written instead (coerced).
 
-A result that fails a guard isn't written and keeps its status; `getCellState` reports why in `blocked`, and `onError` gets one `commit-blocked` error (or `type-mismatch`) per reason, listing the cells. A result is committed at most once. A grid without `onCellEdited` or `onCellsEdited` can't commit, and reports `read-only`.
+A result that fails any other guard isn't written and keeps its status; `getCellState` reports why in `blocked`, and `onError` gets one `commit-blocked` error (or `type-mismatch`) per reason, listing the cells. A result is committed at most once. A grid without `onCellEdited` or `onCellsEdited` can't commit, and reports `read-only`.
 
 **One batch.** The results that pass go out together, in one synchronous tick:
 
 1. If the grid has no selection, AI Fill first sets one covering the written cells, through your `onGridSelectionChange` (or its own held selection). `useUndoRedo` records nothing without a selection.
-2. `onCellsEdited(items)`, if you pass it.
-3. Unless it returned `true`, `onCellEdited(location, cell)` for each item.
-4. `onCommit({ commitId, source, edits })`, with each edit's `previous` and `next` cell, its location and its metadata. The cells are repainted with `updateCells`.
+2. `onCommit({ commitId, source, edits })`, with each edit's `previous` and `next` cell, its location and its metadata. It is called just before the writes, once the results are recorded as committed.
+3. `onCellsEdited(items)`, if you pass it.
+4. Unless it returned `true`, `onCellEdited(location, cell)` for each item. The cells are then repainted with `updateCells`.
 
 A Choice semantic outcome without a `value`, and a Noul in the middle band, have nothing to write: accepting one marks it `accepted` and writes nothing.
 

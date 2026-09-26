@@ -442,3 +442,123 @@ describe("AI Fill in the grid: accept, reject and commit guards (SPST-16 AC 4)",
         expect(h.api().getCellState("r1", "persona")?.blocked?.reason).toBe("read-only");
     });
 });
+
+describe("AI Fill in the grid: column targets (§3.1)", () => {
+    /** Persona and seniority filled for every row; the first request of each column (r1) fails. */
+    async function filledColumns(overrides: Partial<AIFillConfig> = {}) {
+        const jev = gatedJev({ rules: contactRules, errors: [{ kind: "invalid-request", calls: [0, 4] }] });
+        const h = renderAIGrid({
+            rows: contactRows(),
+            columns: contactColumns,
+            aiFill: ({ getRowId }) => contactConfig(jev.connection, getRowId, overrides),
+        });
+        await settle();
+        for (const column of [col.persona, col.seniority]) {
+            h.setSelection(rangeSelection(column, 0, 1, 4));
+            h.api().fill("selection");
+            await jev.release();
+        }
+        return { jev, h };
+    }
+
+    /** Makes r2's results stale: its title changes outside the grid. */
+    function staleR2(h: Awaited<ReturnType<typeof filledColumns>>["h"]): void {
+        h.patch("r2", { title: "Director" });
+        h.api().notifyRowsChanged(["r2"]);
+    }
+
+    test("retry with filter all re-runs the failed cells of that column only; eligible and review select nothing", async () => {
+        const { jev, h } = await filledColumns();
+        expect(h.api().getCellState("r1", "persona")?.status).toBe("error");
+        expect(h.api().getCellState("r1", "seniority")?.status).toBe("error");
+        const sent = jev.requests.length;
+
+        for (const filter of ["eligible", "review"] as const) {
+            expect(h.api().retry({ column: "persona", filter })).toMatchObject({ cells: 0, requests: 0 });
+        }
+        expect(jev.requests).toHaveLength(sent);
+
+        expect(h.api().retry({ column: "persona", filter: "all" })).toMatchObject({ cells: 1, requests: 1 });
+        await jev.release();
+        expect(jev.requests).toHaveLength(sent + 1);
+        expect(h.api().getCellState("r1", "persona")?.status).toBe("suggested");
+        expect(h.api().getCellState("r1", "seniority")?.status).toBe("error");
+    });
+
+    test("rerunStale with filter all re-runs the stale cells of that column only; eligible and review select nothing", async () => {
+        const { jev, h } = await filledColumns();
+        staleR2(h);
+        expect(h.api().getCellState("r2", "persona")?.status).toBe("stale");
+        expect(h.api().getCellState("r2", "seniority")?.status).toBe("stale");
+        const sent = jev.requests.length;
+
+        for (const filter of ["eligible", "review"] as const) {
+            expect(h.api().rerunStale({ column: "seniority", filter })).toMatchObject({ cells: 0, requests: 0 });
+        }
+        expect(jev.requests).toHaveLength(sent);
+
+        expect(h.api().rerunStale({ column: "seniority", filter: "all" })).toMatchObject({ cells: 1, requests: 1 });
+        await jev.release();
+        expect(jev.requests).toHaveLength(sent + 1);
+        expect(h.api().getCellState("r2", "seniority")?.status).toBe("suggested");
+        expect(h.api().getCellState("r2", "persona")?.status).toBe("stale");
+        expect(h.api().getCellState("r1", "seniority")?.status).toBe("error");
+    });
+
+    test("a column-target retry sends no request for a row that isn't displayed", async () => {
+        const { jev, h } = await filledColumns();
+        h.setView(["r2", "r3", "r4"]);
+        const sent = jev.requests.length;
+        const run = h.api().retry({ column: "persona", filter: "all" });
+        expect(run).toMatchObject({ cells: 0, requests: 0, skipped: { unloaded: 1 } });
+        await jev.release();
+        expect(jev.requests).toHaveLength(sent);
+        expect(h.api().getCellState("r1", "persona")?.status).toBe("error");
+    });
+
+    test("reject with filter all covers withheld and stale results; eligible and review narrow it", async () => {
+        // Persona shows only 0.8 and up, so r3 (0.6) is withheld.
+        const { h } = await filledColumns({
+            columns: {
+                persona: { ...persona, policy: { show: { minProbability: 0.8 } } },
+                seniority: { ...seniority, output: { store: "level-label" } },
+            },
+        });
+        staleR2(h);
+        expect(h.api().getCellState("r3", "persona")?.status).toBe("withheld");
+        expect(h.api().getCellState("r4", "persona")?.status).toBe("suggested");
+
+        expect(h.api().reject({ column: "persona", filter: "review" })).toBe(0);
+        expect(h.api().reject({ column: "persona", filter: "eligible" })).toBe(1);
+        expect(h.api().getCellState("r4", "persona")?.status).toBe("rejected");
+
+        // r2 is stale and r3 withheld; r1 failed, which reject never covers.
+        expect(h.api().reject({ column: "persona", filter: "all" })).toBe(2);
+        expect(h.api().getCellState("r2", "persona")?.status).toBe("rejected");
+        expect(h.api().getCellState("r3", "persona")?.status).toBe("rejected");
+        expect(h.api().getCellState("r1", "persona")?.status).toBe("error");
+        expect(h.api().getCellState("r3", "seniority")?.status).toBe("suggested");
+        expect(h.edits).toEqual([]);
+    });
+
+    test("clear with filter all drops every clearable result in the column and leaves in-flight cells waiting", async () => {
+        const { jev, h } = await filledColumns();
+        staleR2(h);
+        h.patch("r4", { title: "Intern VP" });
+        h.api().notifyRowsChanged(["r4"]);
+        h.api().rerunStale({ cells: [["r4", "persona"]] });
+        await settle();
+        expect(h.api().getCellState("r4", "persona")?.status).toBe("pending");
+
+        h.api().clear({ column: "persona", filter: "all" });
+        // The failed, stale and review results are gone; the in-flight cell is still waiting.
+        for (const rowId of ["r1", "r2", "r3"]) expect(h.api().getCellState(rowId, "persona")).toBeUndefined();
+        expect(h.api().getCellState("r4", "persona")?.status).toBe("pending");
+        expect(h.api().getCellState("r1", "seniority")?.status).toBe("error");
+        expect(h.api().getCellState("r2", "seniority")?.status).toBe("stale");
+
+        await jev.release();
+        expect(h.api().getCellState("r4", "persona")?.status).toBe("suggested");
+        expect(h.edits).toEqual([]);
+    });
+});
