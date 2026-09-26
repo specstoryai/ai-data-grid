@@ -138,9 +138,10 @@ export interface AIFillRun {
  * once AI Fill has loaded, and the argument of `aiFill.onReady`. Rows are
  * always addressed by the stable ids from `rows.getRowId`.
  *
- * Inference starts only from `fill`, `retry` and `rerunStale`. Reading state,
- * painting, scrolling, selecting, sorting, opening a menu and opening the
- * inspector never send a request.
+ * Inference starts only from `fill`, `retry` and `rerunStale`, and from the
+ * built-in UI's fill, retry and re-run actions (including the `run()` of those
+ * items from `getMenuItems`). Reading state, painting, scrolling, selecting,
+ * sorting, opening a menu and opening the inspector never send a request.
  */
 export interface AIFillApi {
     /**

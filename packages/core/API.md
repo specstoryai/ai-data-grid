@@ -1576,7 +1576,7 @@ What AI Fill adds to your props (each app handler is wrapped and still called, n
 | `openInspector([rowId, columnId])` | Selects the cell, scrolls to it and opens the inspector. Returns `false` when the cell isn't displayed or has no result. |
 | `subscribe(listener)` | Calls `listener` after any change to a run or a result, for app-built displays. Returns the function that stops it. |
 
-None of these send a request except `fill`, `retry`, `rerunStale` and the menu items that fill.
+None of these send a request except `fill`, `retry`, `rerunStale`, and the `run()` of a fill, retry or re-run menu item.
 
 A **target** (`AIFillTarget`) is `{ cells: [rowId, columnId][] }`, `{ selection: true }` (the AI cells in the grid's selection) or `{ column, filter }`. For a column, `filter` narrows the results the method acts on: `"all"` keeps them all, `"eligible"` only the `suggested` ones and `"review"` only the `review` ones. `accept({ column, filter: "eligible" })` is "Accept all eligible": it never includes review results, and it covers only displayed rows, so a decided result on a filtered-out row is left alone (see [Rows, identity and staleness](#rows-identity-and-staleness) for when such a result is dropped).
 
@@ -1751,7 +1751,7 @@ Results are keyed by `(rowId, columnId)`, never by display position:
 - **Known limitation: a filtered-out row counts as a deleted row** wherever AI Fill has to look the row up. AI Fill only knows a row through `getRowId` / `getRowIndex` on the displayed rows, so it can't tell a filtered-out row from a deleted one. In these cases a filtered-out row's result is dropped, `onResult` reports it with status `cancelled` and `reason: "row-missing"`, and nothing is written:
     - an answer that arrives while the row is filtered out (fill the row again once it's displayed);
     - `notifyRowsChanged()` called while a filter hides the row (with no ids, or with its id): its decided results are dropped;
-    - `accept` with a `{ cells }` target that names the hidden row: the commit path finds the row missing and drops the result.
+    - `accept` with a `{ cells }` target that names the hidden row: the commit path finds the row missing and drops the result. The same happens to an accept or Choose from the UI that reaches a hidden row, for example the `run()` of `getMenuItems({ cell })` items for a hidden row, or an inspector left open while a filter hides its row. The built-in menus and shortcuts otherwise act only on displayed cells, and rejecting or re-running never drops a result.
 - **Edits in the grid.** An edit to a source column makes the row's results in the AI columns that list it `stale`, whether they are pending or decided. An edit to an AI cell makes its result `manual` and `stale`: it is never auto-applied or accepted. A late answer for a stale cell is stored as stale and never shown as a suggestion.
 - **Changes outside the grid.** Call `api.notifyRowsChanged(rowIds?)` after changing rows without the grid's edit handlers. Their results are fingerprinted again: a changed input makes a result stale, a changed destination makes it `manual` and stale, and a decided result whose row is gone, or filtered out (see the limitation above), is dropped with `row-missing`. You don't have to call it for safety: every answer and every commit re-checks the inputs and the destination.
 - **Accepted results** keep their commit id. They are never suggested again, including after an undo. Filling again is always explicit.
@@ -1824,16 +1824,16 @@ A grid with `aiFill` supplies the whole review workflow itself: the app writes n
 | Fill selected cells (*N*) | The column allows `selection` | Fills the column's cells in the selection |
 | Fill and apply… | The column's policy has `autoApply` | A "Fill and apply" run over the empty cells in `rowScope`, or over the selection when there is no `rowScope` or the column doesn't allow `column-empty`. Always asks first. |
 | Accept *N* eligible | | Writes the column's `suggested` results in displayed rows, as one batch. Never includes review results. |
-| Review *N* | | Selects the next `review` result and opens the inspector on it |
-| Reject all suggestions | | Rejects the column's `suggested` and `review` results |
-| Retry *N* failed, Re-run *N* stale | | Evaluates the column's failed or stale cells again |
+| Review *N* | | Selects the next `review` result in a displayed row, after the focused cell, and opens the inspector on it |
+| Reject all suggestions | | Rejects the column's `suggested` and `review` results, including those on filtered-out rows. Unlike `reject({ column, filter: "all" })`, it leaves `withheld` and `stale` results alone. |
+| Retry *N* failed, Re-run *N* stale | | Evaluates the column's failed or stale cells again. Rows that aren't displayed are skipped as not loaded yet. |
 | Cancel | A run is in progress | Cancels every run |
 
-A right-click on an AI cell, or the menu shortcut on one, opens the **cell menu**: "Fill selected cells (*N*)" and "Fill empty selected cells (*N*)" for every AI column in the selection, "Fill and apply…" when one of them has `autoApply`, then "Accept", "Reject", "Inspect…" and "Retry" (or "Re-run" for a stale or rejected result) for the cell itself, and "Cancel" during a run. The counts are worked out when the menu opens, without sending anything. An item that can't act is shown disabled, with the reason under it (for example "No cells to fill: 2 already have a value").
+A right-click on an AI cell, or the menu shortcut on one, opens the **cell menu**: "Fill selected cells (*N*)" and "Fill empty selected cells (*N*)" for every AI column in the selection, "Fill and apply…" when one of them has `autoApply`, then "Accept", "Reject", "Inspect…" and "Retry" (or "Re-run" for a stale or rejected result) for the cell itself, and "Cancel" during a run. The counts are worked out when the menu opens, without sending anything. An item that can't act is shown disabled, with the reason under it (for example "No cells to fill: 2 already have a value"). The *N* in "Review *N*", "Retry *N* failed" and "Re-run *N* stale" counts every such result in the column, including results on filtered-out rows, which those items skip; "Accept *N* eligible" counts only displayed rows.
 
 **Stating the scope.** A fill from the menus or the fill shortcut asks first when it covers more than `execution.confirmAbove` cells (default 100), when it is a `column` fill, and when it is "Fill and apply". The confirm dialog (`role="dialog"`) lists the columns, the row scope (`rowScope`'s label, or the selection), the cells to evaluate, the cells skipped by reason (already have a value, read-only, not loaded yet, not applicable, missing input, already have a result for the same input), the estimated number of requests, and whether anything will be written. Nothing is sent until it's confirmed. A fill that can't run (no `rowScope`, or more than `maxCellsPerRun` cells) shows why instead. `api.fill` never asks: the app decided.
 
-**The status bar** (`gdg-ai-status`, `role="status"`, `aria-live="polite"`) floats over the bottom edge of the grid without changing its layout, and the grid stays fully usable under a run. During a run it shows "Evaluating *Persona*: 18 / 42" and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped", plus the applied count, or "Cancelled: …") with "Review next", "Accept *N* eligible" and "Retry *N* failed" when they have something to do, and × to dismiss it. "Review next" walks the results waiting for a decision (`review` and `suggested`) in display order after the focused cell. With `statusBar: false` it isn't shown; render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead. `AIFillStatus` is a small component that loads the status bar on first render, and renders nothing while `api` is `undefined`.
+**The status bar** (`gdg-ai-status`, `role="status"`, `aria-live="polite"`) floats over the bottom edge of the grid without changing its layout, and the grid stays fully usable under a run. During a run it shows "Evaluating *Persona*: 18 / 42" and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped", plus the applied count, or "Cancelled: …") with "Review next", "Accept *N* eligible" and "Retry *N* failed" when they have something to do, and × to dismiss it. These are the grid-wide items from `getMenuItems()`, across every AI column. "Review next" walks the results waiting for a decision (`review` and `suggested`) in displayed rows, in display order after the focused cell, wrapping around. With `statusBar: false` it isn't shown; render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead. `AIFillStatus` is a small component that loads the status bar on first render, and renders nothing while `api` is `undefined`.
 
 **The inspector** (`gdg-ai-inspector`, `role="dialog"`) opens from "Inspect…", from a click on a cell's AI marker, from the inspect shortcut, from "Review next", and from `api.openInspector`. Opening it selects the cell, and never sends a request. It shows only the structured answer and your configuration; Jev returns no prose, and none is invented:
 
@@ -1845,7 +1845,11 @@ A right-click on an AI cell, or the menu shortcut on one, opens the **cell menu*
 - **Noul:** the probability of yes and, with bands, the band it falls in (for example "Uncertain (between 0.2 and 0.8: review)"). A Noul has no confidence, and none is shown.
 - the model id that answered, and when the answer was received
 
-Its actions all write through the [commit path](#committing-validation-and-undo): **Accept** (also Enter), **Reject**, **Choose** (a configured Choice option with a value, a Score level, or Yes and No for a Noul, written as `source: "choose"`; available for suggested, review and withheld results), **Edit manually** (closes the inspector and opens the cell's normal editor, as Enter does, so the edit goes through your `onCellEdited`), and **Retry** or **Re-run** for failed, stale and rejected results. A chosen Score level is written the way `output.store` stores levels (a function `store` offers no levels); a chosen Yes or No for a `"probability"` Noul is written as 1 or 0.
+Its actions all write through the [commit path](#committing-validation-and-undo): **Accept** (also Enter), **Reject**, **Choose** (pick a value and "Write choice"; written as `source: "choose"` and checked by every commit guard, `overwrite` included; available for suggested, review and withheld results), **Edit manually** (closes the inspector, selects the cell and sends it Enter, so the cell's normal editor opens and the edit goes through your `onCellEdited`; with `keybindings.activateCell` off, it only selects the cell), and **Retry** or **Re-run** for failed, stale and rejected results. Choose offers:
+
+- **Choice:** every option whose `outcome` is `"value"` (the default), plus semantic-outcome options that set a `value`, each written as `value ?? label ?? id`.
+- **Score:** each level, written as its index with `store: "score"` (the default) or `"level"`, its label with `"level-label"`, and its `value` with `"level-value"` (levels without a `value` aren't offered). A function `store` offers no levels, so Choose isn't shown.
+- **Noul:** Yes and No (your `output.labels`), written as `true` / `false` with `store: "boolean"`, as the label with `"label"`, and as 1 / 0 with `"probability"` (the default).
 
 **Popups** (the menus, the confirm dialog and the inspector) render into `portalElementRef ?? #portal`, the same element the grid's overlay editor uses, and carry the `click-outside-ignore` class, so the grid doesn't treat clicks on them as clicks outside. A click outside a popup closes it. They copy the grid's `--gdg-*` theme variables, so they follow its theme.
 
@@ -1853,7 +1857,7 @@ Its actions all write through the [commit path](#committing-validation-and-undo)
 
 ### Styling
 
-The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class (`gdg-ai-menu`, `gdg-ai-menu-item`, `gdg-ai-dialog`, `gdg-ai-inspector`, `gdg-ai-status`, `gdg-ai-bars`, `gdg-ai-primary` and so on), and every color reads a `--gdg-ai-*` variable that falls back to a `--gdg-*` theme variable. Set these on the grid's container, the portal or `:root`:
+The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class (`gdg-ai-menu`, `gdg-ai-menu-item`, `gdg-ai-dialog`, `gdg-ai-inspector`, `gdg-ai-status`, `gdg-ai-bars`, `gdg-ai-primary` and so on), and every color reads a `--gdg-ai-*` variable that falls back to a `--gdg-*` theme variable. Set them on `:root`, or on an element that contains both the grid and the portal element. The popups render in the portal and copy only the grid's `theme` variables, so `--gdg-ai-*` variables set on the grid's container reach the status bar but not the popups:
 
 | Variable | Falls back to | Used for |
 |---|---|---|
@@ -1902,7 +1906,7 @@ The shortcuts go through `DataEditor`'s `onKeyDown`, after yours: if your handle
 | Shift+F10, ContextMenu | `menu` | Opens the column menu when a whole AI column is selected, otherwise the cell menu for the focused AI cell. Only with `menus: "built-in"`. |
 | Alt+ArrowDown | `inspect` | Opens the inspector for the focused cell, when it has a result |
 | Mod+Enter | `accept` | Accepts the selected `suggested` and `review` results, as one batch |
-| Mod+Backspace | `reject` | Rejects the selected results |
+| Mod+Backspace | `reject` | Rejects the selected `suggested`, `review`, `withheld` and `stale` results |
 | Mod+Alt+F | `fill` | Fills the AI cells in the selection, asking first above `confirmAbove` |
 
 Mod is ⌘ on macOS and Ctrl elsewhere. Rebind or turn off any of them with `aiFill.shortcuts`, in the syntax of the grid's `keybindings`: modifiers joined with `+` (`ctrl`, `shift`, `alt`, `meta`, and `primary` for Mod), then the key, with `|` between alternatives. `false` turns one off, and `shortcuts: false` turns them all off:
