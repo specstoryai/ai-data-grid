@@ -143,8 +143,8 @@ In a Next.js app, load the grid on the client only (for example with `dynamic(()
     - 0.41: **withheld**, with a hollow `○` and nothing shown;
     - 0.86 for "None of the above": a **semantic outcome**, which has nothing to write.
 4. The status bar sums it up and offers **Review next** and **Accept *N* eligible**. The inspector shows each answer's options ranked by probability, the model confidence, the reason for the decision, and the model id.
-5. Accepting writes the labels through `onCellEdited`, in one batch, and calls `onCommit`. Rejected, withheld and review results write nothing.
-6. "Fill and apply…" in the menu (it always asks first) writes answers of 0.95 or more straight away, except "None of the above", and leaves the rest for review.
+5. Accepting writes the labels through `onCellEdited`, in one batch, and calls `onCommit`. Rejected and withheld results write nothing. **Accept *N* eligible** leaves review results alone; one is written only when it's accepted by itself, for example from the inspector.
+6. "Fill and apply…" in the menu (it always asks first) writes answers of 0.95 or more straight away, except "None of the above", and leaves the rest with their usual status (suggested, review or withheld).
 
 Try this workflow in the Storybook story **01 Buyer-persona Choice (full workflow)**, and "Fill and apply" in **07 Review queue and auto-apply**.
 
@@ -222,7 +222,8 @@ To write "Yes" and "No" to a text column instead, use `store: "label"` (with `la
 
 Use the mock in tests, so they never call Jev:
 
-```ts
+```tsx
+import { render } from "@testing-library/react";
 import { createMockJev } from "@specstory/ai-data-grid/testing";
 
 const jev = createMockJev({

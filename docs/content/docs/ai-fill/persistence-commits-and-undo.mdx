@@ -30,15 +30,15 @@ The checks use fingerprints. The question fingerprint covers the primitive, inst
 
 ## The commit path
 
-Accepting, auto-applying and reverting all write through your edit handlers, the way a paste does. For each result, right before writing:
+Accepting, Choose and auto-applying write through your edit handlers, the way a paste does. For each result, right before writing:
 
 1. The row is found again by id. A row that is gone is `row-missing`, and its result is dropped.
 2. The value is turned into a cell with `output.toCell` (by default, by the destination's kind: text, number, boolean, or the cells package's dropdown). A value that doesn't fit is `type-mismatch`.
 3. The inputs are fingerprinted again and the destination compared with its value when the request was made. A changed input makes the result stale; a changed destination makes it manual and stale.
-4. The destination must be writable (an editable kind, not `readonly`), and the `overwrite` policy and the fill's scope must allow the write: an empty cell always; a populated one never under `"never"` or in the `-empty` scopes, only by an accept in the `selection` scope under `"suggest"`, and under `"apply"` also by auto-apply.
+4. The destination must be writable (an editable kind, not `readonly`), and the `overwrite` policy and the fill's scope must allow the write: an empty cell always; a populated one never under `"never"` or in the `-empty` scopes, only by a user action (accept or Choose) in the `selection` scope under `"suggest"`, and under `"apply"` in the `selection` and `column` scopes, auto-apply included.
 5. Your `validateCell(location, next, current)` runs: `false` blocks the write, and a returned cell is written instead.
 
-A result that fails a guard isn't written and keeps its status. `getCellState(...).blocked` says why, and `onError` gets one `commit-blocked` (or `type-mismatch`) error per reason, listing the cells. A result is written at most once. A grid without `onCellEdited` or `onCellsEdited` can't commit.
+A result that fails any other guard isn't written and keeps its status. `getCellState(...).blocked` says why, and `onError` gets one `commit-blocked` (or `type-mismatch`) error per reason, listing the cells. A result is written at most once. A grid without `onCellEdited` or `onCellsEdited` can't commit.
 
 ### One batch
 
@@ -53,7 +53,7 @@ A Choice semantic outcome without a `value`, and an uncertain Noul, have nothing
 
 ### Auto-apply
 
-In a "Fill and apply" run (`fill(scope, { mode: "apply" })`, or "Fill and apply…" in the menu), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, with `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays suggested. Review results, manual cells and populated cells under `overwrite: "suggest"` are never applied automatically, and neither is a result re-decided after a policy change.
+In a "Fill and apply" run (`fill(scope, { mode: "apply" })`, or "Fill and apply…" in the menu), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, with `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays suggested. Review results, manual cells and populated cells under `overwrite: "suggest"` are never applied automatically, and neither is a result re-decided after a policy change. Known issue: the run's summary counts an auto-applied result as suggested (see [Limitations](/docs/ai-fill/limitations#known-issues)).
 
 ## Undo
 
@@ -83,7 +83,7 @@ A bulk accept is then **one undo step**: Cmd/Ctrl+Z restores every cell, redo wr
 
 ### `revertCommit`
 
-`api.revertCommit(commitId)` writes a commit's previous values back by row id, through the same batch path, and returns how many cells it restored. It leaves a cell alone when its row is gone, when it no longer holds the committed value (someone edited it since), when it is read-only now, or when `validateCell` rejects the old value. A commit is reverted at most once, and its results stay accepted.
+`api.revertCommit(commitId)` writes a commit's previous values back by row id, through the same `onCellsEdited` / `onCellEdited` batch (setting a selection first when there is none), and returns how many cells it restored. It doesn't call `onCommit` or run the commit guards above; its own checks follow. It leaves a cell alone when its row is gone, when it no longer holds the committed value (someone edited it since), when it is read-only now, or when `validateCell` rejects the old value. A commit is reverted at most once, and its results stay accepted.
 
 ### Your own undo stack
 

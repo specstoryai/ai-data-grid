@@ -77,7 +77,7 @@ const aiFill: AIFillConfig = {
 | `backoff` | `{ initialMs, maxMs, jitter }`: the delay doubles from `initialMs` up to `maxMs`, minus up to `jitter` of it at random | 500 ms → 5 s, 0.25 |
 | `maxCellsPerRun` | A fill that would evaluate more cells is refused before anything is sent | 1000 |
 | `confirmAbove` | A fill started from the built-in menus or the fill shortcut that covers more cells asks for confirmation first. `api.fill` never asks. | 100 |
-| `maxQuestionsPerRequest` | Columns that share a row's state share a request, up to this many questions | 16 |
+| `maxQuestionsPerRequest` | Columns that share a row's state and model share a request, up to this many questions | 16 |
 | `maxStateChars` | A row state longer than this (as JSON) is an `input-too-large` error, before anything is sent | 60000 |
 | `cacheSize` | Answers kept for repeated fills of the same cell and input, least recently used first out | 5000 |
 
@@ -104,7 +104,7 @@ Every AI column has these:
 | `presentation` | Display options (below) | per primitive |
 | `model` | A model for this column | grid `model` |
 
-The default row state is `{ [sourceId]: value }` for each source column, in order: the text of text, URI and markdown cells, the number of number cells, the boolean of boolean cells, a custom cell's `copyData`, and `null` for an empty cell.
+The default row state is `{ [sourceId]: value }` for each source column, in order: the text of text, URI, markdown and row-id cells (an empty one sends `""`), the number of number cells, the boolean of boolean cells, the data of image and bubble cells, a drilldown's item texts, a custom cell's `copyData`, and `null` for a missing value, an empty number or boolean, and loading or protected cells.
 
 ### Choice
 

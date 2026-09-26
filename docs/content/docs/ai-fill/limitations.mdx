@@ -42,7 +42,7 @@ Otherwise a decided result on a hidden row keeps its record, "Accept all eligibl
 
 ## Requests
 
-- **One row per request.** Rows are never packed together, so a fill over 500 rows sends up to 500 requests (fewer when answers are cached), within `concurrency` and `maxRequestsPerMinute`.
+- **One row per request.** Rows are never packed together, so a fill over 500 rows sends at least one request per row (fewer when answers are cached): one for each distinct row state and model, with at most `maxQuestionsPerRequest` questions each. Two AI columns with different `sources` over 500 rows send up to 1,000 requests, within `concurrency` and `maxRequestsPerMinute`.
 - **Jev's error-body shape isn't fully documented,** so AI Fill reads the message from the fields it knows. An unexpected shape still maps to the right error kind by its HTTP status, with a generic message.
 
 ## Accessibility

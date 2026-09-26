@@ -70,7 +70,7 @@ An AI column's header gets a `✦` badge and a `▾`. The `▾`, a right-click o
 | Item | What it does |
 |---|---|
 | Fill empty cells in *Persona* (*N* rows in *label*) | Fills the empty cells within `rowScope` |
-| Fill every cell in *Persona*… | Fills every cell within `rowScope` (only for columns that list `column` in `fillScopes` and don't use `overwrite: "never"`). Always asks first. |
+| Fill every cell in *Persona* (*N* rows in *label*)… | Fills every cell within `rowScope` (only for columns that list `column` in `fillScopes` and don't use `overwrite: "never"`). Always asks first. |
 | Fill selected cells (*N*) | Fills the column's cells in the selection |
 | Fill and apply… | A "Fill and apply" run (only when the policy has `autoApply`). Always asks first. |
 | Accept *N* eligible | Writes the column's suggested results in displayed rows, as one batch. Never includes review results. |
@@ -130,13 +130,13 @@ Menus, the confirm dialog and the inspector are keyboard accessible (arrow keys,
 | `getMenuItems(target?)`, `openMenu(target)`, `openInspector(cell)` | The built-in menu items (for your own menus), and opening the built-in UI |
 | `subscribe(listener)` | Calls `listener` after any change, for app-built displays |
 
-A **target** is `{ cells: [rowId, columnId][] }`, `{ selection: true }` or `{ column, filter }`. The method decides which results count: `accept` takes suggested and review results, `reject` also withheld and stale ones, `retry` failed ones, `rerunStale` stale ones, and `clear` everything except cells still waiting. For a column, `filter` narrows that: `"all"` keeps everything the method covers, `"eligible"` only suggested results, and `"review"` only review results. A column target covers displayed rows only. So `accept({ column: "persona", filter: "eligible" })` is "Accept all eligible".
+A **target** is `{ cells: [rowId, columnId][] }`, `{ selection: true }` or `{ column, filter }`. The method decides which results count: `accept` takes suggested and review results, `reject` also withheld and stale ones, `retry` failed ones, `rerunStale` stale ones, and `clear` everything except cells still waiting (with no target, `clear()` cancels every run and drops every result, waiting ones included). For a column, `filter` narrows that: `"all"` keeps everything the method covers, `"eligible"` only suggested results, and `"review"` only review results. For `accept`, a column target covers displayed rows only; `reject` and `clear` also act on results in filtered-out rows, and `retry` and `rerunStale` skip those rows as not loaded yet. So `accept({ column: "persona", filter: "eligible" })` is "Accept all eligible".
 
 ## Apps that already have menus
 
 `onHeaderMenuClick`, `onHeaderContextMenu` and `onCellContextMenu` stay yours. `aiFill.menus` decides how AI Fill's menu fits in:
 
-- **`"built-in"` (the default).** Columns and cells that aren't AI columns go straight to your handlers, unchanged. On an AI column or cell, AI Fill's menu opens instead, and ends with **More options…**, which calls your handler with the original arguments.
+- **`"built-in"` (the default).** Columns and cells that aren't AI columns go straight to your handlers, unchanged. On an AI column or cell, AI Fill's menu opens instead, and ends with **More options…** when you have a handler for that menu; it calls your handler with the original arguments.
 - **`"compose"`.** AI Fill's menu never opens, and your handlers always run. Add AI Fill's items to your own menu with `api.getMenuItems(target)`. Each item is `{ id, label, detail?, disabled, disabledReason?, run }`, and `run()` does what the built-in item does, including asking for confirmation:
 
     ```tsx
@@ -174,4 +174,4 @@ Errors never write to the grid. A failed cell shows a red marker, the inspector 
 
 ## Styling
 
-The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class, and every color reads a `--gdg-ai-*` variable that falls back to the grid's `--gdg-*` theme variable, for example `--gdg-ai-accent` (falls back to `--gdg-accent-color`), `--gdg-ai-review` and `--gdg-ai-error`. Set them on `:root`, or on an element that contains both the grid and the portal: the popups render in the portal and copy only the grid's theme, so variables set on the grid's container reach the status bar but not the popups. The full list is in the API reference.
+The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class, and every color reads a `--gdg-ai-*` variable. Most fall back to the grid's `--gdg-*` theme variable, for example `--gdg-ai-accent` (falls back to `--gdg-accent-color`); `--gdg-ai-review` and `--gdg-ai-error` fall back to fixed amber and red. These variables style the DOM UI only: the review and error markers drawn in cells on the canvas use fixed colors. Set them on `:root`, or on an element that contains both the grid and the portal: the popups render in the portal and copy only the grid's theme, so variables set on the grid's container reach the status bar but not the popups. The full list is in the API reference.

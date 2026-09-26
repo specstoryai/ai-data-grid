@@ -116,7 +116,7 @@ const aiFill = React.useMemo<AIFillConfig>(
 ref.current?.aiFill?.fill("selection-empty");
 ```
 
-Start with the [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site: setup, connecting to Jev, the primitives, result policies, review, undo, limitations and complete examples. The [AI Fill chapter of API.md](API.md#ai-fill) is the reference. It covers the quick start, the configuration, result policies, rows and staleness, committing and undo, the built-in UI, menus in apps that already have menus, the keyboard, connecting to Jev (`@specstory/ai-data-grid/server`) and testing with the mock (`@specstory/ai-data-grid/testing`).
+Start with the [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site: setup, connecting to Jev, the primitives, result policies, review, undo, limitations and complete examples. (The guide is on the hosted docs site once AI Fill reaches the repository's `main` branch; until then its source is `docs/content/docs/ai-fill/` in the repository.) The [AI Fill chapter of API.md](API.md#ai-fill) is the reference. It covers the quick start, the configuration, result policies, rows and staleness, committing and undo, the built-in UI, menus in apps that already have menus, the keyboard, connecting to Jev (`@specstory/ai-data-grid/server`) and testing with the mock (`@specstory/ai-data-grid/testing`).
 
 ## Full API documentation
 

@@ -4,7 +4,7 @@ description: The record of the manual check of AI Fill against the real Jev API,
 ---
 
 <Note title="Manual, and separate from the tests">
-  Every automated test and every Storybook story uses a mock (`createMockJev`) and never calls Jev; a guard fails any test that tries. This page records the manual checks against the live API. They confirm that the real answers have the shape AI Fill expects. They make no claim about accuracy or latency.
+  Every automated test and every Storybook story uses a mock (`createMockJev`) and never calls Jev; a guard fails any core test that tries. This page records the manual checks against the live API. They confirm that the real answers have the shape AI Fill expects. They make no claim about accuracy or latency.
 </Note>
 
 ## How to run the check
@@ -50,7 +50,7 @@ Then the same request with the key `invalid-key-for-live-check`, expecting HTTP 
 - **When:** 2026-09-26 00:26 UTC, one run of `node scripts/jev-live-check.mjs`, from Node 24, direct mode.
 - **Calls:** 4 (the three questions, plus the bad-key check), 2 HTTP requests. No retries.
 - **Requested model:** `jev-latest`. **Answered by:** `jev-1.13.0`.
-- **Request ids:** both responses, including the 401, had an `x-typesafe-request-id` header, which AI Fill keeps as `requestId`.
+- **Request ids:** both responses, including the 401, had an `x-typesafe-request-id` header, which AI Fill's transport captures as `requestId`.
 
 | Question | Answer, as returned | Parsed | Decision |
 |---|---|---|---|

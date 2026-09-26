@@ -1479,7 +1479,7 @@ Behavior not defined or officially supported. Feel free to check out what this d
 
 # AI Fill
 
-> **Guide and examples.** The [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site walks through setup, connecting to Jev, the primitives, result policies, review, undo and the limitations, with complete examples. The Storybook has 13 AI Fill stories under **AI-Data-Grid / AI Fill** (sources in `src/ai-fill/stories/`, and `ai-fill-undo.stories.tsx` in the source package) that run against the mock with seeded answers. This chapter is the reference.
+> **Guide and examples.** The [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site walks through setup, connecting to Jev, the primitives, result policies, review, undo and the limitations, with complete examples. The Storybook has 13 AI Fill stories under **AI-Data-Grid / AI Fill** (sources in `src/ai-fill/stories/`, and `ai-fill-undo.stories.tsx` in the source package); 12 run against the mock with seeded answers, and the 13th shows a grid without `aiFill`. The guide and the stories are on the hosted sites once AI Fill reaches `main`. This chapter is the reference.
 
 AI Fill is powered by [Jev](https://docs.typesafe.ai), TypeSafe's Choice, Score and Noul primitives.
 

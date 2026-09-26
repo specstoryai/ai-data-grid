@@ -37,7 +37,7 @@ For each answer, the first step that matches decides:
 3. **Stale inputs** (a source changed since the request): `stale`. A stale result is never shown as a suggestion or written.
 4. **Mapping**: a value that can't be produced or doesn't fit the destination cell is `error: type-mismatch`. An incomplete mapping (a `"level-value"` level without a `value`, or a Noul `"boolean"` or `"label"` store without bands) is `error: configuration`.
 5. **Gates**: `show` fails → `withheld`; a Noul in the middle band → `review` (or `withheld`); `ready` fails → `review`; otherwise `suggested`, or an apply candidate when `autoApply` passes in a "Fill and apply" run.
-6. **`decide`**: may return `withheld`, `review`, `suggested` or `apply`, or `undefined` to keep the decision. It can't create a value. `apply` counts only when the column configures `autoApply`, the run is a "Fill and apply" run and there is a value to write; otherwise the result stays `suggested` and a configuration error is reported. A throw or an invalid return is `error: policy-callback`, and nothing is written.
+6. **`decide`**: may return `withheld`, `review`, `suggested` or `apply`, or `undefined` to keep the decision. It can't create a value. `apply` counts only when the column configures `autoApply`, the run is a "Fill and apply" run and there is a value to write. If the column has no `autoApply`, the result stays `suggested` and a `configuration` error is reported; in a run that isn't "Fill and apply", or with no value to write, it stays `suggested` (reason `apply-not-requested` or `no-value`) with no error. A throw or an invalid return is `error: policy-callback`, and nothing is written.
 7. **Commit guards**, for every write: the result isn't already committed, the row still exists, the inputs and the destination haven't changed, the cell is writable, the overwrite policy and the scope allow the write, and your `validateCell` accepts it. See [the commit path](/docs/ai-fill/persistence-commits-and-undo#the-commit-path).
 
 ## Exact boundaries
@@ -50,7 +50,7 @@ For each answer, the first step that matches decides:
 
 ## `decide`
 
-`decide` sees frozen copies of the full answer, the cell context (`rowId`, `columnId`, the state that was sent and the destination cell), the mapped candidate and the declarative decision, plus the run's `mode`. Use it for rules the gates can't express:
+`decide` sees frozen copies of the full answer, the mapped candidate and the declarative decision, plus the cell context (`rowId`, `columnId`, the state that was sent and the destination cell) and the run's `mode`. Use it for rules the gates can't express:
 
 ```ts
 policy: {
