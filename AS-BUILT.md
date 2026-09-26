@@ -1,6 +1,6 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-26 (SPST-27: AI Fill WP-AI3 fix round 1, PR #18 at `869d65de`)
+**Last updated:** 2026-09-26 (SPST-27: AI Fill WP-AI3 after merging WP-AI2 fix round 1, PR #18 at `9c1328ae`)
 **Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged), AI Fill's execution layer with the `/server` and `/testing` subpaths (WP-AI2, SPST-23 / PR #17, stacked on PR #16, not merged), and AI Fill's grid integration: the `aiFill` prop, rendering, fill, commit and undo (WP-AI3, SPST-26 / PR #18, stacked on PR #17, not merged).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
