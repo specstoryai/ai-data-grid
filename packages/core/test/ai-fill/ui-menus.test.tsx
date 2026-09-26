@@ -9,7 +9,16 @@ import { CompactSelection } from "../../src/index.js";
 import { standardBeforeEach } from "../test-utils.js";
 import { persona } from "./fixtures/definitions.js";
 import { gatedJev, type HarnessOptions, rangeSelection, renderAIGrid, settle } from "./fixtures/harness.js";
-import { clickHeaderMenu, gridFocused, gridKey, menu, menuItems, pick, rightClickCell } from "./fixtures/ui.js";
+import {
+    clickHeaderMenu,
+    gridFocused,
+    gridKey,
+    menu,
+    menuItems,
+    pick,
+    rightClickCell,
+    statusBar,
+} from "./fixtures/ui.js";
 
 const spies = vi.hoisted(() => ({ coreProps: [] as unknown[] }));
 
@@ -383,6 +392,191 @@ describe("menu entries", () => {
         await settle();
         expect(h.selection().current?.cell).toEqual([col.persona, 2]);
         expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Needs review");
+    });
+});
+
+describe("result entries and rows a filter hides", () => {
+    const extraRows = [
+        { id: "r5", company: "Hooli", title: "VP Ops", notes: "", persona: "", seniority: "", ownsBudget: null },
+        { id: "r6", company: "Stark", title: "VP Eng", notes: "", persona: "", seniority: "", ownsBudget: null },
+        { id: "r7", company: "Wayne", title: "Engineer", notes: "", persona: "", seniority: "", ownsBudget: null },
+        { id: "r8", company: "Wonka", title: "Intern", notes: "", persona: "", seniority: "", ownsBudget: null },
+        { id: "r9", company: "Tyrell", title: "CFO", notes: "", persona: "", seniority: "", ownsBudget: null },
+    ];
+
+    /**
+     * Persona filled for `rows` of r1..r9 (every row by default). Persona shows
+     * from confidence 0.5 and is ready from 0.88, so VP is suggested, CFO review
+     * and Engineer withheld. The first and sixth requests (r1, r6) fail, and
+     * the Interns (r4, r8) go stale.
+     */
+    async function filled(rows: readonly string[] | "displayed" = "displayed") {
+        const jev = gatedJev({ rules: contactRules, errors: [{ kind: "invalid-request", calls: [0, 5] }] });
+        const h = renderAIGrid({
+            rows: [...contactRows(), ...extraRows],
+            columns: contactColumns,
+            aiFill: ({ getRowId }) =>
+                contactConfig(jev.connection, getRowId, {
+                    rowScope: () => ({ rows, label: "contacts" }),
+                    columns: {
+                        persona: {
+                            ...persona,
+                            policy: { show: { minConfidence: 0.5 }, ready: { minProbability: 0.88 } },
+                        },
+                    },
+                }),
+        });
+        await settle();
+        act(() => {
+            h.api().fill("column-empty");
+        });
+        await jev.release();
+        const ids = rows === "displayed" ? h.view() : rows;
+        for (const id of ids) {
+            if (h.row(id).title === "Intern") h.patch(id, { title: "Intern (summer)" });
+        }
+        h.api().notifyRowsChanged(ids.filter(id => h.row(id).title === "Intern (summer)"));
+        await settle();
+        return { jev, h };
+    }
+
+    const status = (h: Awaited<ReturnType<typeof filled>>["h"], rowId: string) =>
+        h.api().getCellState(rowId, "persona")?.status;
+    const byId = (items: readonly { id: string }[], id: string) => items.find(item => item.id === id);
+
+    test("the counts cover displayed rows only, and each item runs what its label counts", async () => {
+        const { jev, h } = await filled();
+        expect(["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"].map(id => status(h, id))).toEqual([
+            "error",
+            "review",
+            "withheld",
+            "stale",
+            "suggested",
+            "error",
+            "withheld",
+            "stale",
+            "review",
+        ]);
+        // The filter hides r1..r4: an error, a review, a withheld and a stale result.
+        h.setView(["r5", "r6", "r7", "r8", "r9"]);
+        await settle();
+
+        const column = h.api().getMenuItems({ column: "persona" });
+        expect(column.slice(2).map(item => [item.id, item.label, item.disabled])).toEqual([
+            ["accept-eligible", "Accept 1 eligible", false],
+            ["review-next", "Review 1", false],
+            ["reject-all", "Reject all suggestions", false],
+            ["retry-failed", "Retry 1 failed", false],
+            ["rerun-stale", "Re-run 1 stale", false],
+        ]);
+        const grid = h.api().getMenuItems();
+        expect(byId(grid, "retry-failed")).toMatchObject({ label: "Retry 1 failed", disabled: false });
+        expect(byId(grid, "rerun-stale")).toMatchObject({ label: "Re-run 1 stale", disabled: false });
+        expect(byId(grid, "review-next")).toMatchObject({ label: "Review next", disabled: false });
+        // The built-in menu shows the same items, and building them sent nothing.
+        const sent = jev.requests.length;
+        act(() => {
+            h.api().openMenu({ column: "persona" });
+        });
+        await settle();
+        expect(menuItems().map(item => [item.label, item.disabled])).toEqual([
+            ...column.map(item => [item.label, item.disabled]),
+        ]);
+        expect(jev.requests).toHaveLength(sent);
+
+        // "Review 1" reaches r9, the displayed review result, and not the hidden r2.
+        await pick("Review 1");
+        expect(h.selection().current?.cell).toEqual([col.persona, 4]);
+        fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+        await settle();
+
+        // "Retry 1 failed" starts a run of one cell: r6. The hidden r1 keeps its error.
+        act(() => {
+            h.api().openMenu({ column: "persona" });
+        });
+        await settle();
+        await pick("Retry 1 failed");
+        expect(h.api().getRunState().active.map(run => run.total)).toEqual([1]);
+        expect(jev.requests).toHaveLength(sent + 1);
+        await jev.release();
+        expect(status(h, "r6")).toBe("suggested");
+        expect(status(h, "r1")).toBe("error");
+
+        // "Re-run 1 stale" re-runs r8 only.
+        act(() => {
+            h.api().openMenu({ column: "persona" });
+        });
+        await settle();
+        await pick("Re-run 1 stale");
+        expect(h.api().getRunState().active.map(run => run.total)).toEqual([1]);
+        expect(jev.requests).toHaveLength(sent + 2);
+        await jev.release();
+        expect(status(h, "r8")).not.toBe("stale");
+        expect(status(h, "r4")).toBe("stale");
+    });
+
+    test('"Reject all suggestions" rejects what api.reject({ column, filter: "all" }) rejects', async () => {
+        const first = await filled();
+        first.h.setView(["r5", "r6", "r7", "r8", "r9"]);
+        await settle();
+        const expected = first.h.api().reject({ column: "persona", filter: "all" });
+        const rejectedByApi = ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"].filter(
+            id => status(first.h, id) === "rejected"
+        );
+        cleanup();
+
+        const { h } = await filled();
+        h.setView(["r5", "r6", "r7", "r8", "r9"]);
+        await settle();
+        act(() => byId(h.api().getMenuItems({ column: "persona" }), "reject-all")?.run());
+        await settle();
+        const rejected = ["r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9"].filter(
+            id => status(h, id) === "rejected"
+        );
+        // Suggested, review, withheld and stale, hidden rows included; the failed results stay.
+        expect(rejected).toEqual(rejectedByApi);
+        expect(rejected).toEqual(["r2", "r3", "r4", "r5", "r7", "r8", "r9"]);
+        expect(expected).toBe(7);
+        expect(byId(h.api().getMenuItems({ column: "persona" }), "reject-all")).toMatchObject({
+            disabled: true,
+            disabledReason: "Nothing to reject",
+        });
+    });
+
+    test("results only on hidden rows leave the items disabled, in the menus and the status bar", async () => {
+        const { jev, h } = await filled(["r1", "r2", "r3", "r4"]);
+        expect(["r1", "r2", "r3", "r4"].map(id => status(h, id))).toEqual(["error", "review", "withheld", "stale"]);
+        h.setView(["r5", "r6", "r7", "r8", "r9"]);
+        await settle();
+
+        const column = h.api().getMenuItems({ column: "persona" });
+        expect(byId(column, "review-next")).toMatchObject({ label: "Review 0", disabled: true });
+        expect(byId(column, "retry-failed")).toMatchObject({
+            label: "Retry 0 failed",
+            disabled: true,
+            disabledReason: "Nothing to retry: 1 not loaded yet",
+        });
+        expect(byId(column, "rerun-stale")).toMatchObject({
+            label: "Re-run 0 stale",
+            disabled: true,
+            disabledReason: "Nothing to re-run: 1 not loaded yet",
+        });
+        const grid = h.api().getMenuItems();
+        expect(byId(grid, "review-next")).toMatchObject({ disabled: true, disabledReason: "Nothing to review" });
+        expect(byId(grid, "retry-failed")).toMatchObject({ label: "Retry 0 failed", disabled: true });
+        expect(byId(grid, "rerun-stale")).toMatchObject({ label: "Re-run 0 stale", disabled: true });
+
+        // The status bar offers only enabled actions, so neither "Review next" nor "Retry failed".
+        const bar = statusBar() as HTMLElement;
+        expect(bar.textContent).toContain("Done:");
+        expect(
+            [...bar.querySelectorAll("button")].map(button => button.textContent).filter(text => text !== "×")
+        ).toEqual([]);
+
+        const sent = jev.requests.length;
+        for (const item of [...column, ...grid]) act(() => item.run());
+        await settle();
+        expect(jev.requests).toHaveLength(sent);
     });
 });
 

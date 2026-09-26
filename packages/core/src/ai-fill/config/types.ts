@@ -453,7 +453,7 @@ export interface AIFillShortcuts {
     readonly inspect?: string | false;
     /** Accepts the selected suggestions. Default `"primary+Enter"`. */
     readonly accept?: string | false;
-    /** Rejects the selected suggestions. Default `"primary+Backspace"`. */
+    /** Rejects the selected `suggested`, `review`, `withheld` and `stale` results. Default `"primary+Backspace"`. */
     readonly reject?: string | false;
     /** Fills the AI cells in the selection. Default `"primary+alt+f"`. */
     readonly fill?: string | false;
