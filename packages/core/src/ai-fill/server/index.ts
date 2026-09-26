@@ -31,7 +31,10 @@ export interface JevHandlerOptions {
     readonly maxBodyBytes?: number;
     /** The most questions in one request. Default 32. More is a 413. */
     readonly maxQuestions?: number;
-    /** How long to wait for Jev, in milliseconds. Default 20000. Then the response is a 504 `upstream_timeout`. */
+    /**
+     * How long to wait for Jev's full answer (headers and body), in
+     * milliseconds. Default 20000. Then the response is a 504 `upstream_timeout`.
+     */
     readonly timeoutMs?: number;
     /** Jev's origin. Default `https://api.typesafe.ai`. */
     readonly baseURL?: string;
@@ -177,6 +180,50 @@ function checkBody(body: unknown): string | undefined {
     return undefined;
 }
 
+const requestIdHeader = "x-typesafe-request-id";
+
+/** Jev's request ids are short printable tokens: 1 to 128 visible ASCII characters. Any other value isn't forwarded. */
+const requestIdPattern = /^[!-~]{1,128}$/;
+
+/** Jev's reply to one forwarded request: the response and its body, already read. */
+interface UpstreamReply {
+    readonly response: Response;
+    readonly text: string;
+}
+
+/**
+ * Runs the whole upstream step (the `fetch` and the body read) against a
+ * deadline and the caller's signal. Either one aborts the step's signal, and
+ * the result settles then even if `fetch` or the body read ignores it; a late
+ * settlement is ignored.
+ */
+async function callUpstream(
+    run: (signal: AbortSignal) => Promise<UpstreamReply>,
+    timeoutMs: number,
+    outer: AbortSignal
+): Promise<UpstreamReply | "timeout" | "unreachable"> {
+    if (outer.aborted) return "unreachable";
+    const controller = new AbortController();
+    let timedOut = false;
+    const onOuterAbort = () => controller.abort();
+    outer.addEventListener("abort", onOuterAbort, { once: true });
+    const timer = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+    }, timeoutMs);
+    try {
+        return await new Promise<UpstreamReply>((resolve, reject) => {
+            controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true });
+            run(controller.signal).then(resolve, reject);
+        });
+    } catch {
+        return timedOut ? "timeout" : "unreachable";
+    } finally {
+        clearTimeout(timer);
+        outer.removeEventListener("abort", onOuterAbort);
+    }
+}
+
 function retryAfterMs(headers: Headers): number | undefined {
     const ms = Number(headers.get("retry-after-ms") ?? Number.NaN);
     if (Number.isFinite(ms) && ms >= 0) return ms;
@@ -192,7 +239,7 @@ function retryAfterMs(headers: Headers): number | undefined {
  * Creates a Fetch-API handler (`Request → Response`) that implements AI Fill's
  * endpoint contract: it takes `POST { model, state, questions }`, adds your
  * key, forwards `{ state, model, questions }` to Jev, and returns Jev's body
- * unchanged, with its `x-typesafe-request-id` header.
+ * (unchanged unless it contains the key), with its `x-typesafe-request-id` header.
  *
  * In order, a request is rejected with a {@link JevEndpointErrorBody} when:
  * the method isn't POST (405 `method_not_allowed`); `authorize` doesn't return
@@ -201,12 +248,16 @@ function retryAfterMs(headers: Headers): number | undefined {
  * or doesn't match the contract (400 `invalid_request`); it has more than
  * `maxQuestions` questions (413 `payload_too_large`); or the model isn't in
  * `allowedModels` (400 `model_not_allowed`). Jev's own errors keep their
- * status, and `Retry-After` and `retry-after-ms` are forwarded. No timely
- * answer is a 504 `upstream_timeout`, and no connection a 502 `upstream_unreachable`.
+ * status, and `Retry-After` and `retry-after-ms` are forwarded. No full
+ * answer (headers and body) within `timeoutMs` is a 504 `upstream_timeout`,
+ * even when the `fetch` ignores its abort signal. No connection, or a caller
+ * that aborted its request, is a 502 `upstream_unreachable`.
  *
- * The key is never echoed in a body, an error or a header, and the helper
- * logs nothing. It adds no CORS headers: serve it from the app's own origin,
- * or add CORS in your own code.
+ * The key is never echoed in a body, an error or a header: it is redacted
+ * from Jev's body and error fields, and a forwarded header whose value
+ * contains it is dropped, as is a request id that isn't a short printable
+ * token. The helper logs nothing. It adds no CORS headers: serve it from the
+ * app's own origin, or add CORS in your own code.
  *
  * @throws TypeError when `authorize` is missing, or a limit isn't a positive number.
  *
@@ -236,6 +287,20 @@ export function createJevHandler(options: JevHandlerOptions): (request: Request)
     const upstreamURL = `${(options.baseURL ?? defaults.baseURL).replace(/\/+$/, "")}/v1/systemone`;
     const fetchImpl: typeof fetch = options.fetch ?? ((input, init) => fetch(input, init));
     const redact = (text: string) => (apiKey === "" ? text : text.split(apiKey).join("[redacted]"));
+    // Jev's body is passed through as text, so the key's JSON-escaped form is redacted too.
+    const escapedKey = JSON.stringify(apiKey).slice(1, -1);
+    const redactBody = (text: string) => {
+        const redacted = redact(text);
+        return escapedKey === apiKey ? redacted : redacted.split(escapedKey).join("[redacted]");
+    };
+    const redactValue = (value: unknown): unknown => {
+        if (typeof value === "string") return redact(value);
+        if (Array.isArray(value)) return value.map(redactValue);
+        if (isRecord(value)) {
+            return Object.fromEntries(Object.entries(value).map(([name, item]) => [redact(name), redactValue(item)]));
+        }
+        return value;
+    };
 
     return async request => {
         if (request.method !== "POST") {
@@ -283,19 +348,9 @@ export function createJevHandler(options: JevHandlerOptions): (request: Request)
             return errorResponse(400, "model_not_allowed", `The model ${JSON.stringify(model)} isn't allowed here`);
         }
 
-        const controller = new AbortController();
-        const onClientAbort = () => controller.abort();
-        request.signal.addEventListener("abort", onClientAbort, { once: true });
-        let timedOut = false;
-        const timer = setTimeout(() => {
-            timedOut = true;
-            controller.abort();
-        }, timeoutMs);
-        try {
-            let upstream: Response;
-            let upstreamText: string;
-            try {
-                upstream = await fetchImpl(upstreamURL, {
+        const reply = await callUpstream(
+            async signal => {
+                const response = await fetchImpl(upstreamURL, {
                     method: "POST",
                     headers: {
                         authorization: `Bearer ${apiKey}`,
@@ -303,53 +358,57 @@ export function createJevHandler(options: JevHandlerOptions): (request: Request)
                         accept: "application/json",
                     },
                     body: JSON.stringify({ state, model, questions }),
-                    signal: controller.signal,
+                    signal,
                 });
-                upstreamText = await upstream.text();
-            } catch {
-                return timedOut
-                    ? errorResponse(504, "upstream_timeout", `Jev didn't answer within ${timeoutMs} ms`)
-                    : errorResponse(502, "upstream_unreachable", "Couldn't reach Jev");
-            }
-
-            const requestId = upstream.headers.get("x-typesafe-request-id");
-            const forwarded: Record<string, string> = requestId === null ? {} : { "x-typesafe-request-id": requestId };
-            if (upstream.ok) {
-                return new Response(upstreamText, {
-                    status: upstream.status,
-                    headers: { "content-type": "application/json", ...forwarded },
-                });
-            }
-
-            let parsed: unknown;
-            try {
-                parsed = JSON.parse(upstreamText);
-            } catch {
-                parsed = undefined;
-            }
-            const nested = isRecord(parsed) && isRecord(parsed.error) ? parsed.error : undefined;
-            const rawType = nested?.type;
-            const rawMessage = nested?.message ?? (isRecord(parsed) ? parsed.message : undefined);
-            const detail = nested?.detail ?? (isRecord(parsed) ? parsed.detail : undefined);
-            for (const name of ["retry-after", "retry-after-ms"]) {
-                const value = upstream.headers.get(name);
-                if (value !== null) forwarded[name] = value;
-            }
-            const delay = retryAfterMs(upstream.headers);
-            return errorResponse(
-                upstream.status,
-                typeof rawType === "string" ? redact(rawType) : upstreamType(upstream.status),
-                typeof rawMessage === "string" ? redact(rawMessage) : `Jev returned HTTP ${upstream.status}`,
-                {
-                    headers: forwarded,
-                    ...(delay === undefined ? {} : { retryAfterMs: delay }),
-                    ...(detail === undefined ? {} : { detail: JSON.parse(redact(JSON.stringify(detail))) as unknown }),
-                }
-            );
-        } finally {
-            clearTimeout(timer);
-            request.signal.removeEventListener("abort", onClientAbort);
+                return { response, text: await response.text() };
+            },
+            timeoutMs,
+            request.signal
+        );
+        if (reply === "timeout") {
+            return errorResponse(504, "upstream_timeout", `Jev didn't answer within ${timeoutMs} ms`);
         }
+        if (reply === "unreachable") return errorResponse(502, "upstream_unreachable", "Couldn't reach Jev");
+        const { response: upstream, text: upstreamText } = reply;
+
+        // A header that carries the key is dropped rather than redacted: a
+        // "[redacted]" request id or Retry-After is no use to the client.
+        const forwarded: Record<string, string> = {};
+        const names = upstream.ok ? [requestIdHeader] : [requestIdHeader, "retry-after", "retry-after-ms"];
+        for (const name of names) {
+            const value = upstream.headers.get(name);
+            if (value === null || value.includes(apiKey)) continue;
+            if (name === requestIdHeader && !requestIdPattern.test(value)) continue;
+            forwarded[name] = value;
+        }
+        if (upstream.ok) {
+            return new Response(redactBody(upstreamText), {
+                status: upstream.status,
+                headers: { "content-type": "application/json", ...forwarded },
+            });
+        }
+
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(upstreamText);
+        } catch {
+            parsed = undefined;
+        }
+        const nested = isRecord(parsed) && isRecord(parsed.error) ? parsed.error : undefined;
+        const rawType = nested?.type;
+        const rawMessage = nested?.message ?? (isRecord(parsed) ? parsed.message : undefined);
+        const detail = nested?.detail ?? (isRecord(parsed) ? parsed.detail : undefined);
+        const delay = retryAfterMs(new Headers(forwarded));
+        return errorResponse(
+            upstream.status,
+            typeof rawType === "string" ? redact(rawType) : upstreamType(upstream.status),
+            typeof rawMessage === "string" ? redact(rawMessage) : `Jev returned HTTP ${upstream.status}`,
+            {
+                headers: forwarded,
+                ...(delay === undefined ? {} : { retryAfterMs: delay }),
+                ...(detail === undefined ? {} : { detail: redactValue(detail) }),
+            }
+        );
     };
 }
 

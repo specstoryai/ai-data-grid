@@ -197,6 +197,90 @@ describe("createJevHandler", () => {
         expect((await errorOf(response)).type).toBe("upstream_timeout");
     });
 
+    it("times out a fetch that never settles and ignores its signal", async () => {
+        vi.useFakeTimers();
+        const { handle } = handler({ fetch: vi.fn(() => new Promise<Response>(() => undefined)), timeoutMs: 1000 });
+        let settled = false;
+        const pending = handle(post(body)).finally(() => {
+            settled = true;
+        });
+        await vi.advanceTimersByTimeAsync(999);
+        expect(settled).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        const response = await pending;
+        expect(response.status).toBe(504);
+        expect((await errorOf(response)).type).toBe("upstream_timeout");
+    });
+
+    it("times out a response whose body never finishes", async () => {
+        vi.useFakeTimers();
+        const stalled = vi.fn(
+            async () =>
+                new Response(
+                    new ReadableStream<Uint8Array>({
+                        start(controller) {
+                            controller.enqueue(new TextEncoder().encode('{"model":'));
+                        },
+                    }),
+                    { status: 200, headers: { "x-typesafe-request-id": "req-1" } }
+                )
+        );
+        const { handle } = handler({ fetch: stalled, timeoutMs: 1000 });
+        const pending = handle(post(body));
+        await vi.advanceTimersByTimeAsync(1000);
+        const response = await pending;
+        expect(response.status).toBe(504);
+        expect((await errorOf(response)).type).toBe("upstream_timeout");
+        expect(response.headers.get("x-typesafe-request-id")).toBeNull();
+    });
+
+    it("ignores an abandoned fetch that rejects after the timeout", async () => {
+        const unhandled = vi.fn();
+        process.on("unhandledRejection", unhandled);
+        try {
+            vi.useFakeTimers();
+            const late = vi.fn(
+                () =>
+                    new Promise<Response>((_resolve, reject) => {
+                        setTimeout(() => reject(new TypeError("fetch failed")), 5000);
+                    })
+            );
+            const { handle } = handler({ fetch: late, timeoutMs: 1000 });
+            const pending = handle(post(body));
+            await vi.advanceTimersByTimeAsync(1000);
+            expect((await pending).status).toBe(504);
+            await vi.advanceTimersByTimeAsync(5000);
+            vi.useRealTimers();
+            await new Promise(resolve => setTimeout(resolve, 10));
+            expect(unhandled).not.toHaveBeenCalled();
+        } finally {
+            process.off("unhandledRejection", unhandled);
+        }
+    });
+
+    it("settles when the caller aborts, even if the fetch ignores its signal", async () => {
+        vi.useFakeTimers();
+        const hanging = vi.fn((_url: RequestInfo | URL, _init?: RequestInit) => new Promise<Response>(() => undefined));
+        const { handle } = handler({ fetch: hanging, timeoutMs: 1000 });
+        const caller = new AbortController();
+        const pending = handle(new Request(post(body), { signal: caller.signal }));
+        await vi.advanceTimersByTimeAsync(10);
+        expect(hanging).toHaveBeenCalledTimes(1);
+        expect(hanging.mock.calls[0][1]?.signal?.aborted).toBe(false);
+        caller.abort();
+        const response = await pending;
+        expect(response.status).toBe(502);
+        expect((await errorOf(response)).type).toBe("upstream_unreachable");
+        expect(hanging.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        expect(vi.getTimerCount()).toBe(0);
+
+        const gone = new AbortController();
+        const request = new Request(post(body), { signal: gone.signal });
+        gone.abort();
+        expect((await handle(request)).status).toBe(502);
+        expect(hanging).toHaveBeenCalledTimes(1);
+    });
+
     it("answers 502 when Jev can't be reached", async () => {
         const { handle } = handler({
             fetch: async () => {
@@ -257,6 +341,106 @@ describe("createJevHandler", () => {
         expect(text).toContain("[redacted]");
         for (const [, value] of response.headers) expect(value).not.toContain(key);
         expect(response.headers.get("authorization")).toBeNull();
+    });
+
+    async function expectNoKey(response: Response, secret = key) {
+        for (const [, value] of response.headers) expect(value).not.toContain(secret);
+        expect(await response.text()).not.toContain(secret);
+    }
+
+    it("drops forwarded headers that carry the key, on success and on error", async () => {
+        const success = handler({ fetch: upstream(200, answer, { "x-typesafe-request-id": key }) });
+        const ok = await success.handle(post(body));
+        expect(ok.status).toBe(200);
+        expect(ok.headers.get("x-typesafe-request-id")).toBeNull();
+        await expectNoKey(ok);
+
+        const failing = handler({
+            fetch: upstream(
+                529,
+                { error: { type: "overloaded_error", message: "Busy" } },
+                {
+                    "x-typesafe-request-id": `req-${key}`,
+                    "retry-after": `3 ${key}`,
+                    "retry-after-ms": `${key}`,
+                }
+            ),
+        });
+        const error = await failing.handle(post(body));
+        expect(error.status).toBe(529);
+        for (const name of ["x-typesafe-request-id", "retry-after", "retry-after-ms"]) {
+            expect(error.headers.get(name)).toBeNull();
+        }
+        const text = await error.clone().text();
+        expect(JSON.parse(text).error).toEqual({ type: "overloaded_error", message: "Busy" });
+        await expectNoKey(error);
+
+        const partial = handler({
+            fetch: upstream(
+                429,
+                { error: { type: "rate_limit_error", message: "Slow down" } },
+                {
+                    "retry-after": `${key}`,
+                    "retry-after-ms": "250",
+                    "x-typesafe-request-id": "req-9",
+                }
+            ),
+        });
+        const limited = await partial.handle(post(body));
+        expect(limited.headers.get("retry-after")).toBeNull();
+        expect(limited.headers.get("retry-after-ms")).toBe("250");
+        expect(limited.headers.get("x-typesafe-request-id")).toBe("req-9");
+        expect((await errorOf(limited)).retryAfterMs).toBe(250);
+    });
+
+    it("forwards only request ids that are short printable tokens", async () => {
+        for (const [id, kept] of [
+            ["req_01H8-abc.def:9", true],
+            ["x".repeat(128), true],
+            ["x".repeat(129), false],
+            ["req 1", false],
+            ["req-\u00e9", false],
+        ] as const) {
+            const { handle } = handler({ fetch: upstream(200, answer, { "x-typesafe-request-id": id }) });
+            const response = await handle(post(body));
+            expect(response.headers.get("x-typesafe-request-id")).toBe(kept ? id : null);
+        }
+    });
+
+    it("redacts the key from a successful body", async () => {
+        const echoed = { ...answer, note: `used ${key}` };
+        const { handle } = handler({ fetch: upstream(200, echoed) });
+        const response = await handle(post(body));
+        expect(response.status).toBe(200);
+        expect(await response.clone().json()).toEqual({ ...answer, note: "used [redacted]" });
+        await expectNoKey(response);
+
+        const clean = handler();
+        expect(await (await clean.handle(post(body))).text()).toBe(JSON.stringify(answer));
+    });
+
+    it("redacts a key with JSON-escaped characters from bodies, errors and details", async () => {
+        const odd = 'sk-"quoted\\key';
+        const success = createJevHandler({
+            apiKey: odd,
+            authorize: () => true,
+            fetch: upstream(200, { ...answer, note: odd }),
+        });
+        const ok = await success(post(body));
+        expect(await ok.clone().json()).toEqual({ ...answer, note: "[redacted]" });
+        await expectNoKey(ok, odd);
+        await expectNoKey(await success(post(body)), JSON.stringify(odd).slice(1, -1));
+
+        const failure = createJevHandler({
+            apiKey: odd,
+            authorize: () => true,
+            fetch: upstream(401, { error: { type: "authentication_error", message: odd, detail: { [odd]: [odd] } } }),
+        });
+        const error = await failure(post(body));
+        expect(await error.clone().json()).toEqual({
+            error: { type: "authentication_error", message: "[redacted]", detail: { "[redacted]": ["[redacted]"] } },
+        });
+        await expectNoKey(error, JSON.stringify(odd).slice(1, -1));
     });
 });
 
