@@ -82,8 +82,9 @@ export interface AIFillExecutionOptions {
     /** The most cells one run may evaluate. Default 1000. */
     readonly maxCellsPerRun?: number;
     /**
-     * Runs larger than this will ask for confirmation first. Validated, but not
-     * acted on yet: the confirm dialog comes in a later stage. Default 100.
+     * A fill started from the built-in menus or the fill shortcut that would
+     * evaluate more cells than this asks for confirmation first. `column`
+     * fills and "Fill and apply" always ask. `api.fill` never asks. Default 100.
      */
     readonly confirmAbove?: number;
     /** Questions combined into one request. Default 16. */
@@ -428,6 +429,37 @@ export type AIColumnDefinition = ChoiceColumnDefinition | ScoreColumnDefinition 
 export type AIColumnDefinitionFor<P extends JevPrimitive> = Extract<AIColumnDefinition, { readonly primitive: P }>;
 
 // ---------------------------------------------------------------------------
+// Built-in UI
+// ---------------------------------------------------------------------------
+
+/**
+ * AI Fill's keyboard shortcuts, in the syntax of the grid's `keybindings`:
+ * modifiers joined with `+` (`ctrl`, `shift`, `alt`, `meta`, and `primary`,
+ * which is Cmd on macOS and Ctrl elsewhere), then the `KeyboardEvent.key`,
+ * with `|` between alternatives. `false` turns one off.
+ *
+ * They go through `DataEditor`'s `onKeyDown`, after the app's handler: if the
+ * app's handler calls `preventDefault()` or `cancel()`, AI Fill does nothing.
+ * Each acts only when it has something to do, and otherwise leaves the key to
+ * the grid.
+ */
+export interface AIFillShortcuts {
+    /**
+     * Opens the AI menu: the column menu when a whole AI column is selected,
+     * otherwise the cell menu for the focused AI cell. Default `"shift+F10|ContextMenu"`.
+     */
+    readonly menu?: string | false;
+    /** Opens the inspector for the focused cell when it holds a result. Default `"alt+ArrowDown"`. */
+    readonly inspect?: string | false;
+    /** Accepts the selected suggestions. Default `"primary+Enter"`. */
+    readonly accept?: string | false;
+    /** Rejects the selected suggestions. Default `"primary+Backspace"`. */
+    readonly reject?: string | false;
+    /** Fills the AI cells in the selection. Default `"primary+alt+f"`. */
+    readonly fill?: string | false;
+}
+
+// ---------------------------------------------------------------------------
 // Grid-level configuration
 // ---------------------------------------------------------------------------
 
@@ -444,6 +476,25 @@ export interface AIFillConfig {
     /** AI column definitions, keyed by `GridColumn.id`. */
     readonly columns: { readonly [columnId: string]: AIColumnDefinition };
     readonly execution?: AIFillExecutionOptions;
+    /**
+     * The built-in menus on AI columns and cells:
+     * - `"built-in"` (default): the header ▾, the cell context menu and the
+     *   menu shortcut open AI Fill's menu. When the app has its own handler for
+     *   that menu, the AI menu ends with "More options…", which calls it with
+     *   the original arguments. Other columns and cells go straight to the app.
+     * - `"compose"`: the built-in menu never opens and the app's handlers are
+     *   always called. Put `api.getMenuItems(target)` in the app's own menu.
+     * - `"off"`: no menus; only the API and the shortcuts.
+     */
+    readonly menus?: "built-in" | "compose" | "off";
+    /**
+     * Shows the built-in status bar over the bottom edge of the grid while a
+     * run is in progress and after it ends. Default `true`. With `false`,
+     * render `<AIFillStatus api={api} />` where you want it.
+     */
+    readonly statusBar?: boolean;
+    /** Keyboard shortcuts. `false` turns all of them off. */
+    readonly shortcuts?: AIFillShortcuts | false;
     readonly onRunStart?: (event: AIRunStartEvent) => void;
     readonly onRunProgress?: (event: AIRunProgressEvent) => void;
     readonly onRunEnd?: (summary: AIRunSummary) => void;

@@ -1,5 +1,4 @@
 import type * as React from "react";
-import { browserIsOSX } from "../../common/browser-detect.js";
 import type { DataEditorProps, DataEditorRef } from "../../data-editor/data-editor.js";
 import {
     CompactSelection,
@@ -12,7 +11,15 @@ import {
     isReadWriteCell,
 } from "../../internal/data-grid/data-grid-types.js";
 import type { GridKeyEventArgs } from "../../internal/data-grid/event-args.js";
-import type { AIActiveRun, AICellState, AIFillApi, AIFillRun, AIFillTarget, AIRunState } from "../config/api.js";
+import type {
+    AIActiveRun,
+    AICellState,
+    AIFillApi,
+    AIFillRun,
+    AIFillTarget,
+    AIMenuItem,
+    AIRunState,
+} from "../config/api.js";
 import type { AICellContext, AIColumnDefinition, AIFillConfig, AIFillMode, AIFillScope } from "../config/types.js";
 import type { AIColumnId, AIFillError, AIRowId, AIRunSummary } from "../config/results.js";
 import { canonicalJson } from "../identity/canonical-json.js";
@@ -39,6 +46,8 @@ type Status = AICellRecord["status"];
 const rejectable: readonly Status[] = ["suggested", "review", "withheld", "stale"];
 /** Results `accept` may write. */
 const acceptable: readonly Status[] = ["suggested", "review"];
+/** Results a user may replace with a value of their choosing ("Choose" in the inspector). */
+const choosable: ReadonlySet<Status> = new Set(["suggested", "review", "withheld"]);
 /** Results `clear` drops. In-flight cells keep waiting. */
 const clearable: readonly Status[] = [
     "suggested",
@@ -81,8 +90,28 @@ function hasSelection(selection: GridSelection | undefined): boolean {
     );
 }
 
+/** A menu target: an AI column, or an AI cell and the selection around it. */
+export type AIMenuTarget = Exclude<Parameters<AIFillApi["getMenuItems"]>[0], undefined>;
+
+/** The props AI Fill composes, writable. */
+export type AIFillComposedOut = { -readonly [K in keyof AIFillComposedProps]: AIFillComposedProps[K] };
+
+/**
+ * The built-in UI (`react/ui/`), plugged in by the controller. The session
+ * calls it for the parts of the API and the composition that belong to it.
+ */
+export interface AIFillSessionUI {
+    getMenuItems(target?: AIMenuTarget): AIMenuItem[];
+    openMenu(target: AIMenuTarget): boolean;
+    openInspector(cell: readonly [AIRowId, AIColumnId]): boolean;
+    /** Adds the menu, click and class name wrappers to the composed props. */
+    compose(p: AIFillComposedProps, out: AIFillComposedOut, memo: Memo): void;
+    /** Handles an AI shortcut. Returns whether it did. */
+    shortcut(event: GridKeyEventArgs): boolean;
+}
+
 /** One wrapper per app handler identity, so composed props keep their identity between renders. */
-class Memo {
+export class Memo {
     private readonly entries = new Map<string, { deps: readonly unknown[]; value: unknown }>();
 
     get<T>(key: string, deps: readonly unknown[], create: () => T): T {
@@ -106,11 +135,11 @@ class Memo {
 export class AIFillSession {
     private props: AIFillComposedProps | undefined;
     private config: AIFillConfig | undefined;
-    private engine: AIFillEngine | undefined;
+    engine: AIFillEngine | undefined;
     private configured: { config: AIFillConfig; columns: readonly GridColumn[] } | undefined;
     private onBridge: ((bridge: AIFillBridge | undefined) => void) | undefined;
     private unsubscribe: (() => void) | undefined;
-    private readonly host = new AIFillGridHost(this.gridProps.bind(this), this.currentConfig.bind(this));
+    readonly host = new AIFillGridHost(this.gridProps.bind(this), this.currentConfig.bind(this));
     private readonly memo = new Memo();
     private readonly wrapped = new WeakMap<AIFillConfig, AIFillConfig>();
     private readonly reportedIssues = new Set<string>();
@@ -131,10 +160,15 @@ export class AIFillSession {
     private observedSelection: GridSelection | undefined;
     private reviewedCounter = 0;
     private ready = false;
+    private readonly listeners = new Set<() => void>();
+    /** Bumped on every change {@link subscribe} reports. */
+    version = 0;
+    /** The built-in UI. Set by the controller before the session attaches. */
+    ui: AIFillSessionUI | undefined;
 
     readonly api: AIFillApi;
 
-    constructor(private readonly grid: React.RefObject<DataEditorRef | null>) {
+    constructor(readonly grid: React.RefObject<DataEditorRef | null>) {
         this.api = {
             fill: (scope, options) => this.fill(scope, options?.columns, options?.mode ?? "suggest"),
             cancel: runId => this.engine?.cancel(runId),
@@ -150,7 +184,23 @@ export class AIFillSession {
                 this.engine?.notifyRowsChanged(rowIds);
             },
             clear: target => this.clear(target),
+            getMenuItems: target => this.ui?.getMenuItems(target) ?? [],
+            openMenu: target => this.ui?.openMenu(target) ?? false,
+            openInspector: cell => this.ui?.openInspector(cell) ?? false,
+            subscribe: listener => this.subscribe(listener),
         };
+    }
+
+    /** Calls `listener` after every change to a run, a record or the built-in UI. */
+    readonly subscribe = (listener: () => void): (() => void) => {
+        this.listeners.add(listener);
+        return () => this.listeners.delete(listener);
+    };
+
+    /** Reports a change to {@link subscribe}rs. */
+    changed(): void {
+        this.version++;
+        for (const listener of this.listeners) notify(listener, undefined);
     }
 
     /** Records the latest props and configuration. Called while rendering. */
@@ -222,6 +272,7 @@ export class AIFillSession {
             onCellsEdited: this.memo.get("onCellsEdited", [p.onCellsEdited], () => this.onCellsEdited(p.onCellsEdited)),
             onKeyDown: this.memo.get("onKeyDown", [p.onKeyDown], () => this.onKeyDown(p.onKeyDown)),
         };
+        this.ui?.compose(p, out, this.memo);
         if (p.onCellEdited !== undefined) {
             const app = p.onCellEdited;
             out.onCellEdited = this.memo.get("onCellEdited", [app], () => this.onCellEdited(app));
@@ -245,12 +296,14 @@ export class AIFillSession {
         return selection => {
             this.observedSelection = selection;
             app(selection);
+            this.changed();
         };
     }
 
     private readonly holdSelection = (selection: GridSelection): void => {
         this.heldSelection = selection;
         this.publish();
+        this.changed();
     };
 
     /** Observes the edit, then forwards the same arguments and returns the app's value. */
@@ -313,35 +366,11 @@ export class AIFillSession {
                     event.cancel();
                 },
             });
-            if (handled || !this.shortcut(event)) return;
+            if (handled || this.ui?.shortcut(event) !== true) return;
             event.cancel();
             event.preventDefault();
             event.stopPropagation();
         };
-    }
-
-    /**
-     * The API-level shortcuts: Mod+Enter accepts and Mod+Backspace rejects the
-     * selected suggestions, and Mod+Alt+F fills the selection. Each acts only
-     * when the selection has something for it to do.
-     */
-    private shortcut(event: GridKeyEventArgs): boolean {
-        const primary = browserIsOSX.value ? event.metaKey : event.ctrlKey;
-        if (!primary || event.shiftKey) return false;
-        if (!event.altKey && (event.key === "Enter" || event.key === "Backspace")) {
-            const accept = event.key === "Enter";
-            const refs = accept ? this.acceptable({ selection: true }) : this.resolve({ selection: true }, rejectable);
-            if (refs.length === 0) return false;
-            if (accept) this.commit(refs, "accept");
-            else this.engine?.reject(refs);
-            return true;
-        }
-        if (event.altKey && event.keyCode === 70) {
-            if (this.selectionCells(undefined).length === 0) return false;
-            this.fill("selection", undefined, "suggest");
-            return true;
-        }
-        return false;
     }
 
     /** Edits made in the grid: an edited AI cell becomes manual, and results whose sources were edited become stale. */
@@ -362,7 +391,12 @@ export class AIFillSession {
     // Fills
     // -----------------------------------------------------------------------
 
-    private fill(scope: AIFillScope, only: readonly AIColumnId[] | undefined, mode: AIFillMode): AIFillRun {
+    fill(scope: AIFillScope, only: readonly AIColumnId[] | undefined, mode: AIFillMode): AIFillRun {
+        return this.start(this.planFill(scope, only, mode));
+    }
+
+    /** Works out what a fill would do, without starting it. */
+    planFill(scope: AIFillScope, only: readonly AIColumnId[] | undefined, mode: AIFillMode): AIFillPlan | undefined {
         this.host.invalidate();
         const config = this.currentConfig();
         let cells: [AIRowId, AIColumnId][] = [];
@@ -386,14 +420,24 @@ export class AIFillSession {
                 cells = rowIds.flatMap(rowId => columnIds.map(columnId => [rowId, columnId] as [AIRowId, AIColumnId]));
             }
         }
-        const plan: AIFillPlan | undefined =
-            error === undefined
-                ? this.engine?.plan({ cells, scope, mode })
-                : { scope, mode, cells: [], failed: [], skipped: {}, columnIds: [], requests: 0, error };
-        return this.start(plan);
+        return error === undefined
+            ? this.engine?.plan({ cells, scope, mode })
+            : { scope, mode, cells: [], failed: [], skipped: {}, columnIds: [], requests: 0, error };
     }
 
-    private rerun(status: "error" | "stale", target: AIFillTarget | undefined): AIFillRun {
+    /** Evaluates these cells again, with the scope their results had. For rejected results, which `retry` and `rerunStale` don't cover. */
+    refill(refs: readonly AICellRef[]): AIFillRun {
+        this.host.invalidate();
+        const record = refs.length === 0 ? undefined : this.engine?.getRecord(refs[0].rowId, refs[0].columnId);
+        return this.start(
+            this.engine?.plan({
+                cells: refs.map(ref => [ref.rowId, ref.columnId] as const),
+                scope: record?.scope ?? "selection",
+            })
+        );
+    }
+
+    rerun(status: "error" | "stale", target: AIFillTarget | undefined): AIFillRun {
         this.host.invalidate();
         const refs = target === undefined ? undefined : this.resolve(target, [status]);
         return this.start(this.engine?.planRerun(status, refs));
@@ -424,7 +468,7 @@ export class AIFillSession {
     }
 
     /** The AI columns in the grid, in display order, optionally limited to `only`. */
-    private aiColumnIds(only: readonly AIColumnId[] | undefined): AIColumnId[] {
+    aiColumnIds(only: readonly AIColumnId[] | undefined): AIColumnId[] {
         const ids: AIColumnId[] = [];
         for (const column of this.gridProps().columns) {
             const id = column.id;
@@ -444,14 +488,14 @@ export class AIFillSession {
      * The grid's selection now: the app's when it controls it, the last one the
      * grid reported when the app only listens, otherwise the one AI Fill holds.
      */
-    private selection(): GridSelection | undefined {
+    selection(): GridSelection | undefined {
         const p = this.gridProps();
         if (p.gridSelection !== undefined) return p.gridSelection;
         return p.onGridSelectionChange === undefined ? this.heldSelection : this.observedSelection;
     }
 
     /** The AI cells in the selection, as `[rowId, columnId]`, in display order. */
-    private selectionCells(only: readonly AIColumnId[] | undefined): [AIRowId, AIColumnId][] {
+    selectionCells(only: readonly AIColumnId[] | undefined): [AIRowId, AIColumnId][] {
         const selection = this.selection();
         if (selection === undefined) return [];
         const { columns, rows } = this.gridProps();
@@ -488,7 +532,7 @@ export class AIFillSession {
      * target, the filter decides: `eligible` is `suggested`, `review` is
      * `review`, and `all` is both.
      */
-    private resolve(target: AIFillTarget, statuses: readonly Status[]): AICellRef[] {
+    resolve(target: AIFillTarget, statuses: readonly Status[]): AICellRef[] {
         const engine = this.engine;
         if (engine === undefined) return [];
         let refs: AICellRef[];
@@ -513,7 +557,7 @@ export class AIFillSession {
      * only displayed rows, so a filtered-out row keeps its result for when it
      * comes back.
      */
-    private acceptable(target: AIFillTarget): AICellRef[] {
+    acceptable(target: AIFillTarget): AICellRef[] {
         const refs = this.resolve(target, acceptable);
         if (!("column" in target)) return refs;
         this.host.invalidate();
@@ -546,7 +590,7 @@ export class AIFillSession {
      * selection, one covering the written cells is set first, so `useUndoRedo`
      * records the batch as one step.
      */
-    private commit(refs: readonly AICellRef[], source: CommitSource): string | undefined {
+    commit(refs: readonly AICellRef[], source: CommitSource, chosen?: { readonly value: unknown }): string | undefined {
         const engine = this.engine;
         if (engine === undefined || refs.length === 0) return undefined;
         const config = this.currentConfig();
@@ -558,13 +602,18 @@ export class AIFillSession {
         for (const ref of refs) {
             const record = engine.getRecord(ref.rowId, ref.columnId);
             const definition = this.definition(ref.columnId);
-            if (record === undefined || definition === undefined || record.output === undefined) continue;
-            if (record.status !== "suggested" && record.status !== "review") continue;
-            if (!record.output.hasValue) {
-                if (source !== "auto-apply") reviewed.push(ref);
+            if (record === undefined || definition === undefined) continue;
+            if (chosen === undefined) {
+                if (record.output === undefined) continue;
+                if (record.status !== "suggested" && record.status !== "review") continue;
+                if (!record.output.hasValue) {
+                    if (source !== "auto-apply") reviewed.push(ref);
+                    continue;
+                }
+            } else if (!choosable.has(record.status)) {
                 continue;
             }
-            const edit = this.prepare(record, definition, source, p.validateCell);
+            const edit = this.prepare(record, definition, source, p.validateCell, chosen);
             if ("reason" in edit) {
                 blocked.push({ ...ref, ...edit });
                 this.block(record, edit);
@@ -592,7 +641,8 @@ export class AIFillSession {
         record: AICellRecord,
         definition: AIColumnDefinition,
         source: CommitSource,
-        validateCell: DataEditorProps["validateCell"]
+        validateCell: DataEditorProps["validateCell"],
+        chosen: { readonly value: unknown } | undefined
     ): CommitEdit | Blocked {
         const p = this.gridProps();
         if (p.onCellsEdited === undefined && p.onCellEdited === undefined) {
@@ -616,7 +666,7 @@ export class AIFillSession {
         let next: EditableGridCell | undefined;
         let inputFingerprint = "";
         try {
-            next = (definition.output?.toCell ?? defaultToCell)(record.output?.value, current, ctx);
+            next = (definition.output?.toCell ?? defaultToCell)((chosen ?? record.output)?.value, current, ctx);
             inputFingerprint = canonicalJson(
                 buildState(config, definition, rowContext(record.rowId, record.columnId, read))
             );
@@ -696,6 +746,14 @@ export class AIFillSession {
                 rangeStack: [],
             },
         };
+        this.select(selection);
+    }
+
+    /**
+     * Sets the grid's selection through the composed `onGridSelectionChange`:
+     * AI Fill holds it when the app doesn't, and asks the app when it does.
+     */
+    select(selection: GridSelection): void {
         const p = this.gridProps();
         if (p.onGridSelectionChange !== undefined) {
             if (p.gridSelection === undefined) this.observedSelection = selection;
@@ -815,13 +873,14 @@ export class AIFillSession {
         }
         this.repaint.clear();
         if (cells.length > 0) this.grid.current?.updateCells(cells);
+        this.changed();
     }
 
     // -----------------------------------------------------------------------
     // State
     // -----------------------------------------------------------------------
 
-    private cellState(rowId: AIRowId, columnId: AIColumnId): AICellState | undefined {
+    cellState(rowId: AIRowId, columnId: AIColumnId): AICellState | undefined {
         const engine = this.engine;
         const record = engine?.getRecord(rowId, columnId);
         if (engine === undefined || record === undefined) return undefined;
@@ -842,7 +901,7 @@ export class AIFillSession {
         };
     }
 
-    private runState(): AIRunState {
+    runState(): AIRunState {
         const cells: { [S in AICellRecord["status"]]?: number } = {};
         for (const record of this.engine?.store.all() ?? []) cells[record.status] = (cells[record.status] ?? 0) + 1;
         return {
@@ -877,21 +936,25 @@ export class AIFillSession {
                     this.runs.set(event.runId, {
                         runId: event.runId,
                         columnIds: event.columnIds,
+                        columnTitles: event.columnIds.map(id => this.columnTitle(id)),
                         total: event.cells,
                         done: 0,
                         apply: event.apply,
                     });
                     config.onRunStart?.(event);
+                    this.changed();
                 },
                 onRunProgress: event => {
                     const run = this.runs.get(event.runId);
                     if (run !== undefined) run.done = event.done;
                     config.onRunProgress?.(event);
+                    this.changed();
                 },
                 onRunEnd: summary => {
                     this.runs.delete(summary.runId);
                     this.lastRun = summary;
                     config.onRunEnd?.(summary);
+                    this.changed();
                 },
             };
             this.wrapped.set(config, wrapped);
@@ -901,19 +964,26 @@ export class AIFillSession {
 
     private publish(): void {
         this.onBridge?.({ api: this.api, compose: this.compose });
+        this.changed();
     }
 
-    private definition(columnId: AIColumnId): AIColumnDefinition | undefined {
+    /** A column's title in the grid, or its id when the grid has no such column. */
+    columnTitle(columnId: AIColumnId): string {
+        const col = this.host.colIndex(columnId);
+        return (col === undefined ? undefined : this.gridProps().columns[col]?.title) ?? columnId;
+    }
+
+    definition(columnId: AIColumnId): AIColumnDefinition | undefined {
         const columns = this.currentConfig().columns;
         return hasOwn(columns, columnId) ? columns[columnId] : undefined;
     }
 
-    private gridProps(): AIFillComposedProps {
+    gridProps(): AIFillComposedProps {
         if (this.props === undefined) throw new Error("AI Fill: the controller has no props yet");
         return this.props;
     }
 
-    private currentConfig(): AIFillConfig {
+    currentConfig(): AIFillConfig {
         if (this.config === undefined) throw new Error("AI Fill: the controller has no configuration yet");
         return this.config;
     }
