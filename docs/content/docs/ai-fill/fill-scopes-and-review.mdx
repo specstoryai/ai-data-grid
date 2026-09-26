@@ -74,16 +74,16 @@ An AI column's header gets a `✦` badge and a `▾`. The `▾`, a right-click o
 | Fill selected cells (*N*) | Fills the column's cells in the selection |
 | Fill and apply… | A "Fill and apply" run (only when the policy has `autoApply`). Always asks first. |
 | Accept *N* eligible | Writes the column's suggested results in displayed rows, as one batch. Never includes review results. |
-| Review *N* | Opens the inspector on the next review result |
-| Reject all suggestions | Rejects the column's suggested and review results |
-| Retry *N* failed, Re-run *N* stale | Evaluates failed or stale cells again |
+| Review *N* | Opens the inspector on the next review result in a displayed row, after the focused cell |
+| Reject all suggestions | Rejects the column's suggested, review, withheld and stale results, including those on filtered-out rows |
+| Retry *N* failed, Re-run *N* stale | Evaluates the column's failed or stale cells again. Rows that aren't displayed are skipped as not loaded yet. |
 | Cancel | Cancels every run in progress |
 
-A right-click on an AI cell opens the **cell menu**: fill the selection (or only its empty cells), then Accept, Reject, Inspect… and Retry or Re-run for the cell itself. The counts are worked out when the menu opens, without sending anything. An item that can't act is disabled, with the reason under it.
+A right-click on an AI cell opens the **cell menu**: fill the selection (or only its empty cells), then Accept, Reject, Inspect… and Retry or Re-run for the cell itself. The counts are worked out when the menu opens, without sending anything, and each *N* is what the item acts on: "Accept *N* eligible" and "Review *N*" count results in displayed rows, and "Retry" and "Re-run" count the cells the run would evaluate. An item with nothing to act on is disabled, with the reason under it, for example "Nothing to retry: 1 not loaded yet" when the only failed result is on a filtered-out row.
 
 ### The status bar
 
-A small bar floats over the bottom edge of the grid, without changing its layout. During a run it shows progress ("Evaluating *Persona*: 18 / 42") and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped") with **Review next**, **Accept *N* eligible** and **Retry *N* failed** when they have something to do. "Review next" walks the results waiting for a decision (review and suggested), in display order after the focused cell. With `statusBar: false`, render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead.
+A small bar floats over the bottom edge of the grid, without changing its layout. During a run it shows progress ("Evaluating *Persona*: 18 / 42") and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped") with **Review next**, **Accept *N* eligible** and **Retry *N* failed** when they have something to do. They act across every AI column and count like the column menu's items. "Review next" walks the results waiting for a decision (review and suggested) in displayed rows, in display order after the focused cell, wrapping around. With `statusBar: false`, render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead.
 
 ### The inspector
 
@@ -95,7 +95,7 @@ The inspector opens from "Inspect…", from a click on a cell's AI marker, from 
 - for a Choice, the options ranked by probability with the selected one marked, and the model confidence; for a Score, each level's probability with the mapped level marked, and the confidence; for a Noul, the probability of yes and its band;
 - the model id that answered, and when.
 
-Its actions: **Accept** (also Enter), **Reject**, **Choose** another option or level (or Yes / No for a Noul), **Edit manually** (opens the cell's normal editor, so the edit goes through your `onCellEdited`), and **Retry** or **Re-run**.
+Its actions: **Accept** (also Enter), **Reject**, **Choose** another value, **Edit manually**, and **Retry** or **Re-run**. Choose writes a value you pick, through every commit guard: a Choice option with a value, a Score level (written the way `output.store` stores levels; a function `store` offers none), or Yes or No for a Noul (written as a boolean, a label or 1 and 0, by `output.store`). Edit manually closes the inspector and sends Enter to the cell, so its normal editor opens and the edit goes through your `onCellEdited`; with the grid's `keybindings.activateCell` turned off, it only selects the cell.
 
 ## Keyboard
 
@@ -104,7 +104,7 @@ Its actions: **Accept** (also Enter), **Reject**, **Choose** another option or l
 | Shift+F10, ContextMenu | `menu` | Opens the column menu when a whole AI column is selected, otherwise the cell menu |
 | Alt+ArrowDown | `inspect` | Opens the inspector for the focused cell, when it has a result |
 | Mod+Enter | `accept` | Accepts the selected suggested and review results, as one batch |
-| Mod+Backspace | `reject` | Rejects the selected results |
+| Mod+Backspace | `reject` | Rejects the selected suggested, review, withheld and stale results |
 | Mod+Alt+F | `fill` | Fills the AI cells in the selection, asking first above `confirmAbove` |
 
 Mod is ⌘ on macOS and Ctrl elsewhere. Your `onKeyDown` runs first; if it calls `preventDefault()` or `cancel()`, AI Fill does nothing. A shortcut with nothing to act on is left to the grid. Rebind or turn off shortcuts with `shortcuts: { inspect: "alt+i", fill: false }` (the syntax of the grid's `keybindings`), or turn them all off with `shortcuts: false`.
@@ -174,4 +174,4 @@ Errors never write to the grid. A failed cell shows a red marker, the inspector 
 
 ## Styling
 
-The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class, and every color reads a `--gdg-ai-*` variable that falls back to the grid's `--gdg-*` theme variable, for example `--gdg-ai-accent` (falls back to `--gdg-accent-color`), `--gdg-ai-review` and `--gdg-ai-error`. The full list is in the API reference.
+The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class, and every color reads a `--gdg-ai-*` variable that falls back to the grid's `--gdg-*` theme variable, for example `--gdg-ai-accent` (falls back to `--gdg-accent-color`), `--gdg-ai-review` and `--gdg-ai-error`. Set them on `:root`, or on an element that contains both the grid and the portal: the popups render in the portal and copy only the grid's theme, so variables set on the grid's container reach the status bar but not the popups. The full list is in the API reference.
