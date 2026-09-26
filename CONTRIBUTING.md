@@ -59,7 +59,7 @@ Run these from the root. CI runs the first five.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 843 (453 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 846 (456 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -89,7 +89,7 @@ AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work pac
 | `src/ai-fill/config/api.ts` | The public API types: `AIFillApi` (`ref.current.aiFill`), `AIFillTarget`, `AICellState`, `AIRunState`, `AIMenuItem`. `AIFillShortcuts` is with the other configuration types in `types.ts`. |
 | `src/ai-fill/react/bridge.ts` | The static half of the `aiFill` prop: the `AIFillBridge` and controller prop types and `linkAIFillRef`, which points the app's ref at the grid's handle plus `aiFill`. The only AI Fill module allowed in a grid's initial bundle, so keep it to types and tiny helpers. |
 | `src/ai-fill/react/controller.tsx` | The lazily loaded controller component (`React.lazy` in `data-editor-all.tsx`). It creates an `AIFillSession` and its `AIFillUI`, drives the session's lifecycle, and renders `AIFillUIView`. |
-| `src/ai-fill/react/session.ts` | Everything the controller does, without React: prop composition, fills and scopes (`planFill`, then `start`), the commit path (also for Choose), `revertCommit`, invalidation from edits, repaint batching, auto-apply, and `subscribe` / `changed()` for the UI. It hands the menu, inspector, click and shortcut parts to its `ui` (`AIFillSessionUI`). |
+| `src/ai-fill/react/session.ts` | Everything the controller does, without React: prop composition, fills, scopes and re-runs (`planFill` / `planRerun`, then `start`), what `reject` covers (`rejectable`), the commit path (also for Choose), `revertCommit`, invalidation from edits, repaint batching, auto-apply, and `subscribe` / `changed()` for the UI. It hands the menu, inspector, click and shortcut parts to its `ui` (`AIFillSessionUI`). |
 | `src/ai-fill/react/grid-host.ts` | `AIFillGridHost`: reads the grid for the engine by row id (`getRowIndex`, checked against `getRowId`, or a per-task scan) and column id. |
 | `src/ai-fill/react/draw.ts` | The canvas presentations of cell states and the AI column header badge. |
 | `src/ai-fill/react/status.tsx` | The public `AIFillStatus`: a static wrapper that loads `ui/status-bar.tsx` with `React.lazy` on first render. |
