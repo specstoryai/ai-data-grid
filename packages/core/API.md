@@ -1982,7 +1982,7 @@ app.post("/api/jev", toNodeListener(createJevHandler({ apiKey: process.env.TYPES
 | `allowedModels` | The models a request may ask for | `["jev-latest"]` |
 | `maxBodyBytes` | The largest request body. Checked against `content-length` and again while reading. | `256000` |
 | `maxQuestions` | The most questions in one request | `32` |
-| `timeoutMs` | How long to wait for Jev | `20000` |
+| `timeoutMs` | How long to wait for Jev's full answer, headers and body. It holds even when a custom `fetch` ignores its abort signal. | `20000` |
 | `baseURL`, `fetch` | Jev's origin, and the `fetch` used to call it | `https://api.typesafe.ai`, the global `fetch` |
 
 `createJevHandler` also throws a `TypeError` when `maxBodyBytes`, `maxQuestions` or `timeoutMs` is set to something other than a positive number.
@@ -1998,11 +1998,11 @@ In order, the handler answers:
 | 400 | `invalid_request` | The body isn't JSON, or isn't `{ model, state, questions }` with valid questions |
 | 413 | `payload_too_large` | The body has more than `maxQuestions` questions |
 | 400 | `model_not_allowed` | The model isn't in `allowedModels` |
-| Jev's status | Jev's type, for example `rate_limit_error` | Jev returned an error. `Retry-After` and `retry-after-ms` are forwarded, and `retryAfterMs` is set in the body. |
+| Jev's status | Jev's type, for example `rate_limit_error` | Jev returned an error. `Retry-After` and `retry-after-ms` are forwarded (unless they contain the key; see below), and `retryAfterMs` is set in the body from the forwarded ones. |
 | 504 | `upstream_timeout` | Jev didn't answer within `timeoutMs` |
-| 502 | `upstream_unreachable` | Jev couldn't be reached |
+| 502 | `upstream_unreachable` | Jev couldn't be reached, or the caller aborted its request |
 
-Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and `x-typesafe-request-id` header. The key is never echoed: not in a body, an error message or a header. It is redacted from the `type`, `message` and `detail` of Jev's error responses; successful responses are returned unchanged. The helper forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
+Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and `x-typesafe-request-id` header. The key is never echoed: not in a body, an error message or a header. It is replaced with `[redacted]` (as the literal key and in its JSON-escaped form) in Jev's successful body and in the `type`, `message` and `detail` of its error responses; a successful body without the key is returned unchanged. A forwarded header (`x-typesafe-request-id`, `Retry-After`, `retry-after-ms`) whose value contains the key is dropped, not rewritten, and so is a request id that isn't a short printable token (1–128 visible ASCII characters). The helper forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
 
 In Node, `require("@specstory/ai-data-grid/server")` works as well as `import`. Core's CommonJS build is ES modules, like the rest of the package, so `require` relies on Node's `require(esm)` (Node 20.19+, 22.12+ and 24).
 
