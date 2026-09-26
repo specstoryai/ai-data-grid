@@ -1,0 +1,86 @@
+---
+title: Result policies
+description: How AI Fill decides whether an answer is shown, withheld, sent to review or applied, with exact boundaries.
+---
+
+A column's `policy` decides, for every answer, what users see and what may be written. It has up to three declarative gates and an optional callback:
+
+- **`show`**: an answer that fails it is **withheld**. It isn't shown and nothing is written, but the reason is kept and the inspector shows it.
+- **`ready`**: a shown answer that fails it goes to **review**. Review results are never applied automatically, and "Accept all eligible" never includes them.
+- **`autoApply`**: a ready answer that passes it is an **apply candidate**. It is written automatically, but only in a "Fill and apply" run and only when there is a value to write. Without `autoApply`, nothing is ever written without a user accepting it.
+- **`decide(ctx)`**: runs last, with the answer, the cell, the mapped candidate and the declarative decision (see below).
+
+Every condition inside a gate must pass. A gate that isn't configured passes, except `autoApply`, which never passes unless it's configured. Without a policy, every valid answer is suggested and nothing is applied automatically.
+
+```ts
+policy: {
+    show: { minProbability: 0.5 },
+    ready: { minProbability: 0.8, minMargin: 0.2 },
+    autoApply: { minProbability: 0.95, options: { notIn: ["none"] } },
+}
+```
+
+## What a gate can measure
+
+| Primitive | Measures |
+|---|---|
+| Choice | `minProbability` (the selected option's probability, and nothing else), `minConfidence`, `minMargin` (the top probability minus the second), `options: { in?, notIn? }`, `optionProbability: { [id]: { min?, max? } }` |
+| Score | `minConfidence`, `score: { min?, max? }`, `levelProbability: { [level]: { min?, max? } }` |
+| Noul | `noul: { min?, max? }`. Mapped Nouls also use `output.bands`. There is no confidence measure. |
+
+## Precedence
+
+For each answer, the first step that matches decides:
+
+1. **A transport or evaluation error**: `error`.
+2. **A malformed answer**: `error: malformed` (see [Validation of answers](/docs/ai-fill/primitives#validation-of-answers)).
+3. **Stale inputs** (a source changed since the request): `stale`. A stale result is never shown as a suggestion or written.
+4. **Mapping**: a value that can't be produced or doesn't fit the destination cell is `error: type-mismatch`. An incomplete mapping (a `"level-value"` level without a `value`, or a Noul `"boolean"` or `"label"` store without bands) is `error: configuration`.
+5. **Gates**: `show` fails → `withheld`; a Noul in the middle band → `review` (or `withheld`); `ready` fails → `review`; otherwise `suggested`, or an apply candidate when `autoApply` passes in a "Fill and apply" run.
+6. **`decide`**: may return `withheld`, `review`, `suggested` or `apply`, or `undefined` to keep the decision. It can't create a value. `apply` counts only when the column configures `autoApply`, the run is a "Fill and apply" run and there is a value to write; otherwise the result stays `suggested` and a configuration error is reported. A throw or an invalid return is `error: policy-callback`, and nothing is written.
+7. **Commit guards**, for every write: the result isn't already committed, the row still exists, the inputs and the destination haven't changed, the cell is writable, the overwrite policy and the scope allow the write, and your `validateCell` accepts it. See [the commit path](/docs/ai-fill/persistence-commits-and-undo#the-commit-path).
+
+## Exact boundaries
+
+- A `min` passes when `value >= min`; a `max` passes when `value <= max`.
+- Values are compared as the raw numbers from the response, with no rounding and no epsilon. With `show: { minProbability: 0.8 }`, **0.79 is withheld, 0.80 is shown, and 0.7999999 is withheld.**
+- Display rounding never feeds a decision. Reasons quote the exact values, for example `withheld: probability 0.79 < show.minProbability 0.8`.
+- A gate reads only the measure it names. **Confidence is never used in place of probability**, or the reverse: a Choice with probability 0.79 and confidence 0.95 is withheld by `minProbability: 0.8`, and one with probability 0.85 and confidence 0.30 is shown.
+- Noul bands with 0.2 and 0.8: 0.02 is a usable no, 0.20 is no, 0.2000001 is uncertain, 0.5 is uncertain (never "No"), and 0.80 is yes.
+
+## `decide`
+
+`decide` sees frozen copies of the full answer, the cell context (`rowId`, `columnId`, the state that was sent and the destination cell), the mapped candidate and the declarative decision, plus the run's `mode`. Use it for rules the gates can't express:
+
+```ts
+policy: {
+    ready: { minProbability: 0.8 },
+    decide: ({ answer, decision }) =>
+        answer.choice === "economic" && answer.probabilities.champion > 0.3
+            ? { status: "review", reason: "economic and champion are close" }
+            : undefined, // keep the declarative decision
+},
+```
+
+It can move a result between withheld, review and suggested, and ask for `apply`, but it can't change the answer or give a result a value.
+
+## Changing a policy
+
+Changing a column's `policy`, `output` (including labels, values and `format`), `presentation` or `decide` re-decides its stored answers immediately, with no request. Changing its question (instructions, context, options, levels, criteria, sources) or the model marks its results `stale` instead; they need an explicit re-run.
+
+## Validation
+
+`validateAIFillConfig` (and AI Fill itself, whenever the configuration changes) checks the policies:
+
+- thresholds are finite and in [0, 1], and a Score's `score` bounds are in [0, levels − 1];
+- `min <= max` within a range, and a Noul's `falseAtOrBelow < trueAtOrAbove`;
+- option ids and levels named in a gate exist;
+- there is no confidence measure on a Noul;
+- **gates are monotonic**: `show ≤ ready ≤ autoApply` for every shared `min`, and the reverse for every `max`. A looser later gate is reported as an overlap;
+- no `autoApply` together with `overwrite: "never"` and the `column` scope.
+
+A problem disables the column (or AI Fill, for a grid-level problem) and is reported once through `onError`.
+
+## Thresholds are your choice, not accuracy guarantees
+
+Probability and confidence are what the model reports. They aren't measured correctness, and a threshold of 0.8 doesn't mean 80% of the shown answers are right. Evaluate thresholds on your own data, with your own review of the results, before relying on them, and keep `autoApply` off until you have.

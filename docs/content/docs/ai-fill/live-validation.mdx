@@ -1,0 +1,70 @@
+---
+title: Live validation
+description: The record of the manual check of AI Fill against the real Jev API, kept separate from the mocked tests.
+---
+
+<Note title="Manual, and separate from the tests">
+  Every automated test and every Storybook story uses a mock (`createMockJev`) and never calls Jev; a guard fails any test that tries. This page records the manual checks against the live API. They confirm that the real answers have the shape AI Fill expects. They make no claim about accuracy or latency.
+</Note>
+
+## How to run the check
+
+`scripts/jev-live-check.mjs` sends three example questions about one synthetic contact through AI Fill's own direct-mode client, from Node, and then one request with a deliberately invalid key. It validates each answer with `parseJevAnswer` and runs the column policies on it.
+
+```bash
+npm run build
+node scripts/jev-live-check.mjs --dry-run      # prints the request; sends nothing, needs no key
+JEV_API_KEY=… node scripts/jev-live-check.mjs  # 4 live calls (3 with --skip-401)
+```
+
+It reads the key from `JEV_API_KEY` (or `TYPESAFE_API_KEY`), refuses to run without one, and never prints it. The script isn't run by any test or by CI.
+
+**How calls are counted:** each question sent to Jev is one call, and a request that answers no question (the bad-key check) is one call. So one run is 4 calls, although it sends only 2 HTTP requests (1 with `--skip-401`).
+
+To see real answers in the grid instead, run [the local dev proxy](/docs/ai-fill/connecting-to-jev#the-local-dev-proxy) and enter its URL in a Storybook story's "endpoint URL" control. Every fill then makes live, billed calls.
+
+## What is asked
+
+One request, with this synthetic row state:
+
+```json
+{
+    "company": "Example Manufacturing Co",
+    "title": "VP of Finance",
+    "notes": "Asked for a pricing sheet and said the purchase needs sign-off from their team's annual budget."
+}
+```
+
+| Question | Primitive | Criteria | Policy in the script |
+|---|---|---|---|
+| Which buyer persona best describes this contact? | Choice | `champion`, `economic`, `user`, `none_of_the_above` (a `none` outcome) | `show.minProbability: 0.8` |
+| How senior is this contact? | Score | Individual contributor, Manager, Director, Vice president or C-level | `show.minConfidence: 0.7`, stored as the level label |
+| Does this contact own a budget? | Noul | true: "Signs off on spend", false: "No spending authority" | stored as a boolean, bands 0.2 / 0.8, review between |
+
+Then the same request with the key `invalid-key-for-live-check`, expecting HTTP 401.
+
+## Record
+
+### 2026-09-26, SPST-32 (WP-AI5 implementation)
+
+- **When:** 2026-09-26 00:26 UTC, one run of `node scripts/jev-live-check.mjs`, from Node 24, direct mode.
+- **Calls:** 4 (the three questions, plus the bad-key check), 2 HTTP requests. No retries.
+- **Requested model:** `jev-latest`. **Answered by:** `jev-1.13.0`.
+- **Request ids:** both responses, including the 401, had an `x-typesafe-request-id` header, which AI Fill keeps as `requestId`.
+
+| Question | Answer, as returned | Parsed | Decision |
+|---|---|---|---|
+| Buyer persona (Choice) | `{ "type": "choice", "choice": "economic", "probabilities": { "champion": 0, "economic": 1, "user": 0, "none_of_the_above": 0 }, "confidence": 1 }` | valid | suggested: "Economic buyer" |
+| Seniority (Score) | `{ "type": "score", "score": 3, "legend": { "0": "Individual contributor", "1": "Manager", "2": "Director", "3": "Vice president or C-level" }, "probabilities": { "0": 0, "1": 0, "2": 0, "3": 1 }, "confidence": 1 }` | valid | suggested: "Vice president or C-level" |
+| Owns a budget (Noul) | `{ "type": "noul", "noul": 0.73 }` | valid | review: "Uncertain" (0.73 is between 0.2 and 0.8) |
+| Invalid key | HTTP 401 | | `authentication` error, not retried |
+
+**Answer shapes.** They match the documented contract: the Choice has every option in `probabilities` and a separate `confidence`; the Score has a `legend` mapping the level indexes to the level descriptions, the level probabilities keyed `"0"` to `"3"`, and a `confidence`; the Noul has only `noul`, with no confidence. Every answer passed `parseJevAnswer`, and the response carried the versioned model id.
+
+**Deviations from the documented contract:** none.
+
+**Notes.** For this clear-cut contact the Choice and the Score put all the probability on one option or level, with a confidence of 1. That is a property of this one example, not a measure of accuracy.
+
+## Budget
+
+Live calls for AI Fill (SPST-16) are capped at 20 in total: 8 were used during planning (SPST-17), and 4 in the run above. Record every further run here, with the date, what was asked and the model id returned, and never the key.

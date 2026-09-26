@@ -1,0 +1,118 @@
+---
+title: Primitives
+description: What Jev's Choice, Score and Noul answer, what each number means, and why probability and confidence are different.
+---
+
+Each AI column asks one kind of question. All the questions for a row see the same row state and are answered independently. Jev answers with numbers and ids, never prose, and AI Fill shows only what Jev returned and what you configured.
+
+## Choice
+
+A Choice picks one of your options.
+
+```ts
+persona: {
+    primitive: "choice",
+    instructions: "Which buyer persona best describes this contact?",
+    sources: ["title", "notes"],
+    options: {
+        champion: { description: "Drives the purchase internally", label: "Champion" },
+        economic: { description: "Controls the budget and signs off on spend", label: "Economic buyer" },
+        none: { description: "None of these fit", label: "None of the above", outcome: "none" },
+    },
+}
+```
+
+The answer:
+
+```json
+{
+    "type": "choice",
+    "choice": "economic",
+    "probabilities": { "champion": 0.06, "economic": 0.91, "none": 0.03 },
+    "confidence": 0.84
+}
+```
+
+- `probabilities` has every option, and they sum to 1. `choice` is always the most probable option.
+- **The probability** of the selected option is how much of the answer's weight is on it.
+- **The confidence** is a separate number the model reports about its answer as a whole. It is higher when the probability is concentrated on one option. It isn't a probability.
+- Option ids and descriptions are what Jev sees. `label` is what users see, and `value` is what is written (default `label ?? id`).
+- An option with `outcome: "none"` or `"unknown"` is a **semantic outcome**, such as "none of these" or "not enough information". It is a real answer, not an error and not a withheld result. It is drawn in muted italics with a ◇ marker, and accepting it writes nothing unless the option sets a `value`.
+
+## Score
+
+A Score places the row on your rubric.
+
+```ts
+seniority: {
+    primitive: "score",
+    instructions: "How senior is this contact?",
+    sources: ["title"],
+    levels: ["Individual contributor", "Manager", "Director", "Vice president or C-level"],
+    output: { store: "level-label" },
+}
+```
+
+The answer:
+
+```json
+{
+    "type": "score",
+    "score": 2.88,
+    "legend": { "0": "Individual contributor", "1": "Manager", "2": "Director", "3": "Vice president or C-level" },
+    "probabilities": { "0": 0, "1": 0.02, "2": 0.08, "3": 0.9 },
+    "confidence": 0.88
+}
+```
+
+- **The score is a position on the rubric, from 0 to levels − 1.** It is the probability-weighted average of the level indexes. It is not a percentage, and it isn't a probability.
+- A high score says where the weight sits, not how sure the model is. When the probability is split between distant levels, the score can land between them, on a level that almost no probability supports. Read the confidence and the level probabilities too.
+- `output.store` decides what is written: the score, the level index, the level's label or value, or your own function. `output.levelFrom` decides which level: the one nearest the score (half up, the default) or the most probable one. With probabilities `[0.45, 0.05, 0.05, 0.45]` the score is 1.5, which is nearest to level 2, while the most probable level is 0 (ties go to the lower level).
+
+## Noul
+
+A Noul answers a yes/no question with one number.
+
+```ts
+ownsBudget: {
+    primitive: "noul",
+    instructions: "Does this contact own a budget?",
+    criteria: { true: "Signs off on spend", false: "No spending authority" },
+    sources: ["title", "notes"],
+    output: { store: "boolean", bands: { falseAtOrBelow: 0.2, trueAtOrAbove: 0.8, between: "review" } },
+}
+```
+
+The answer is `{ "type": "noul", "noul": 0.73 }`: the probability that the answer is yes.
+
+- **There is no confidence.** A policy can't gate a Noul on confidence, and the inspector doesn't show one.
+- **A value near 0 is a strong no, not a failure.** 0.02 is a usable "No".
+- To write yes or no, set `bands`. At or below `falseAtOrBelow` is no, at or above `trueAtOrAbove` is yes, and in between is **"Uncertain"**: it goes to review (or is withheld with `between: "withhold"`), and it is never shown as "No". Accepting an uncertain result writes nothing.
+- Without bands, `store: "probability"` writes the probability itself.
+
+## Probability is not confidence
+
+For a Choice they are two different numbers, and they can disagree:
+
+| Probability of the choice | Confidence | What it means |
+|---|---|---|
+| 0.85 | 0.30 | The selected option has most of the weight, but the model reports low confidence in the answer |
+| 0.79 | 0.95 | The model reports high confidence, but the selected option has less weight than a 0.8 threshold asks for |
+
+A policy gate reads only the measure it names: `minProbability` never looks at confidence, and `minConfidence` never looks at probability. So with `show: { minProbability: 0.8 }` the first row is shown and the second is withheld. See [Result policies](/docs/ai-fill/result-policies).
+
+**Neither number is measured accuracy.** They are what the model reports. Evaluate thresholds on your own data before you rely on them.
+
+## Answer, display and value
+
+AI Fill keeps three things apart for every result:
+
+- the **answer**: Jev's raw answer, validated, with the model id that produced it;
+- the **display** text: what the cell and the inspector show, for example `Economic buyer · 0.91`;
+- the **value**: what is written when the result is accepted, for example `"Economic buyer"`, or nothing for a semantic outcome or an uncertain Noul.
+
+`output.format` changes the display, and `output.toCell` changes how the value becomes a cell. Neither changes the answer, and changing them re-decides stored answers without a new request.
+
+## Validation of answers
+
+Every answer is checked before any policy runs. An answer is `malformed` when it has the wrong type, a choice that isn't an option or isn't the most probable one, probabilities that don't match the options or levels or don't sum to 1 ± 0.01, a value outside [0, 1] or a Score outside [0, levels − 1], or no model id. A malformed answer is an error, and nothing is written.

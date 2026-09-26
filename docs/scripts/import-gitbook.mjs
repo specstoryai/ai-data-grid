@@ -22,7 +22,8 @@
  *
  * Re-run from the docs/ directory with:  node scripts/import-gitbook.mjs
  * Hand-maintained pages (content/docs/index.mdx welcome page, content/docs/about.mdx)
- * are NOT overwritten; everything else under content/docs/ is regenerated.
+ * and sections (content/docs/ai-fill/) are NOT overwritten, and the root
+ * meta.json keeps listing them; everything else under content/docs/ is regenerated.
  */
 
 import { mkdir, readFile, writeFile, rm } from 'node:fs/promises'
@@ -37,8 +38,17 @@ const IMAGES_DIR = path.join(DOCS_ROOT, 'public', 'images')
 const GITBOOK_BASE = 'https://docs.grid.glideapps.com'
 const INDEX_URL = `${GITBOOK_BASE}/llms.txt`
 
-/** Pages maintained by hand; the importer never overwrites them. */
-const HAND_MAINTAINED = new Set(['index', 'about'])
+/**
+ * Top-level sections maintained by hand, listed in the root meta.json before
+ * the About page. `ai-fill` is the AI Fill guide, which has no GitBook source.
+ */
+const HAND_MAINTAINED_SECTIONS = ['ai-fill']
+
+/** Pages and sections maintained by hand; the importer never overwrites them. */
+const HAND_MAINTAINED = new Set(['index', 'about', ...HAND_MAINTAINED_SECTIONS])
+
+/** Whether an output page (relative to content/docs, without `.mdx`) is maintained by hand. */
+const isHandMaintained = (page) => HAND_MAINTAINED.has(page) || HAND_MAINTAINED.has(page.split('/')[0])
 
 async function fetchText(url) {
   const res = await fetch(url)
@@ -272,7 +282,7 @@ async function main() {
     const outRel =
       page.path === '/welcome-to-glide-data-grid' ? 'index.mdx' : isFolderIndex(page.path) ? `${slug}/index.mdx` : `${slug}.mdx`
     const outPath = path.join(CONTENT_DIR, outRel)
-    if (HAND_MAINTAINED.has(outRel.replace(/\.mdx$/, ''))) {
+    if (isHandMaintained(outRel.replace(/\.mdx$/, ''))) {
       console.log(`Skipping hand-maintained page ${outRel}`)
       continue
     }
@@ -310,8 +320,8 @@ async function main() {
       folders.get(parent).pages.push(path.posix.basename(slug))
     }
   }
-  // The About page is hand-maintained and always listed last.
-  folders.get('').pages.push('about')
+  // The hand-maintained sections come next, and the About page is always listed last.
+  folders.get('').pages.push(...HAND_MAINTAINED_SECTIONS, 'about')
 
   for (const [dir, meta] of folders) {
     const metaPath = path.join(CONTENT_DIR, dir, 'meta.json')

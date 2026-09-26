@@ -1,0 +1,150 @@
+---
+title: AI Fill
+description: Add AI-filled columns to a grid with one prop. Answers come from Jev's Choice, Score and Noul primitives, and nothing is written until someone accepts it.
+---
+
+AI Fill lets you add AI-filled columns to a `DataEditor` in configuration alone. For each AI column you describe a question for [Jev](https://docs.typesafe.ai) (TypeSafe's Choice, Score and Noul primitives), the row data it is asked about, and how answers become cell values. AI Fill asks the question for the cells a user picks, shows the answers as suggestions, and writes a value only when someone accepts it, unless you explicitly configure automatic application for a "Fill and apply" run.
+
+It is part of `@specstory/ai-data-grid`: there is no second package to install, no new runtime dependency, and a grid without the `aiFill` prop doesn't change and doesn't load any AI code.
+
+<Note title="Not on npm yet">
+  AI Fill ships in `@specstory/ai-data-grid` 7.0.0, which hasn't been published to npm yet. Until it is, build the packages from the repository and install the tarballs, as described in the repository README's [Installing before the npm release](https://github.com/specstoryai/ai-data-grid#installing-before-the-npm-release) section.
+</Note>
+
+## What Jev answers
+
+Jev returns structured answers, not prose. Each primitive answers a different kind of question:
+
+| Primitive | You define | Jev answers with |
+|---|---|---|
+| Choice | A question and 2 to 255 options, each with a description | The selected option, the probability of every option (they sum to 1), and a separate model confidence |
+| Score | A question and an ordered rubric of 2 to 10 levels | A score from 0 to levels − 1 (a probability-weighted position on the rubric, not a percentage), each level's probability, and a confidence |
+| Noul | A yes/no question, optionally with what yes and no mean | The probability that the answer is yes, from 0 to 1. There is no confidence. |
+
+[Primitives](/docs/ai-fill/primitives) explains what each number means, and why probability and confidence are different things.
+
+## Quick start
+
+AI Fill needs a way to reach Jev. In production that's a route on your own server that holds the TypeSafe API key; the browser never sees it. The server helper implements the route:
+
+```ts
+// app/api/jev/route.ts (Next.js App Router)
+import { createJevHandler } from "@specstory/ai-data-grid/server";
+
+export const POST = createJevHandler({
+    apiKey: process.env.TYPESAFE_API_KEY ?? "",
+    authorize: request => isSignedIn(request), // your own check: who may spend your key
+});
+```
+
+Then turn AI Fill on for an existing grid with the `aiFill` prop:
+
+```tsx
+import * as React from "react";
+import { DataEditor, type AIFillConfig } from "@specstory/ai-data-grid";
+import "@specstory/ai-data-grid/dist/index.css"; // the same CSS import as before
+
+function Contacts({ contacts, columns, getCellContent, onCellEdited }) {
+    const aiFill = React.useMemo<AIFillConfig>(
+        () => ({
+            connection: { mode: "endpoint", url: "/api/jev" },
+            model: "jev-latest",
+            rows: { getRowId: row => contacts[row].id },
+            rowScope: () => ({ rows: "displayed", label: "contacts" }),
+            columns: {
+                // keyed by GridColumn.id
+                persona: {
+                    primitive: "choice",
+                    instructions: "Which buyer persona best describes this contact?",
+                    sources: ["title", "notes"],
+                    options: {
+                        champion: { description: "Drives the purchase internally", label: "Champion" },
+                        economic: { description: "Controls the budget and signs off on spend", label: "Economic buyer" },
+                        user: { description: "Uses the product day to day", label: "End user" },
+                    },
+                    policy: { show: { minProbability: 0.5 }, ready: { minProbability: 0.8 } },
+                },
+            },
+        }),
+        [contacts]
+    );
+
+    return (
+        <DataEditor
+            aiFill={aiFill}
+            columns={columns}
+            rows={contacts.length}
+            getCellContent={getCellContent}
+            onCellEdited={onCellEdited}
+        />
+    );
+}
+```
+
+That's the whole integration. The grid now has:
+
+- a ✦ badge and a ▾ menu on the Persona header, with "Fill empty cells in Persona", "Accept N eligible", "Review N" and the rest;
+- suggestions drawn in the cells, with review, withheld and error markers;
+- a status bar with progress, a summary, "Review next" and "Accept N eligible";
+- an inspector that shows each answer's probabilities, the decision and its reason, and the model that answered;
+- keyboard shortcuts, and a confirmation before large or overwriting fills.
+
+Every accepted value is written through your `onCellEdited` (or `onCellsEdited`), exactly like a paste. See [Fill scopes and review](/docs/ai-fill/fill-scopes-and-review) for what users see and do.
+
+### What the prop changes
+
+- **Unset, nothing changes.** Without `aiFill`, `DataEditor` passes the same props to the grid, the ref is the grid's own handle, and no AI module loads.
+- **It loads lazily.** AI Fill's controller loads in its own chunk the first time `aiFill` is set. Until it has loaded (normally a few milliseconds) the grid renders as if the prop were unset. Then `ref.current.aiFill` is set, and `aiFill.onReady(api)` is called once with the same API.
+- **Keep the object stable,** for example with `useMemo`. A new object is validated and applied again: a changed policy re-decides stored answers without a request, a changed question marks results stale, and a removed column drops its results.
+- **Clearing it** aborts every request in flight and drops every result. Nothing is written, and the grid isn't remounted.
+- **Your handlers are wrapped, never replaced.** AI Fill composes `columns`, `drawCell`, `drawHeader`, the edit handlers, `onKeyDown`, the menu handlers, `onCellClicked`, `className` and the selection props with yours, and passes everything else through. The API reference lists [what it does with each prop](https://github.com/specstoryai/ai-data-grid/blob/main/packages/core/API.md#quick-start-aifill-prop).
+
+### The API
+
+App code can drive everything the built-in UI does through `ref.current.aiFill` (or the `onReady` argument), an `AIFillApi`:
+
+```ts
+const api = ref.current?.aiFill;
+const run = api?.fill("column-empty", { columns: ["persona"] }); // { runId, done, cells, requests, skipped }
+api?.accept({ column: "persona", filter: "eligible" }); // "Accept all eligible"
+api?.getCellState("contact-42", "persona"); // status, decision, output, error, metadata
+```
+
+[Fill scopes and review](/docs/ai-fill/fill-scopes-and-review#the-api) lists every method.
+
+## Try it
+
+The [Storybook](https://ai-data-grid-storybook.vercel.app) has 13 AI Fill stories, under **AI-Data-Grid / AI Fill**. They answer from a deterministic mock with seeded answers, so they make no network calls, and each shows one behavior: the full buyer-persona workflow, Score level mapping, Noul bands, the 0.79 / 0.80 boundary, probability versus confidence, review and auto-apply, errors, staleness, sorting while pending, undo, app menus and the disabled grid. Most have an "endpoint URL" control that points them at [the local dev proxy](/docs/ai-fill/connecting-to-jev#the-local-dev-proxy) instead, to see real answers.
+
+## In this section
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/docs/ai-fill/configuration">
+    Every grid and column setting, with defaults.
+  </Card>
+  <Card title="Connecting to Jev" icon="plug" href="/docs/ai-fill/connecting-to-jev">
+    Endpoint mode, the server helper, direct mode, CORS and key handling.
+  </Card>
+  <Card title="Primitives" icon="book" href="/docs/ai-fill/primitives">
+    Choice, Score and Noul, and probability versus confidence.
+  </Card>
+  <Card title="Result policies" icon="gear" href="/docs/ai-fill/result-policies">
+    Gates, precedence, exact boundaries and validation.
+  </Card>
+  <Card title="Fill scopes and review" icon="rocket" href="/docs/ai-fill/fill-scopes-and-review">
+    What a fill covers, and how users review, accept and reject.
+  </Card>
+  <Card title="Persistence, commits and undo" icon="book" href="/docs/ai-fill/persistence-commits-and-undo">
+    Row identity, staleness, the commit path and undo.
+  </Card>
+  <Card title="Examples" icon="terminal" href="/docs/ai-fill/examples">
+    A complete buyer-persona Choice, plus Score and Noul.
+  </Card>
+  <Card title="Limitations" icon="book" href="/docs/ai-fill/limitations">
+    What AI Fill doesn't do, and known issues.
+  </Card>
+</CardGroup>
+
+The complete reference, including every type, is the "AI Fill" chapter of [`packages/core/API.md`](https://github.com/specstoryai/ai-data-grid/blob/main/packages/core/API.md#ai-fill).
+
+AI Data Grid is forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed. AI Fill is new in AI Data Grid.

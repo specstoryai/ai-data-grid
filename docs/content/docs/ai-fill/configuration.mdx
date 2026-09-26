@@ -1,0 +1,155 @@
+---
+title: Configuration
+description: The aiFill prop's settings, for the grid and for each AI column, with their defaults.
+---
+
+The `aiFill` prop takes an `AIFillConfig`. This page lists every setting. [Examples](/docs/ai-fill/examples) has complete configurations, and every type has TSDoc in the package.
+
+```ts
+import type { AIFillConfig } from "@specstory/ai-data-grid";
+
+const aiFill: AIFillConfig = {
+    connection: { mode: "endpoint", url: "/api/jev" },
+    model: "jev-latest", // required, no hidden default
+    rows: { getRowId: row => contacts[row].id }, // results are keyed by stable row id, never by position
+    rowScope: () => ({ rows: "displayed", label: "filtered contacts" }),
+    columns: {
+        // keyed by GridColumn.id
+        persona: {
+            primitive: "choice",
+            instructions: "Which buyer persona best describes this contact?",
+            sources: ["company", "title"],
+            options: {
+                champion: { description: "Drives the purchase internally", label: "Champion" },
+                economic: { description: "Controls the budget", label: "Economic buyer" },
+                none: { description: "None of these fit", label: "None of the above", outcome: "none" },
+            },
+            policy: {
+                show: { minProbability: 0.8 },
+                ready: { minProbability: 0.95 },
+                autoApply: { minProbability: 0.95 },
+            },
+        },
+        seniority: {
+            primitive: "score",
+            instructions: "How senior is this contact?",
+            sources: ["title"],
+            levels: ["Individual contributor", "Manager", "Director", "Executive"],
+            output: { store: "level-label" },
+            policy: { show: { minConfidence: 0.7 } },
+        },
+        ownsBudget: {
+            primitive: "noul",
+            instructions: "Does this contact own a budget?",
+            sources: ["title", "notes"],
+            output: { store: "boolean", bands: { falseAtOrBelow: 0.2, trueAtOrAbove: 0.8, between: "review" } },
+        },
+    },
+};
+```
+
+## Grid settings
+
+| Field | Meaning | Default |
+|---|---|---|
+| `connection` | How requests reach Jev: `{ mode: "endpoint", url, headers?, fetch? }`, `{ mode: "direct", apiKey, dangerouslyAllowBrowser?, baseURL?, fetch? }` or `{ mode: "custom", send }`. See [Connecting to Jev](/docs/ai-fill/connecting-to-jev). | required |
+| `model` | The Jev model, for example `jev-latest`. The versioned id that answered (for example `jev-1.13.0`) is kept with every answer. | required |
+| `rows.getRowId(row)` | The stable id of a display row. Results are keyed by it. | required |
+| `rows.getRowIndex(rowId)` | The display row of an id, when you can answer it quickly. Its answer is checked against `getRowId`. | a scan of `getRowId` |
+| `rowState(ctx)` | The row state sent to Jev, for every column without its own `state` | built from each column's `sources` |
+| `rowScope()` | The rows a column-wide fill covers: `{ rows: "displayed" \| rowId[], label }`. Without it, column-wide fills aren't offered. | none |
+| `columns` | AI column definitions, keyed by `GridColumn.id` | required |
+| `execution` | Scheduler limits and the confirmation threshold (below) | see below |
+| `menus` | `"built-in"`, `"compose"` or `"off"`. See [menus in apps that already have menus](/docs/ai-fill/fill-scopes-and-review#apps-that-already-have-menus). | `"built-in"` |
+| `statusBar` | `false` hides the built-in status bar, for example to render `<AIFillStatus api={…} />` yourself | `true` |
+| `shortcuts` | Rebinds or turns off each keyboard shortcut (`menu`, `inspect`, `accept`, `reject`, `fill`), or `false` for none | see [Keyboard](/docs/ai-fill/fill-scopes-and-review#keyboard) |
+| `onReady(api)` | Called once, when AI Fill has loaded and `ref.current.aiFill` exists | none |
+| `onRunStart`, `onRunProgress`, `onRunEnd`, `onResult`, `onCommit`, `onReject`, `onError` | Observers (below) | none |
+
+### `execution`
+
+| Setting | Meaning | Default |
+|---|---|---|
+| `concurrency` | Requests in flight at once. Never exceeded. | 4 |
+| `maxRequestsPerMinute` | A token bucket, with bursts of up to one second's worth | 600 |
+| `timeoutMs` | The timeout for each attempt | 15000 |
+| `maxRetries` | Retries after the first attempt, for retryable failures only | 2 |
+| `backoff` | `{ initialMs, maxMs, jitter }`: the delay doubles from `initialMs` up to `maxMs`, minus up to `jitter` of it at random | 500 ms → 5 s, 0.25 |
+| `maxCellsPerRun` | A fill that would evaluate more cells is refused before anything is sent | 1000 |
+| `confirmAbove` | A fill started from the built-in menus or the fill shortcut that covers more cells asks for confirmation first. `api.fill` never asks. | 100 |
+| `maxQuestionsPerRequest` | Columns that share a row's state share a request, up to this many questions | 16 |
+| `maxStateChars` | A row state longer than this (as JSON) is an `input-too-large` error, before anything is sent | 60000 |
+| `cacheSize` | Answers kept for repeated fills of the same cell and input, least recently used first out | 5000 |
+
+A `Retry-After` or `retry-after-ms` of up to 60 seconds from the server is honored instead of the backoff.
+
+## Column settings
+
+Every AI column has these:
+
+| Field | Meaning | Default |
+|---|---|---|
+| `primitive` | `"choice"`, `"score"` or `"noul"` | required |
+| `instructions` | The question: a string, an object or an array | required |
+| `sources` | The column ids the question is about. They build the default row state, and editing one makes the row's results stale. | `[]`, and then a `state` or grid `rowState` is required |
+| `state(ctx)` | A row state for this column | grid `rowState`, else built from `sources` |
+| `context` | Extra context such as definitions or examples, sent as `{ instructions, context }` | none |
+| `applies(ctx)` | Whether the column applies to a row. A row where it doesn't is skipped as `not-applicable`. | every row |
+| `missingInput`, `isMissing(ctx)` | What to do when the input is missing: `"skip"` or `"evaluate"`. By default the input is missing when the column has sources and every one is empty. | `"skip"` |
+| `isEmpty(cell)` | Whether a destination cell is empty. With the default, **`0` and `false` are values, not empty.** | `isAIDestinationEmpty` |
+| `overwrite` | `"never"`, `"suggest"` (populated cells only in an explicit selection, never auto-applied) or `"apply"` | `"never"` |
+| `fillScopes` | The [fill scopes](/docs/ai-fill/fill-scopes-and-review#fill-scopes) the column takes part in | `["selection", "selection-empty", "column-empty"]` |
+| `policy` | The gates `show`, `ready` and `autoApply`, and an optional `decide(ctx)`. See [Result policies](/docs/ai-fill/result-policies). | every valid answer is suggested; nothing is applied automatically |
+| `output` | `format(value, answer)` for the display text, `toCell(value, current, ctx)` for the written cell, and the primitive's mapping (below) | per primitive |
+| `presentation` | Display options (below) | per primitive |
+| `model` | A model for this column | grid `model` |
+
+The default row state is `{ [sourceId]: value }` for each source column, in order: the text of text, URI and markdown cells, the number of number cells, the boolean of boolean cells, a custom cell's `copyData`, and `null` for an empty cell.
+
+### Choice
+
+- `options: { [id]: { description, label?, value?, outcome? } }`, 2 to 255 of them. The ids and descriptions are what Jev sees. `label` is what users see, and `value` is what is written (default `label ?? id`).
+- `outcome: "none" | "unknown"` marks a semantic outcome, such as "none of the above" or "not enough information". It is an answer, not an error or a withheld result, and it writes nothing unless the option sets a `value`.
+- `presentation: { showProbability?, showConfidence?, alternatives?: { count, minProbability? } }`: the probability and confidence shown next to a suggestion, and how many other options the inspector lists.
+
+### Score
+
+- `levels`: the rubric, lowest first, 2 to 10 levels. A level is a string, or `{ description, label?, value? }` where `description` is a string or an object such as `{ what, examples }`.
+- `output.store`: `"score"` (the score rounded to `output.precision`, default 2), `"level"` (the level index), `"level-label"`, `"level-value"` (every level needs a `value`) or a function of the answer.
+- `output.levelFrom`: `"nearest"` (the level nearest the score, half up; the default) or `"most-probable"` (the level with the highest probability, ties to the lower level).
+- `presentation: { showConfidence?, rubricBar? }`.
+
+### Noul
+
+- `criteria?: { true?, false? }`: what yes and no mean.
+- `output.store`: `"probability"` (the default, rounded to `precision`), `"boolean"` or `"label"`. The last two need `bands: { falseAtOrBelow, trueAtOrAbove, between: "review" | "withhold" }`; there are no default bands.
+- `output.labels`: the `true`, `false` and `uncertain` labels. Default `Yes`, `No` and `Uncertain`.
+- `presentation: { probabilityBar? }`.
+
+The raw answer, the display text and the written value are three separate things. `mapAIOutput` returns `answer`, `display` and `value` (with `hasValue`), plus the semantic `outcome`.
+
+## Callbacks
+
+| Callback | When |
+|---|---|
+| `onRunStart({ runId, columnIds, cells, apply })` | A run starts. A refused fill doesn't start one. |
+| `onRunProgress({ runId, done, total })` | After each cell settles |
+| `onResult(event)` | For every settled cell: suggested, review, withheld, error and stale results, and results dropped because their row is gone (`reason: "row-missing"`). The event carries the metadata: `runId`, `rowId`, `columnId`, `requestedModel`, `model`, the short question and input fingerprints, the `answer` and the timings. |
+| `onRunEnd({ runId, cancelled, counts, skipped })` | A started run ends, including when it's cancelled |
+| `onError(error)` | A refused fill, a failed request (once per run waiting on it), a cell error, or a configuration problem |
+| `onReject({ cells })` | Results were rejected. Nothing is written. |
+| `onCommit({ commitId, source, edits })` | Results are about to be written, with each edit's previous and next cell and its metadata |
+
+A callback that throws doesn't stop AI Fill; the error is rethrown asynchronously so it still shows in the console.
+
+## Validation
+
+AI Fill validates the configuration whenever the object changes. Each problem is reported once through `onError` as a `configuration` error and listed in `api.getRunState().issues`. A problem with a `columnId` disables that column; one without disables AI Fill for the grid. You can run the same check yourself, for example in a test:
+
+```ts
+import { validateAIFillConfig } from "@specstory/ai-data-grid";
+
+const issues = validateAIFillConfig(aiFill, { columns }); // [{ path, message, columnId? }]
+```
+
+It reports, among others: a missing `model` or `getRowId`, AI columns that aren't grid columns, unknown sources, the wrong number of options or levels, overlapping or out-of-range thresholds, unknown option or level ids in a policy, a Noul `boolean` or `label` store without bands, a confidence gate on a Noul, and a direct-mode key in a browser without `dangerouslyAllowBrowser`. Messages never include the API key.

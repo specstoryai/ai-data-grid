@@ -1,0 +1,177 @@
+---
+title: Fill scopes and review
+description: What a fill covers, what users see in the grid, and how they review, accept, reject and retry, from the UI, the keyboard or the API.
+---
+
+Only an explicit action sends a request: a menu item, a shortcut, a confirmed dialog, or app code calling the API. Painting, scrolling, sorting, filtering, selecting and opening the inspector never do, and marking a result stale never starts a re-run.
+
+## Fill scopes
+
+| Scope | Cells evaluated |
+|---|---|
+| `selection` | The AI cells in the selection: selected columns, selected rows intersected with the AI columns, and the selected ranges. Populated cells follow `overwrite`. |
+| `selection-empty` | Only the empty AI cells in the selection |
+| `column-empty` | The empty cells of the AI columns within `rowScope` |
+| `column` | Every cell of the AI columns within `rowScope`. Opt-in: a column takes part only if its `fillScopes` lists `column`. |
+
+- **`rowScope`** decides the rows of a column-wide fill: `() => ({ rows: "displayed", label })` covers the rows displayed now, and `rows: rowId[]` the listed rows that are displayed. The label names them in menus and dialogs ("12 rows in filtered contacts"). Without `rowScope`, column-wide fills aren't offered.
+- **A row that isn't displayed is never read or sent.** A filtered-out or loading row is skipped as `unloaded`.
+- **Every scope respects `fillScopes`** (default `selection`, `selection-empty` and `column-empty`). A column whose `fillScopes` doesn't list the fill's scope is skipped as `not-applicable`.
+- **The scope never widens silently.** Each fill reports the cells it evaluates, the requests it needs, and the cells it skips, by reason:
+
+| Skip reason | When |
+|---|---|
+| `populated` | The destination has a value, and the scope or `overwrite` doesn't allow evaluating it. Only `selection` with `overwrite: "suggest"` or `"apply"`, and `column` with `"apply"`, evaluate populated cells. |
+| `read-only` | The destination isn't editable, or is `readonly` |
+| `unloaded` | The row isn't displayed, or the destination is a loading cell |
+| `not-applicable` | The column is disabled by a configuration problem, its `fillScopes` doesn't include the scope, or `applies` returned false |
+| `missing-input` | The input is missing and `missingInput` is `"skip"` (the default) |
+| `cached` | The cell already has a suggested, review or withheld result for the same question, input and model |
+
+A fill is refused before any request when the configuration has a grid-level problem or the fill would evaluate more than `execution.maxCellsPerRun` cells (1000 by default).
+
+### Stating the scope
+
+A fill started from the menus or the fill shortcut asks first when it covers more than `execution.confirmAbove` cells (100 by default), when it is a `column` fill (which can overwrite), and when it is "Fill and apply". The confirm dialog lists the columns, the row scope, the cells to evaluate, the cells skipped by reason, the estimated number of requests, and whether anything will be written. Nothing is sent until it's confirmed. `api.fill` never asks: the app has decided.
+
+## Requests
+
+- **One row per request.** Rows are never packed together. A row's AI columns with the same state and model share one request, with one question each.
+- **Answers are cached.** Filling the same cell again with the same input, for example after a reject, is answered from the cache with no request. An identical request already in flight is joined, not repeated.
+- **Limits.** At most `concurrency` requests are in flight (4 by default), within `maxRequestsPerMinute` (600).
+- **Retries.** Network errors, timeouts and HTTP 408, 429, 5xx and 529 are retried up to `maxRetries` times (2), with backoff, honoring the server's `Retry-After` up to 60 seconds. Other 4xx errors aren't retried. A 429 or 529 that still fails pauses the whole queue for the server's delay.
+- **Authentication.** A 401 or 403 aborts the whole run with one `authentication` error, and no further request is made for it.
+- **Every cell settles on its own.** Cells that succeeded keep their results when others fail, and a retry re-runs only the failed cells.
+- **Late answers are ignored.** A cancelled request, or an older one that arrives after a newer one, can never attach its answer to a cell. Every answer is checked against the row's current input when it arrives.
+
+## What users see
+
+### In the cells
+
+AI Fill draws after the cell's own content, only for cells with a result, and only when a result changes.
+
+| State | Drawn as |
+|---|---|
+| queued, pending | A small `⋯` at the right edge |
+| suggested | On an empty cell, the suggestion as italic ghost text in the accent color, with a `✦` marker. On a populated cell (`overwrite: "suggest"` or `"apply"`), the current value dimmed, with a `→ suggestion` chip. |
+| review | Like suggested, plus an amber corner marker |
+| semantic outcome, and an uncertain Noul | The label in muted italics with a `◇` marker, not styled as an error |
+| withheld | The current value unchanged, with a hollow `○` marker |
+| error | A red corner marker |
+| stale | A `↻` marker, and the old suggestion as grey struck-through ghost text when there was one |
+| accepted, applied, rejected | The normal cell, with no marker |
+
+The suggestion text can include the Choice probability (`· 0.86`) and confidence (`· conf 0.81`), the Score confidence and a rubric bar, or the Noul probability bar, as `presentation` sets.
+
+### Menus
+
+An AI column's header gets a `✦` badge and a `▾`. The `▾`, a right-click on the header, or Shift+F10 opens the **column menu**:
+
+| Item | What it does |
+|---|---|
+| Fill empty cells in *Persona* (*N* rows in *label*) | Fills the empty cells within `rowScope` |
+| Fill every cell in *Persona*… | Fills every cell within `rowScope` (only for columns that list `column` in `fillScopes` and don't use `overwrite: "never"`). Always asks first. |
+| Fill selected cells (*N*) | Fills the column's cells in the selection |
+| Fill and apply… | A "Fill and apply" run (only when the policy has `autoApply`). Always asks first. |
+| Accept *N* eligible | Writes the column's suggested results in displayed rows, as one batch. Never includes review results. |
+| Review *N* | Opens the inspector on the next review result |
+| Reject all suggestions | Rejects the column's suggested and review results |
+| Retry *N* failed, Re-run *N* stale | Evaluates failed or stale cells again |
+| Cancel | Cancels every run in progress |
+
+A right-click on an AI cell opens the **cell menu**: fill the selection (or only its empty cells), then Accept, Reject, Inspect… and Retry or Re-run for the cell itself. The counts are worked out when the menu opens, without sending anything. An item that can't act is disabled, with the reason under it.
+
+### The status bar
+
+A small bar floats over the bottom edge of the grid, without changing its layout. During a run it shows progress ("Evaluating *Persona*: 18 / 42") and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped") with **Review next**, **Accept *N* eligible** and **Retry *N* failed** when they have something to do. "Review next" walks the results waiting for a decision (review and suggested), in display order after the focused cell. With `statusBar: false`, render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead.
+
+### The inspector
+
+The inspector opens from "Inspect…", from a click on a cell's AI marker, from Alt+ArrowDown, from "Review next" and from `api.openInspector`. It shows only the structured answer and your configuration:
+
+- the status, the suggested text and the value it would write (or "no value to write");
+- the decision and its reason, with the exact value and threshold;
+- the error, a blocked commit's reason, or that the cell was edited after the request;
+- for a Choice, the options ranked by probability with the selected one marked, and the model confidence; for a Score, each level's probability with the mapped level marked, and the confidence; for a Noul, the probability of yes and its band;
+- the model id that answered, and when.
+
+Its actions: **Accept** (also Enter), **Reject**, **Choose** another option or level (or Yes / No for a Noul), **Edit manually** (opens the cell's normal editor, so the edit goes through your `onCellEdited`), and **Retry** or **Re-run**.
+
+## Keyboard
+
+| Shortcut (default) | `shortcuts` key | Action |
+|---|---|---|
+| Shift+F10, ContextMenu | `menu` | Opens the column menu when a whole AI column is selected, otherwise the cell menu |
+| Alt+ArrowDown | `inspect` | Opens the inspector for the focused cell, when it has a result |
+| Mod+Enter | `accept` | Accepts the selected suggested and review results, as one batch |
+| Mod+Backspace | `reject` | Rejects the selected results |
+| Mod+Alt+F | `fill` | Fills the AI cells in the selection, asking first above `confirmAbove` |
+
+Mod is ⌘ on macOS and Ctrl elsewhere. Your `onKeyDown` runs first; if it calls `preventDefault()` or `cancel()`, AI Fill does nothing. A shortcut with nothing to act on is left to the grid. Rebind or turn off shortcuts with `shortcuts: { inspect: "alt+i", fill: false }` (the syntax of the grid's `keybindings`), or turn them all off with `shortcuts: false`.
+
+Menus, the confirm dialog and the inspector are keyboard accessible (arrow keys, Home and End, Enter, Esc, and Tab kept inside dialogs), and focus returns to the grid when they close. The canvas doesn't expose suggestions to screen readers, but the menus, the dialog, the inspector and the status bar are accessible DOM, and a polite live region announces what actions did, for example "Accepted 3 suggestions".
+
+## The API
+
+`ref.current.aiFill` (and the `onReady` argument) is an `AIFillApi`. Cells are always addressed by `[rowId, columnId]`.
+
+| Method | What it does |
+|---|---|
+| `fill(scope, { columns?, mode? })` | Starts a fill. `mode: "apply"` is "Fill and apply". Returns `{ runId, done, cells, requests, skipped, error? }`; `done` resolves with the run's summary. |
+| `cancel(runId?)` | Cancels one run, or all. Cells go back to the result they had before. |
+| `accept(target)` | Writes the suggested and review results in the target as one batch. Returns the commit id. |
+| `reject(target)` | Marks the target's decided or stale results `rejected`. Nothing is written. |
+| `retry(target?)`, `rerunStale(target?)` | Re-runs failed or stale cells |
+| `revertCommit(commitId)` | Writes a commit's previous values back, by row id |
+| `getCellState(rowId, columnId)` | The cell's status, decision, output, error, commit id and metadata |
+| `getRunState()` | The active runs, the last run's summary, the number of cells in each status, and configuration problems |
+| `notifyRowsChanged(rowIds?)` | Tells AI Fill that rows changed outside the grid's edit handlers |
+| `clear(target?)` | Drops results. Nothing is written. |
+| `getMenuItems(target?)`, `openMenu(target)`, `openInspector(cell)` | The built-in menu items (for your own menus), and opening the built-in UI |
+| `subscribe(listener)` | Calls `listener` after any change, for app-built displays |
+
+A **target** is `{ cells: [rowId, columnId][] }`, `{ selection: true }` or `{ column, filter }`. The method decides which results count: `accept` takes suggested and review results, `reject` also withheld and stale ones, `retry` failed ones, `rerunStale` stale ones, and `clear` everything except cells still waiting. For a column, `filter` narrows that: `"all"` keeps everything the method covers, `"eligible"` only suggested results, and `"review"` only review results. A column target covers displayed rows only. So `accept({ column: "persona", filter: "eligible" })` is "Accept all eligible".
+
+## Apps that already have menus
+
+`onHeaderMenuClick`, `onHeaderContextMenu` and `onCellContextMenu` stay yours. `aiFill.menus` decides how AI Fill's menu fits in:
+
+- **`"built-in"` (the default).** Columns and cells that aren't AI columns go straight to your handlers, unchanged. On an AI column or cell, AI Fill's menu opens instead, and ends with **More options…**, which calls your handler with the original arguments.
+- **`"compose"`.** AI Fill's menu never opens, and your handlers always run. Add AI Fill's items to your own menu with `api.getMenuItems(target)`. Each item is `{ id, label, detail?, disabled, disabledReason?, run }`, and `run()` does what the built-in item does, including asking for confirmation:
+
+    ```tsx
+    onHeaderMenuClick={(col, bounds) => {
+        const id = columns[col].id;
+        const ai = id === undefined ? [] : ref.current?.aiFill?.getMenuItems({ column: id }) ?? [];
+        openMyMenu(bounds, [...myItems(col), ...ai.map(item => ({
+            key: item.id, label: item.label, hint: item.detail ?? item.disabledReason,
+            disabled: item.disabled, onSelect: item.run,
+        }))]);
+    }}
+    ```
+
+- **`"off"`.** No AI menus. The API, the inspector, the status bar and the shortcuts still work.
+
+## Errors
+
+Errors never write to the grid. A failed cell shows a red marker, the inspector shows the error, and `onError` receives an `AIFillError` with a `kind`, a `message`, whether it's `retryable`, and the affected cells.
+
+| Kind | Retryable | From |
+|---|---|---|
+| `configuration` | no | An invalid configuration, direct mode in a browser without `dangerouslyAllowBrowser`, a fill over `maxCellsPerRun`, a throwing callback, HTTP 400, 404 and 405 |
+| `authentication` | no | HTTP 401 and 403. Aborts the run. |
+| `rate-limit` | yes | HTTP 429, after the retries |
+| `overloaded` | yes | HTTP 529 and 503, after the retries |
+| `timeout` | yes | No response within `timeoutMs`, and HTTP 408 and 504 |
+| `network` | yes | The request couldn't be sent, and other 5xx statuses |
+| `invalid-request` | no | HTTP 422 and other 4xx statuses |
+| `input-too-large` | no | A state over `maxStateChars`, and HTTP 413 |
+| `evaluation` | yes | The response has no answer for the cell's question |
+| `malformed` | no | The answer fails validation, or the body isn't a Jev response |
+| `type-mismatch` | no | The mapped value doesn't fit the destination cell |
+| `policy-callback` | no | `decide` threw or returned something invalid |
+| `commit-blocked` | no | A write was refused by a [commit guard](/docs/ai-fill/persistence-commits-and-undo#the-commit-path) |
+
+## Styling
+
+The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class, and every color reads a `--gdg-ai-*` variable that falls back to the grid's `--gdg-*` theme variable, for example `--gdg-ai-accent` (falls back to `--gdg-accent-color`), `--gdg-ai-review` and `--gdg-ai-error`. The full list is in the API reference.
