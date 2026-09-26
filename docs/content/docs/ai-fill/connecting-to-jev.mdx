@@ -15,7 +15,7 @@ AI Fill calls Jev's HTTP API (`POST https://api.typesafe.ai/v1/systemone`) with 
 
 - **The key belongs on a server.** Keep it in an environment variable such as `TYPESAFE_API_KEY`, and pass it to the server helper explicitly. The helper never reads the environment itself.
 - **A key used in a browser is visible to anyone using that browser.** Endpoint mode keeps it off the client.
-- **The key is never echoed by AI Fill.** The server helper never adds it to a response, and redacts it from the `type`, `message` and `detail` of Jev's error responses. It returns Jev's success body and its `x-typesafe-request-id`, `Retry-After` and `retry-after-ms` headers unchanged. Validation messages and AI Fill's errors never include it.
+- **The key is never echoed by AI Fill.** The server helper never adds it to a response. It replaces the key with `[redacted]` in Jev's success body and in the `type`, `message` and `detail` of Jev's error responses, and drops a forwarded `x-typesafe-request-id`, `Retry-After` or `retry-after-ms` header whose value contains it. Validation messages and AI Fill's errors never include it.
 - **Decide who may spend it.** The helper requires an `authorize` function, so an app can't ship an open proxy by accident.
 - Never put the key in client code, in Storybook, in a docs site, in CI or in a committed file.
 
@@ -70,7 +70,7 @@ app.post("/api/jev", toNodeListener(createJevHandler({ apiKey: process.env.TYPES
 | `allowedModels` | The models a request may ask for | `["jev-latest"]` |
 | `maxBodyBytes` | The largest request body, checked against `content-length` and again while reading | 256000 |
 | `maxQuestions` | The most questions in one request | 32 |
-| `timeoutMs` | How long to wait for Jev. At the deadline the helper aborts its upstream `fetch`, so a custom `fetch` must honor the `signal` it's given. | 20000 |
+| `timeoutMs` | How long to wait for Jev's full answer, headers and body. At the deadline the helper answers 504 and aborts its upstream `fetch`; the deadline holds even when a custom `fetch` ignores its `signal`. | 20000 |
 | `baseURL`, `fetch` | Jev's origin, and the `fetch` used to call it | `https://api.typesafe.ai`, the global `fetch` |
 
 The handler answers, in this order:
@@ -84,11 +84,11 @@ The handler answers, in this order:
 | 400 | `invalid_request` | The body isn't JSON, or isn't `{ model, state, questions }` with valid questions |
 | 413 | `payload_too_large` | The body has more than `maxQuestions` questions |
 | 400 | `model_not_allowed` | The model isn't in `allowedModels` |
-| Jev's status | Jev's type, for example `rate_limit_error` | Jev returned an error. `Retry-After` and `retry-after-ms` are forwarded, and `retryAfterMs` is set in the body. |
-| 504 | `upstream_timeout` | The upstream `fetch` or body read was aborted at `timeoutMs` |
-| 502 | `upstream_unreachable` | Jev couldn't be reached, or the incoming request was aborted |
+| Jev's status | Jev's type, for example `rate_limit_error` | Jev returned an error. `Retry-After` and `retry-after-ms` are forwarded (unless they contain the key), and `retryAfterMs` is set in the body from the forwarded ones. |
+| 504 | `upstream_timeout` | Jev didn't answer, headers and body, within `timeoutMs` |
+| 502 | `upstream_unreachable` | Jev couldn't be reached, or the caller aborted its request |
 
-Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and its `x-typesafe-request-id` header. It forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
+Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and its `x-typesafe-request-id` header. The key is never echoed: it is replaced with `[redacted]` (as the literal key and in its JSON-escaped form) in Jev's success body and in the `type`, `message` and `detail` of its error responses, and a success body without the key is returned byte for byte. A forwarded header (`x-typesafe-request-id`, `Retry-After`, `retry-after-ms`) whose value contains the key is dropped, not rewritten, and so is a request id that isn't 1–128 visible ASCII characters (`/^[!-~]{1,128}$/`). It forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
 
 ## Direct mode
 

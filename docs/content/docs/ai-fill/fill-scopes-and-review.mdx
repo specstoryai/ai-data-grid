@@ -32,7 +32,7 @@ A fill is refused before any request when the configuration has a grid-level pro
 
 ### Stating the scope
 
-A fill started from the menus or the fill shortcut asks first when it covers more than `execution.confirmAbove` cells (100 by default), when it is a `column` fill (which can overwrite), and when it is "Fill and apply". The confirm dialog lists the columns, the row scope, the cells to evaluate, the cells skipped by reason, the estimated number of requests, and whether anything will be written. Nothing is sent until it's confirmed. `api.fill` never asks: the app has decided.
+A fill started from the menus or the fill shortcut asks first when it covers more than `execution.confirmAbove` cells (100 by default), when it is a `column` fill (which can overwrite), and when it is "Fill and apply". The confirm dialog lists the columns, the row scope, the cells to evaluate, the cells skipped by reason, the estimated number of requests, and whether anything will be written. Nothing is sent until it's confirmed. Confirming works the fill out again, and starts it only if the scope is still the one shown: the same cells (by row id and column), the same skips, columns, row scope and requests. If it changed while the dialog was open (a filter, new data, or different cells with the same count), nothing starts: the dialog shows the new scope, says "The scope changed while this dialog was open. Check it and confirm again.", and asks again. A fill that can't run shows why instead, with only Close. `api.fill` never asks: the app has decided.
 
 ## Requests
 
@@ -83,7 +83,7 @@ A right-click on an AI cell opens the **cell menu**: fill the selection (or only
 
 ### The status bar
 
-A small bar floats over the bottom edge of the grid, without changing its layout. During a run it shows progress ("Evaluating *Persona*: 18 / 42") and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped") with **Review next**, **Accept *N* eligible** and **Retry *N* failed** when they have something to do. They act across every AI column and count like the column menu's items. "Review next" walks the results waiting for a decision (review and suggested) in displayed rows, in display order after the focused cell, wrapping around. With `statusBar: false`, render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead.
+A small bar floats over the bottom edge of the grid, without changing its layout. During a run it shows progress ("Evaluating *Persona*: 18 / 42") and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped", or "Cancelled: …"). After "Fill and apply" it starts with the applied count, for example "Done: 5 applied · 2 suggested · …": a result that auto-apply wrote counts as applied, and one that a guard kept from being written counts as suggested. With it come **Review next**, **Accept *N* eligible** and **Retry *N* failed** when they have something to do. They act across every AI column and count like the column menu's items. "Review next" walks the results waiting for a decision (review and suggested) in displayed rows, in display order after the focused cell, wrapping around. With `statusBar: false`, render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead.
 
 ### The inspector
 
@@ -118,7 +118,7 @@ Menus, the confirm dialog and the inspector are keyboard accessible (arrow keys,
 | Method | What it does |
 |---|---|
 | `fill(scope, { columns?, mode? })` | Starts a fill. `mode: "apply"` is "Fill and apply". Returns `{ runId, done, cells, requests, skipped, error? }`; `done` resolves with the run's summary. |
-| `cancel(runId?)` | Cancels one run, or all. Cells go back to the result they had before. |
+| `cancel(runId?)` | Cancels one run, or all. Cells still waiting for Jev go back to the result they had before. Results that have already arrived and pass auto-apply are written first, so a cancelled "Fill and apply" run counts them as applied. The Cancel items in the menus and the status bar call it. |
 | `accept(target)` | Writes the suggested and review results in the target as one batch. Returns the commit id. |
 | `reject(target)` | Marks the target's decided or stale results `rejected`. Nothing is written. |
 | `retry(target?)`, `rerunStale(target?)` | Re-runs failed or stale cells |

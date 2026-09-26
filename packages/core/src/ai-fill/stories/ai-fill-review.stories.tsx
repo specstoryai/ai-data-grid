@@ -45,6 +45,7 @@ export const ReviewQueueAndAutoApply: React.FC<EndpointArgs & { readonly fillAnd
     fillAndApplyOnLoad,
 }) => {
     const table = useStoryTable(emptyPersonaRows, personaColumns);
+    const [lines, log] = useStoryLog();
     const jev = useMockJev(personaRules, 600);
     const connection = useStoryConnection(endpointUrl, jev);
     const aiFill = React.useMemo(
@@ -57,9 +58,11 @@ export const ReviewQueueAndAutoApply: React.FC<EndpointArgs & { readonly fillAnd
                     onReady: api => {
                         if (fillAndApplyOnLoad) api.fill("column-empty", { mode: "apply" });
                     },
+                    onRunEnd: ({ cancelled, counts }) =>
+                        log(`onRunEnd: ${cancelled ? "cancelled, " : ""}counts ${JSON.stringify(counts)}`),
                 }
             ),
-        [connection, table.getRowId, fillAndApplyOnLoad]
+        [connection, table.getRowId, fillAndApplyOnLoad, log]
     );
     return (
         <AIStoryFrame
@@ -90,9 +93,10 @@ export const ReviewQueueAndAutoApply: React.FC<EndpointArgs & { readonly fillAnd
                         <li>Jordan Lee (0.41) is withheld.</li>
                     </ul>
                     <p>
-                        Known issue: the run summary in the status bar (and <code>onRunEnd</code>&apos;s counts) counts
-                        the two applied results as suggested, so it reads &quot;5 suggested&quot; with no applied count.
-                        The cells themselves are applied: <code>getCellState</code> reports <code>applied</code>.
+                        When the run ends, the status bar starts its summary with the applied count: &quot;Done: 2
+                        applied · 3 suggested · 2 review · 1 withheld · …&quot;. The log below the grid shows the same
+                        counts from <code>onRunEnd</code>. A result that passed <code>autoApply</code> but that a commit
+                        guard kept from being written would count as suggested.
                     </p>
                     <p>
                         Work through the queue with <b>Review next</b> in the status bar: it opens the inspector on each
@@ -103,6 +107,7 @@ export const ReviewQueueAndAutoApply: React.FC<EndpointArgs & { readonly fillAnd
             }
         >
             <AIStoryGrid table={table} aiFill={aiFill} />
+            <AIStoryLog lines={lines} empty="onRunEnd: the run hasn't ended yet" />
         </AIStoryFrame>
     );
 };

@@ -53,7 +53,7 @@ A Choice semantic outcome without a `value`, and an uncertain Noul, have nothing
 
 ### Auto-apply
 
-In a "Fill and apply" run (`fill(scope, { mode: "apply" })`, or "Fill and apply…" in the menu), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, with `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays suggested. Review results, manual cells and populated cells under `overwrite: "suggest"` are never applied automatically, and neither is a result re-decided after a policy change. Known issue: the run's summary counts an auto-applied result as suggested (see [Limitations](/docs/ai-fill/limitations#known-issues)).
+In a "Fill and apply" run (`fill(scope, { mode: "apply" })`, or "Fill and apply…" in the menu), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, with `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays suggested. Review results, manual cells and populated cells under `overwrite: "suggest"` are never applied automatically, and neither is a result re-decided after a policy change. The run's summary (`onRunEnd`'s `counts`, `getRunState().last` and the status bar) counts a result that auto-apply wrote as applied, and one that a guard kept from being written as suggested. Cancelling a "Fill and apply" run first writes the results that have already arrived and pass auto-apply, so they count as applied too.
 
 ## Undo
 

@@ -1787,7 +1787,7 @@ A result that fails any other guard isn't written and keeps its status; `getCell
 
 A Choice semantic outcome without a `value`, and a Noul in the middle band, have nothing to write: accepting one marks it `accepted` and writes nothing.
 
-**Auto-apply.** In a "Fill and apply" run (`fill(scope, { mode: "apply" })`), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, as `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays `suggested`. Review results, manual cells and populated cells under `overwrite: "suggest"` are never auto-applied, and a result re-decided after a policy change isn't either. Known issue: the run's summary (`onRunEnd`'s `counts`, `getRunState().last` and the status bar) counts an auto-applied result as `suggested`, because it is counted when the answer settles, before it is written. `getCellState` and `getRunState().cells` report it as `applied`.
+**Auto-apply.** In a "Fill and apply" run (`fill(scope, { mode: "apply" })`), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, as `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays `suggested`. Review results, manual cells and populated cells under `overwrite: "suggest"` are never auto-applied, and a result re-decided after a policy change isn't either. The run's summary (`onRunEnd`'s `counts`, `getRunState().last` and the status bar) counts a result that auto-apply wrote as `applied`, and one that a guard kept from being written as `suggested`.
 
 **Undo with `useUndoRedo`** (`@specstory/ai-data-grid-source`). Wire it the standard way:
 

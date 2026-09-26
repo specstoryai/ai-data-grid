@@ -1,6 +1,6 @@
 ---
 title: Limitations
-description: What AI Fill doesn't do, and the known limitations and issues of this version.
+description: What AI Fill doesn't do, and the known limitations of this version.
 ---
 
 ## What AI Fill is not
@@ -53,7 +53,3 @@ The grid's canvas doesn't expose suggestions to screen readers. The menus, the c
 
 - `AIFillRun` (the return type of `fill`, `retry` and `rerunStale`) and `AIActiveRun` (an element of `getRunState().active`) aren't exported by name. Use inference, or `ReturnType<AIFillApi["fill"]>`.
 - `require("@specstory/ai-data-grid/server")` needs a Node version that can `require` ES modules: 20.19+, 22.12+ or 24. Older versions must use `import`.
-
-## Known issues
-
-- **The run summary counts auto-applied results as suggested.** After a "Fill and apply" run, the status bar reads, for example, "5 suggested" with no applied count, and `onRunEnd`'s `counts` has no `applied` entry, although the applied cells were written and `getCellState` reports them as `applied`.
