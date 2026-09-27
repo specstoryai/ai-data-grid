@@ -1,0 +1,150 @@
+---
+title: Connecting to Jev
+description: Endpoint mode and the server helper, direct mode, CORS, key handling, the local dev proxy and the mock.
+---
+
+AI Fill calls Jev's HTTP API (`POST https://api.typesafe.ai/v1/systemone`) with `fetch`. It doesn't use the TypeSafe SDK and adds no runtime dependency. `connection` picks one of three modes:
+
+| Mode | Configuration | Use it for |
+|---|---|---|
+| Endpoint | `{ mode: "endpoint", url, headers?, fetch? }` | Production. The browser calls your server, which holds the key. |
+| Direct | `{ mode: "direct", apiKey, dangerouslyAllowBrowser?, baseURL?, fetch? }` | Node scripts, server-side code and tests. In a browser, local demos only. |
+| Custom | `{ mode: "custom", send(request, signal) }` | Tests, Storybook and unusual hosts. The mock provides one. |
+
+## Keeping the key safe
+
+- **The key belongs on a server.** Keep it in an environment variable such as `TYPESAFE_API_KEY`, and pass it to the server helper explicitly. The helper never reads the environment itself.
+- **A key used in a browser is visible to anyone using that browser.** Endpoint mode keeps it off the client.
+- **The key is never echoed by AI Fill.** The server helper never adds it to a response. It replaces the key with `[redacted]` in Jev's success body and in the `type`, `message` and `detail` of Jev's error responses, and drops a forwarded `x-typesafe-request-id`, `Retry-After` or `retry-after-ms` header whose value contains it. Validation messages and AI Fill's errors never include it.
+- **Decide who may spend it.** The helper requires an `authorize` function, so an app can't ship an open proxy by accident.
+- Never put the key in client code, in Storybook, in a docs site, in CI or in a committed file.
+
+## Endpoint mode
+
+In endpoint mode, AI Fill sends `POST <url>` with `content-type: application/json` and the headers returned by `connection.headers()`, which is called before every request (for example for a CSRF token). The body is exactly Jev's request body:
+
+```json
+{
+    "model": "jev-latest",
+    "state": { "company": "Example Co", "title": "VP of Finance" },
+    "questions": {
+        "q0": { "type": "noul", "instructions": "Does this contact own a budget?" }
+    }
+}
+```
+
+- **Success:** status 200 with Jev's response body unchanged: `{ model, answers, usage }`. An `x-typesafe-request-id` header, when present, is captured, and reported as `requestId` on errors (`AIFillError.requestId`).
+- **Failure:** a non-2xx status with `{ error: { type, message, retryAfterMs?, detail? } }` (the `JevEndpointErrorBody` type). Forward Jev's status and its `Retry-After` and `retry-after-ms` headers. The status decides the [error kind](/docs/ai-fill/fill-scopes-and-review#errors).
+
+### The server helper
+
+`@specstory/ai-data-grid/server` implements that contract. It has no React, DOM or styling imports, and runs in any Fetch-API host: Next.js route handlers, Node 20 and later, and edge runtimes.
+
+```ts
+// app/api/jev/route.ts (Next.js App Router)
+import { createJevHandler } from "@specstory/ai-data-grid/server";
+
+export const POST = createJevHandler({
+    apiKey: process.env.TYPESAFE_API_KEY ?? "", // explicit: the helper never reads the environment
+    authorize: request => isSignedIn(request), // required; () => true only for local demos
+    allowedModels: ["jev-latest"], // the default
+});
+```
+
+For Express or Node's `http` module, wrap it with `toNodeListener`. It streams the request body, or uses `req.body` when middleware such as `express.json()` has already parsed it:
+
+```ts
+import express from "express";
+import { createJevHandler, toNodeListener } from "@specstory/ai-data-grid/server";
+
+const app = express();
+app.post("/api/jev", toNodeListener(createJevHandler({ apiKey: process.env.TYPESAFE_API_KEY ?? "", authorize })));
+```
+
+`require("@specstory/ai-data-grid/server")` works as well as `import` on Node 20.19+, 22.12+ and 24, which can `require` ES modules.
+
+| `createJevHandler` option | Meaning | Default |
+|---|---|---|
+| `apiKey` | Your TypeSafe key. An empty key doesn't fail at load time (so a build without the key still works), but every authorized request then gets a 500 `server_configuration` error. | required |
+| `authorize(request)` | Returns (or resolves to) `true` to let the request spend your key. Anything else, including a throw, is a 403. Construction throws without it. | required |
+| `allowedModels` | The models a request may ask for | `["jev-latest"]` |
+| `maxBodyBytes` | The largest request body, checked against `content-length` and again while reading | 256000 |
+| `maxQuestions` | The most questions in one request | 32 |
+| `timeoutMs` | How long to wait for Jev's full answer, headers and body. At the deadline the helper answers 504 and aborts its upstream `fetch`; the deadline holds even when a custom `fetch` ignores its `signal`. | 20000 |
+| `baseURL`, `fetch` | Jev's origin, and the `fetch` used to call it | `https://api.typesafe.ai`, the global `fetch` |
+
+The handler answers, in this order:
+
+| Status | `error.type` | When |
+|---|---|---|
+| 405 | `method_not_allowed` | The method isn't POST |
+| 403 | `forbidden` | `authorize` didn't return `true` |
+| 500 | `server_configuration` | `apiKey` is empty |
+| 413 | `payload_too_large` | The body is over `maxBodyBytes` |
+| 400 | `invalid_request` | The body isn't JSON, or isn't `{ model, state, questions }` with valid questions |
+| 413 | `payload_too_large` | The body has more than `maxQuestions` questions |
+| 400 | `model_not_allowed` | The model isn't in `allowedModels` |
+| Jev's status | Jev's type, for example `rate_limit_error` | Jev returned an error. `Retry-After` and `retry-after-ms` are forwarded (unless they contain the key), and `retryAfterMs` is set in the body from the forwarded ones. |
+| 504 | `upstream_timeout` | Jev didn't answer, headers and body, within `timeoutMs` |
+| 502 | `upstream_unreachable` | Jev couldn't be reached, or the caller aborted its request |
+
+Otherwise it forwards `{ state, model, questions }` (other fields are dropped) with `Authorization: Bearer <apiKey>`, and returns Jev's body and its `x-typesafe-request-id` header. The key is never echoed: it is replaced with `[redacted]` (as the literal key and in its JSON-escaped form) in Jev's success body and in the `type`, `message` and `detail` of its error responses, and a success body without the key is returned byte for byte. A forwarded header (`x-typesafe-request-id`, `Retry-After`, `retry-after-ms`) whose value contains the key is dropped, not rewritten, and so is a request id that isn't 1–128 visible ASCII characters (`/^[!-~]{1,128}$/`). It forwards none of the incoming request's headers to Jev, logs nothing, and adds no CORS headers: serve it from your app's own origin, or add CORS yourself.
+
+## Direct mode
+
+Direct mode sends the key from the process that runs the grid: `POST ${baseURL}/v1/systemone` with `Authorization: Bearer <apiKey>`.
+
+- **In Node** it works as is: scripts, server-side rendering, tests.
+- **In a browser without `dangerouslyAllowBrowser: true`,** AI Fill refuses: `validateAIFillConfig` reports it, and a fill fails with a `configuration` error before any request is made.
+- **In a browser with `dangerouslyAllowBrowser: true`,** AI Fill prints one `console.warn` per page saying the key is visible to the browser's user.
+
+### CORS
+
+TypeSafe's API currently rejects browser CORS preflights from every origin tried, so a direct call from a browser fails even with `dangerouslyAllowBrowser`. AI Fill reports it as a `network` error: "TypeSafe's API does not accept browser calls from this origin; use endpoint mode or the local dev proxy." Browser apps use endpoint mode. For demos, use the dev proxy below.
+
+## The local dev proxy
+
+For browser demos (Storybook and the sample apps), the repository has an unpublished proxy, `scripts/jev-dev-proxy.mjs`. It runs `createJevHandler` on `0.0.0.0:8787`, with the key from `JEV_API_KEY` (or `TYPESAFE_API_KEY`) in its own environment:
+
+```bash
+npm run build
+JEV_API_KEY=… node scripts/jev-dev-proxy.mjs [--port 8787] [--host 0.0.0.0] [--allow-origin https://my-storybook.example.com]… [--allow-model <model>]…
+```
+
+Then point a grid at it with `connection: { mode: "endpoint", url: "http://localhost:8787/api/jev" }` (any path works), or enter that URL in a Storybook story's "endpoint URL" control.
+
+- It allows `http://localhost:<any port>` and `http://127.0.0.1:<any port>`, plus only the exact origins passed with `--allow-origin`. It never allows `*`.
+- A request without an allowed `Origin` header, including `curl` without `-H "Origin: …"`, gets a 403 and never reaches Jev.
+- `--allow-model` replaces the default model list (`jev-latest`) instead of adding to it.
+- It logs the method, path, status and time of each request, never the key, headers or bodies.
+- **Every request it forwards is a live, billed Jev call.**
+
+## The mock
+
+`@specstory/ai-data-grid/testing` exports `createMockJev`, a deterministic stand-in for Jev with no network access, for tests, Storybook and local development:
+
+```ts
+import { createMockJev } from "@specstory/ai-data-grid/testing";
+
+const jev = createMockJev({
+    seed: 1,
+    latencyMs: 300,
+    rules: [{ instructions: /own a budget/, answer: { type: "noul", noul: 0.92 } }],
+    errors: [{ kind: "rate-limit", calls: [0], retryAfterMs: 2000 }],
+});
+
+const aiFill = { ...config, connection: jev.connection }; // or { mode: "endpoint", url: "/api/jev", fetch: jev.fetch }
+```
+
+- **`rules`** answer matching questions: by `questionId`, `type`, `instructions` (a string or a RegExp) and `state` (a predicate or a RegExp). The first rule that answers wins.
+- **`fixtures`** replay recorded `{ request, response }` pairs. Use synthetic data only.
+- **Generated answers** cover every question no rule answers. They depend only on the seed, the state and the question, and always pass validation.
+- **`errors`** inject failures by call: `authentication` (401), `configuration` (400), `invalid-request` (422), `input-too-large` (413), `rate-limit` (429), `overloaded` (529), `server-error` (500), `network`, `timeout`, `malformed` and `evaluation`.
+- **`latencyMs`** is a number or a function. It uses timers, so fake timers control it.
+- **`calls`** logs every call, including whether an `Authorization` header was sent (never its value).
+
+The mock reports the model as `jev-mock-1.0.0` for `jev-latest` and `jev-preview`.
+
+## Models
+
+The model in the configuration (the grid's `model`, or a column's) is sent as given; no version is hard-coded. The versioned id that answered, for example `jev-1.13.0` for a `jev-latest` request, is kept with every answer and shown in the inspector, and results report both the `model` and the `requestedModel`.

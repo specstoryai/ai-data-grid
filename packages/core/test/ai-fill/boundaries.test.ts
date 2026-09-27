@@ -16,6 +16,10 @@ import { describe, expect, it } from "vitest";
  *    module-level `window` or `document` reference.
  * 4. `ai-fill/testing/**` imports only from `testing/`, `contract/`,
  *    `identity/` and `transport/`, and nothing from `react/`.
+ * 5. `ai-fill/stories/**` are Storybook stories, which core's build excludes.
+ *    They use AI Fill the way an app does, so rule 1 doesn't apply to them:
+ *    they may import `data-editor-all.tsx` and `@specstory/ai-data-grid/testing`
+ *    (and no other package entry). Nothing else in core imports them.
  *
  * Core never imports from the cells or source packages, which depend on it.
  */
@@ -144,8 +148,12 @@ function describeRecord(record: ImportRecord): string {
     return `${path.relative(srcDir, record.file)} -> ${record.specifier}`;
 }
 
+const storiesDir = path.join(aiFillDir, "stories");
 const allImports = listSourceFiles(srcDir).flatMap(collectImports);
-const aiFillImports = allImports.filter(record => isInside(record.file, aiFillDir));
+const aiFillImports = allImports.filter(
+    record => isInside(record.file, aiFillDir) && !isInside(record.file, storiesDir)
+);
+const storyImports = allImports.filter(record => isInside(record.file, storiesDir));
 
 describe("AI Fill import boundaries", () => {
     it("finds the AI Fill sources", () => {
@@ -211,6 +219,32 @@ describe("AI Fill import boundaries", () => {
             )
             .map(describeRecord);
         expect(violations).toEqual([]);
+    });
+
+    describe("rule 5: stories import AI Fill as an app does, and nothing imports them", () => {
+        it("finds the stories", () => {
+            expect(storyImports.length).toBeGreaterThan(0);
+        });
+
+        it("stories import only the testing subpath of the package, and no entry but data-editor-all", () => {
+            const violations = storyImports
+                .filter(record =>
+                    record.target === undefined
+                        ? record.specifier.startsWith("@specstory/") &&
+                          record.specifier !== "@specstory/ai-data-grid/testing"
+                        : record.target === path.join(srcDir, "index")
+                )
+                .map(describeRecord);
+            expect(violations).toEqual([]);
+        });
+
+        it("no module outside the stories imports them", () => {
+            const violations = allImports
+                .filter(record => !isInside(record.file, storiesDir))
+                .filter(record => record.target !== undefined && isInside(record.target, storiesDir))
+                .map(describeRecord);
+            expect(violations).toEqual([]);
+        });
     });
 
     it("core never imports from the cells or source packages", () => {

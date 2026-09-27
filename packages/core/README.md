@@ -95,7 +95,7 @@ function getData([col, row]: Item): GridCell {
 
 ## AI Fill
 
-AI Fill adds AI-filled columns to a grid in configuration alone, powered by [Jev](https://docs.typesafe.ai) (TypeSafe's Choice, Score and Noul). You describe each AI column's question and how answers become cell values; AI Fill fills the cells your users ask it to from the grid's own AI menus, shows suggestions in the grid, and writes only what is accepted (or what your "Fill and apply" rules allow), through your own edit handlers, so `validateCell` and `useUndoRedo` keep working. The grid supplies the menus, a scope confirmation, a status bar, an inspector and keyboard shortcuts; apps can also drive it through `ref.current.aiFill`. It is still in development: Storybook examples and the docs site guide arrive in a later release.
+AI Fill adds AI-filled columns to a grid in configuration alone, powered by [Jev](https://docs.typesafe.ai) (TypeSafe's Choice, Score and Noul). You describe each AI column's question and how answers become cell values; AI Fill fills the cells your users ask it to from the grid's own AI menus, shows suggestions in the grid, and writes only what is accepted (or what your "Fill and apply" rules allow), through your own edit handlers, so `validateCell` and `useUndoRedo` keep working. The grid supplies the menus, a scope confirmation, a status bar, an inspector and keyboard shortcuts; apps can also drive it through `ref.current.aiFill`.
 
 Turn it on with one prop. Without `aiFill`, the grid is unchanged and no AI code loads:
 
@@ -116,7 +116,7 @@ const aiFill = React.useMemo<AIFillConfig>(
 ref.current?.aiFill?.fill("selection-empty");
 ```
 
-The [AI Fill chapter of API.md](API.md#ai-fill) covers the quick start, the configuration, result policies, rows and staleness, committing and undo, the built-in UI, menus in apps that already have menus, the keyboard, connecting to Jev (`@specstory/ai-data-grid/server`) and testing with the mock (`@specstory/ai-data-grid/testing`).
+Start with the [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site: setup, connecting to Jev, the primitives, result policies, review, undo, limitations and complete examples. (The guide is on the hosted docs site once AI Fill reaches the repository's `main` branch; until then its source is `docs/content/docs/ai-fill/` in the repository.) The [AI Fill chapter of API.md](API.md#ai-fill) is the reference. It covers the quick start, the configuration, result policies, rows and staleness, committing and undo, the built-in UI, menus in apps that already have menus, the keyboard, connecting to Jev (`@specstory/ai-data-grid/server`) and testing with the mock (`@specstory/ai-data-grid/testing`).
 
 ## Full API documentation
 

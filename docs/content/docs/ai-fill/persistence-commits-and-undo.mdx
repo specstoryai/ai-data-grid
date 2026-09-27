@@ -1,0 +1,90 @@
+---
+title: Persistence, commits and undo
+description: How results are keyed and kept, when they go stale, how values are written, and how undo works.
+---
+
+## Where results live
+
+Results live in memory, in the grid, for as long as the `aiFill` prop is set. They aren't saved anywhere, and a reload starts with no suggestions. Only accepted values persist, because they are written to your data through your own edit handlers.
+
+If you want to keep more, the callbacks carry everything: `onCommit` gives each written cell's previous and next value with its metadata (the model that answered, the fingerprints, the answer and the timings), and `onResult` gives every decided result. Restoring suggestions after a reload isn't supported.
+
+## Row identity
+
+Results are keyed by `(rowId, columnId)`, never by display position:
+
+- Rows are identified by `rows.getRowId(row)`, and columns by `GridColumn.id`. Display positions are worked out only when needed: when a cell is drawn, and when a value is written.
+- **`rows.getRowIndex(rowId)`** is optional. When you provide it, its answer is checked against `getRowId`, so a wrong index can't redirect a read or a write. Without it, AI Fill scans `getRowId` over the rows once and reuses the map for the current task.
+- **Sorting, filtering and moving columns move nothing.** Results stay with their ids and are drawn wherever their row and column are now. An answer that arrives after a sort lands on its own row.
+- A decided result on a row that is filtered out keeps its record, and "Accept all eligible" leaves it alone until the row is displayed again, except in the cases listed under [Limitations](/docs/ai-fill/limitations#filtered-out-rows).
+
+## Staleness
+
+- **Edits in the grid.** Editing a source cell makes the row's results in the AI columns that list it `stale`, whether they are pending or decided. Editing an AI cell makes its result `manual` and stale: it is never applied automatically or accepted.
+- **Changes outside the grid.** After changing rows without the grid's edit handlers (a server push, a form elsewhere), call `api.notifyRowsChanged(rowIds?)`. A changed input makes a result stale, a changed destination makes it manual and stale, and a result whose row is gone is dropped. You don't have to call it for safety: every answer and every write re-checks the inputs and the destination.
+- **A late answer for a stale cell** is stored as stale and never shown as a suggestion.
+- **Stale results are never re-run by themselves.** Re-run them from the menu ("Re-run *N* stale"), the inspector, or `api.rerunStale()`.
+- **Accepted results** keep their commit id and are never suggested again, including after an undo. Filling again is always explicit.
+
+The checks use fingerprints. The question fingerprint covers the primitive, instructions, context, option ids and descriptions, level descriptions and their order, Noul criteria and the `sources`. The input fingerprint covers the state sent. Changing the policy, the output mapping or the presentation doesn't change either, so those changes re-decide stored answers with no request.
+
+## The commit path
+
+Accepting, Choose and auto-applying write through your edit handlers, the way a paste does. For each result, right before writing:
+
+1. The row is found again by id. A row that is gone is `row-missing`, and its result is dropped.
+2. The value is turned into a cell with `output.toCell` (by default, by the destination's kind: text, number, boolean, or the cells package's dropdown). A value that doesn't fit is `type-mismatch`.
+3. The inputs are fingerprinted again and the destination compared with its value when the request was made. A changed input makes the result stale; a changed destination makes it manual and stale.
+4. The destination must be writable (an editable kind, not `readonly`), and the `overwrite` policy and the fill's scope must allow the write: an empty cell always; a populated one never under `"never"` or in the `-empty` scopes, only by a user action (accept or Choose) in the `selection` scope under `"suggest"`, and under `"apply"` in the `selection` and `column` scopes, auto-apply included.
+5. Your `validateCell(location, next, current)` runs: `false` blocks the write, and a returned cell is written instead.
+
+A result that fails any other guard isn't written and keeps its status. `getCellState(...).blocked` says why, and `onError` gets one `commit-blocked` (or `type-mismatch`) error per reason, listing the cells. A result is written at most once. A grid without `onCellEdited` or `onCellsEdited` can't commit.
+
+### One batch
+
+The results that pass are written together, in one tick:
+
+1. If the grid has no selection, AI Fill first sets one covering the written cells, through your `onGridSelectionChange` (undo stacks such as `useUndoRedo` need one).
+2. `onCommit({ commitId, source, edits })` is called, with each edit's previous and next cell.
+3. `onCellsEdited(items)` is called, if you pass it.
+4. Unless it returned `true`, `onCellEdited(location, cell)` is called for each item.
+
+A Choice semantic outcome without a `value`, and an uncertain Noul, have nothing to write: accepting one marks it accepted and writes nothing.
+
+### Auto-apply
+
+In a "Fill and apply" run (`fill(scope, { mode: "apply" })`, or "Fill and apply…" in the menu), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, with `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays suggested. Review results, manual cells and populated cells under `overwrite: "suggest"` are never applied automatically, and neither is a result re-decided after a policy change. The run's summary (`onRunEnd`'s `counts`, `getRunState().last` and the status bar) counts a result that auto-apply wrote as applied, and one that a guard kept from being written as suggested. Cancelling a "Fill and apply" run first writes the results that have already arrived and pass auto-apply, so they count as applied too.
+
+## Undo
+
+### With `useUndoRedo`
+
+`useUndoRedo` from `@specstory/ai-data-grid-source` works with AI Fill when it's wired the standard way:
+
+```tsx
+import { useUndoRedo } from "@specstory/ai-data-grid-source";
+
+const undo = useUndoRedo(ref, getCellContent, setCellValue);
+
+<DataEditor
+    ref={ref}
+    aiFill={aiFill}
+    getCellContent={getCellContent}
+    onCellEdited={undo.onCellEdited}
+    gridSelection={undo.gridSelection ?? undefined}
+    onGridSelectionChange={undo.onGridSelectionChange}
+/>;
+```
+
+A bulk accept is then **one undo step**: Cmd/Ctrl+Z restores every cell, redo writes them again once, and no suggestion comes back. Its known limits apply unchanged:
+
+- It records edits by display position, so an undo after re-sorting or filtering writes to positions, not to the rows that were accepted. Use `revertCommit` for an id-safe undo.
+- If your `onCellsEdited` returns `true`, the per-cell `onCellEdited` calls don't happen, so `useUndoRedo` never sees the edits. The same is true of paste.
+
+### `revertCommit`
+
+`api.revertCommit(commitId)` writes a commit's previous values back by row id, through the same `onCellsEdited` / `onCellEdited` batch (setting a selection first when there is none), and returns how many cells it restored. It doesn't call `onCommit` or run the commit guards above; its own checks follow. It leaves a cell alone when its row is gone, when it no longer holds the committed value (someone edited it since), when it is read-only now, or when `validateCell` rejects the old value. A commit is reverted at most once, and its results stay accepted.
+
+### Your own undo stack
+
+`onCommit` gives every edit's `previous` and `next` cell, keyed by row id and column id, which is enough for a custom undo stack to do what `revertCommit` does.

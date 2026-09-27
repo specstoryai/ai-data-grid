@@ -1,0 +1,247 @@
+---
+title: Examples
+description: A complete buyer-persona Choice, a seniority Score and an owns-a-budget Noul.
+---
+
+These examples use synthetic contacts. The [Storybook](https://ai-data-grid-storybook.vercel.app) stories under **AI-Data-Grid / AI Fill** run the same configurations against a mock, so you can try them without a key.
+
+## Buyer persona (Choice), complete
+
+A Next.js app with a contacts grid. The server route holds the key; the grid has one AI column, Persona.
+
+### The server route
+
+```ts
+// app/api/jev/route.ts
+import { createJevHandler } from "@specstory/ai-data-grid/server";
+import { getSession } from "@/lib/auth"; // your own authentication
+
+export const POST = createJevHandler({
+    apiKey: process.env.TYPESAFE_API_KEY ?? "",
+    // Only signed-in users may spend the key.
+    authorize: async request => (await getSession(request)) !== undefined,
+});
+```
+
+`TYPESAFE_API_KEY` is set in the server's environment (for example in the hosting provider's settings), never in client code.
+
+### The grid
+
+```tsx
+// contacts-grid.tsx
+"use client";
+import * as React from "react";
+import {
+    DataEditor,
+    type AIFillConfig,
+    type EditableGridCell,
+    type GridCell,
+    GridCellKind,
+    type GridColumn,
+    type Item,
+} from "@specstory/ai-data-grid";
+import "@specstory/ai-data-grid/dist/index.css";
+
+interface Contact {
+    id: string;
+    name: string;
+    title: string;
+    notes: string;
+    persona: string;
+}
+
+const columns: GridColumn[] = [
+    { id: "name", title: "Name", width: 160 },
+    { id: "title", title: "Title", width: 200 },
+    { id: "notes", title: "Notes", width: 320 },
+    { id: "persona", title: "Persona", width: 220 },
+];
+
+const fields = ["name", "title", "notes", "persona"] as const;
+
+export function ContactsGrid({ initial }: { initial: Contact[] }) {
+    const [contacts, setContacts] = React.useState(initial);
+
+    const getCellContent = React.useCallback(
+        ([col, row]: Item): GridCell => {
+            const value = contacts[row][fields[col]];
+            return { kind: GridCellKind.Text, data: value, displayData: value, allowOverlay: true };
+        },
+        [contacts]
+    );
+
+    // Every write, typed by a user or accepted from AI Fill, arrives here.
+    const onCellEdited = React.useCallback(([col, row]: Item, cell: EditableGridCell) => {
+        if (cell.kind !== GridCellKind.Text) return;
+        setContacts(previous =>
+            previous.map((contact, i) => (i === row ? { ...contact, [fields[col]]: cell.data } : contact))
+        );
+    }, []);
+
+    const aiFill = React.useMemo<AIFillConfig>(
+        () => ({
+            connection: { mode: "endpoint", url: "/api/jev" },
+            model: "jev-latest",
+            rows: { getRowId: row => contacts[row].id },
+            rowScope: () => ({ rows: "displayed", label: "contacts" }),
+            columns: {
+                persona: {
+                    primitive: "choice",
+                    instructions: "Which buyer persona best describes this contact?",
+                    sources: ["title", "notes"],
+                    options: {
+                        champion: {
+                            description: "Drives the purchase internally and advocates for it",
+                            label: "Champion",
+                        },
+                        economic: { description: "Controls the budget and signs off on spend", label: "Economic buyer" },
+                        technical: { description: "Evaluates the product's technical fit", label: "Technical evaluator" },
+                        user: { description: "Uses the product day to day", label: "End user" },
+                        none: { description: "None of these fit", label: "None of the above", outcome: "none" },
+                    },
+                    policy: {
+                        show: { minProbability: 0.5 }, // below 0.5: withheld
+                        ready: { minProbability: 0.8 }, // 0.5 to 0.8: review
+                        autoApply: { minProbability: 0.95, options: { notIn: ["none"] } }, // only in "Fill and apply"
+                    },
+                    presentation: { showProbability: true, alternatives: { count: 3 } },
+                },
+            },
+            onCommit: ({ commitId, source, edits }) => {
+                // For example, record who accepted what, with the model that answered.
+                console.info(commitId, source, edits.map(edit => [edit.rowId, edit.metadata.model]));
+            },
+            onError: error => console.warn(`AI Fill: ${error.kind}: ${error.message}`),
+        }),
+        [contacts]
+    );
+
+    return (
+        <DataEditor
+            aiFill={aiFill}
+            columns={columns}
+            rows={contacts.length}
+            getCellContent={getCellContent}
+            onCellEdited={onCellEdited}
+            rowMarkers="number"
+            width="100%"
+            height={480}
+        />
+    );
+}
+```
+
+In a Next.js app, load the grid on the client only (for example with `dynamic(() => import("./contacts-grid"), { ssr: false })`), as for any `DataEditor`.
+
+### What happens
+
+1. A user opens the ▾ on Persona and picks **Fill empty cells in Persona (*N* rows in contacts)**. Rows whose Persona already has a value are skipped; nothing else is filled.
+2. For each row, AI Fill sends the row's title and notes to `/api/jev`, which asks Jev. The cells show `⋯` while they wait.
+3. Each answer is decided by the policy:
+    - probability 0.91 for "Economic buyer": **suggested**, drawn as `Economic buyer · 0.91` ghost text;
+    - 0.64 for "Technical evaluator": **review**, with an amber corner;
+    - 0.41: **withheld**, with a hollow `○` and nothing shown;
+    - 0.86 for "None of the above": a **semantic outcome**, which has nothing to write.
+4. The status bar sums it up and offers **Review next** and **Accept *N* eligible**. The inspector shows each answer's options ranked by probability, the model confidence, the reason for the decision, and the model id.
+5. Accepting writes the labels through `onCellEdited`, in one batch, and calls `onCommit`. Rejected and withheld results write nothing. **Accept *N* eligible** leaves review results alone; one is written only when it's accepted by itself, for example from the inspector.
+6. "Fill and apply…" in the menu (it always asks first) writes answers of 0.95 or more straight away, except "None of the above", and leaves the rest with their usual status (suggested, review or withheld).
+
+Try this workflow in the Storybook story **01 Buyer-persona Choice (full workflow)**, and "Fill and apply" in **07 Review queue and auto-apply**.
+
+## Seniority (Score)
+
+A four-level rubric, written as the level's label. Levels can carry a longer description for Jev and a short label for users:
+
+```ts
+const levels = [
+    { description: "Individual contributor: no direct reports", label: "IC" },
+    { description: "Manager: leads a team", label: "Manager" },
+    { description: "Director: leads managers or a function", label: "Director" },
+    { description: "Vice president or C-level: leads a division or the company", label: "Executive" },
+];
+
+const columns: AIFillConfig["columns"] = {
+    seniority: {
+        primitive: "score",
+        instructions: "How senior is this contact?",
+        sources: ["title"],
+        levels,
+        output: { store: "level-label", levelFrom: "nearest" },
+        policy: { show: { minConfidence: 0.4 }, ready: { minConfidence: 0.7 } },
+        presentation: { showConfidence: true, rubricBar: true },
+    },
+    // The same question, keeping the score itself in a number column.
+    seniorityScore: {
+        primitive: "score",
+        instructions: "How senior is this contact?",
+        sources: ["title"],
+        levels,
+        output: { store: "score", precision: 2 },
+    },
+};
+```
+
+- An answer with the score 2.88 and confidence 0.88 is suggested as "Executive" in `seniority` and 2.88 in `seniorityScore`. Both columns ask the same question about the same state, so they share one request per row.
+- An answer whose probability is split between "IC" and "Executive" can have a middle score (1.5, "Director") with a low confidence. With this policy it goes to review below 0.7, and is withheld below 0.4. See [Primitives](/docs/ai-fill/primitives#score).
+
+Storybook: **02 Score seniority with level mapping** and **06 High Score with low confidence**.
+
+## Owns a budget (Noul)
+
+A yes/no question written to a boolean column, with bands:
+
+```ts
+const columns: AIFillConfig["columns"] = {
+    ownsBudget: {
+        primitive: "noul",
+        instructions: "Does this contact own a budget?",
+        criteria: { true: "Signs off on spend", false: "No spending authority" },
+        sources: ["title", "notes"],
+        output: {
+            store: "boolean",
+            bands: { falseAtOrBelow: 0.2, trueAtOrAbove: 0.8, between: "review" },
+        },
+        presentation: { probabilityBar: true },
+    },
+};
+```
+
+| Jev's answer | Result |
+|---|---|
+| 0.97 | Yes (`true`) |
+| 0.80 | Yes: the band includes its boundary |
+| 0.7999999 | Uncertain: review, nothing to write |
+| 0.5 | Uncertain, never "No" |
+| 0.2000001 | Uncertain |
+| 0.20 | No (`false`) |
+| 0.02 | No: a strong no is a usable answer, not a failure |
+
+To write "Yes" and "No" to a text column instead, use `store: "label"` (with `labels` to rename them); to keep the number, use `store: "probability"`. Storybook: **03 Noul bands**.
+
+## Testing your configuration
+
+Use the mock in tests, so they never call Jev:
+
+```tsx
+import { render } from "@testing-library/react";
+import { createMockJev } from "@specstory/ai-data-grid/testing";
+
+const jev = createMockJev({
+    latencyMs: 0,
+    rules: [
+        {
+            instructions: /buyer persona/,
+            answer: {
+                type: "choice",
+                choice: "economic",
+                probabilities: { champion: 0.03, economic: 0.91, technical: 0.03, user: 0.02, none: 0.01 },
+                confidence: 0.84,
+            },
+        },
+    ],
+});
+
+render(<DataEditor aiFill={{ ...aiFill, connection: jev.connection }} /* … */ />);
+```
+
+`validateAIFillConfig(aiFill, { columns })` returns an empty array for a valid configuration, which makes a cheap test on its own.

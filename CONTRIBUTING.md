@@ -33,7 +33,7 @@ The root `package.json` `overrides` only affect this repository's install, not t
 | Path | What it is |
 | --- | --- |
 | `packages/core` | `@specstory/ai-data-grid`, the grid. Source in `src/`, tests in `test/`, stories in `src/docs/` and `src/**/*.stories.tsx`. `API.md` is the API reference and `CHANGELOG.md` the release notes. |
-| `packages/core/src/ai-fill/` | AI Fill, in development inside core (not a separate package). See [Working on AI Fill](#working-on-ai-fill). Its tests are in `packages/core/test/ai-fill/`. |
+| `packages/core/src/ai-fill/` | AI Fill, part of core (not a separate package). See [Working on AI Fill](#working-on-ai-fill). Its tests are in `packages/core/test/ai-fill/`. |
 | `packages/cells` | `@specstory/ai-data-grid-cells`, extra cell renderers (`src/cells/`). |
 | `packages/source` | `@specstory/ai-data-grid-source`, data source hooks. |
 | `config/build-util.sh` | Shared build steps used by each package's `build.sh`. |
@@ -59,7 +59,7 @@ Run these from the root. CI runs the first five.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 860 (470 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -73,7 +73,7 @@ It needs Playwright's Chromium. If it isn't installed yet, run `npx playwright i
 
 ## Working on AI Fill
 
-AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. So far it has the pure foundation (contract, config, identity, policy), the execution layer (transport, engine, `/server`, `/testing`) the grid integration: the optional `aiFill` prop on `DataEditor` (`src/data-editor-all.tsx`), a static bridge and a lazily loaded controller (`react/`), and the built-in UI: menus, confirm dialog, status bar, inspector and keyboard shortcuts (`react/ui/`). The stories come in WP-AI5. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`; the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
+AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. So far it has the pure foundation (contract, config, identity, policy), the execution layer (transport, engine, `/server`, `/testing`) the grid integration: the optional `aiFill` prop on `DataEditor` (`src/data-editor-all.tsx`), a static bridge and a lazily loaded controller (`react/`), the built-in UI: menus, confirm dialog, status bar, inspector and keyboard shortcuts (`react/ui/`), and, from WP-AI5, 13 Storybook stories, the docs site guide and a recorded live check. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, and the user guide is `docs/content/docs/ai-fill/` (see [The AI Fill guide](#the-ai-fill-guide-hand-maintained)); the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
 
 ### Code map
 
@@ -100,12 +100,13 @@ AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work pac
 | `src/ai-fill/react/ui/styles.ts` | The one Linaria `css` block (`aiStyles`) for all of the UI. See [Built-in UI rules](#built-in-ui-rules). |
 | `src/ai-fill/server/index.ts` | The `@specstory/ai-data-grid/server` entry: `createJevHandler` and `toNodeListener`. |
 | `src/ai-fill/testing/index.ts` | The `@specstory/ai-data-grid/testing` entry: `createMockJev`. |
+| `src/ai-fill/stories/` | Stories 1–10, 12 and 13 (`ai-fill-primitives`, `ai-fill-review` and `ai-fill-menus` `.stories.tsx`) and their shared `story-kit.tsx` (synthetic contacts, the editable table, seeded mock answers, the frame and the endpoint URL control). Core's build excludes the folder, but the tarball ships it with the rest of `src/`. See [AI Fill stories](#ai-fill-stories). |
 | `test/ai-fill/*.test.ts` | Unit tests per module, plus the `boundaries`, `bundle-budget`, `server-load` and `no-live-jev` guards below. |
 | `test/ai-fill/*.test.tsx` | Grid-level tests that render a real `DataEditor` with `aiFill`: `grid-integration` (the prop, composition, rendering, no inference without a trigger), `grid-fill` (primitives end to end, scopes and skip reasons, accept, reject and commit guards, column targets), `grid-identity` (sorting, filtering, deleting and editing while pending, `getRowIndex`), `commit-undo-contract` (the commit batch and `revertCommit`), `unconfigured-grid` (the golden test), and the built-in UI tests `ui-menus`, `ui-confirm`, `ui-status`, `ui-inspector`, `ui-keyboard` and `ui-workflow` (a whole review workflow with no app code but the config). |
 | `test/ai-fill/fixtures/` | Shared fixtures: `jev-contract.ts` holds Jev request and response bodies copied from the TypeSafe docs examples (update them from the docs, never from a test run), `definitions.ts` holds synthetic column definitions, `grid.ts` is a synthetic in-memory grid for the engine tests, `harness.tsx` renders a `DataEditor` with `aiFill` for the grid-level tests, `contacts.ts` is the synthetic contacts grid they use, and `ui.ts` has the UI tests' helpers (clicking a header ▾, right-clicking a cell, grid keys, finding popups). |
 | `test/ai-fill/live-jev-guard.ts` | The live-Jev `fetch` guard that `vitest.setup.ts` installs for every core test. |
 
-Paths are relative to `packages/core`. WP-AI5 adds `stories/` under `src/ai-fill/`; it doesn't exist yet. Source's AI Fill test is `packages/source/test/ai-fill-undo.test.tsx` (see [Tests and fixtures](#tests-and-fixtures)).
+Paths are relative to `packages/core`. Source's AI Fill test is `packages/source/test/ai-fill-undo.test.tsx` (see [Tests and fixtures](#tests-and-fixtures)), and its AI Fill story is `packages/source/src/stories/ai-fill-undo.stories.tsx` (story 11).
 
 ### The `aiFill` prop and the `react/` layer
 
@@ -148,7 +149,8 @@ The test parses every `.ts`/`.tsx` file under `src/` and fails on:
 1. an import in `ai-fill/` from `src/index.ts`, `src/data-editor-all.tsx` or any `@specstory/*` package. Import core types from the module that defines them, for example `../../internal/data-grid/data-grid-types.js`;
 2. an import of `ai-fill/` from anywhere outside it except `src/index.ts` and `src/data-editor-all.tsx`. `src/data-editor/data-editor.tsx` may use type-only imports;
 3. in the graph of files reachable from `ai-fill/server/index.ts` (through relative imports, type-only ones included): a `react`, `react-dom` or `@linaria/*` import, a `.tsx` file, or a `window` or `document` reference outside a function body. `/server` must load in plain Node;
-4. an import in `ai-fill/testing/` from anything but `testing/`, `contract/`, `identity/` and `transport/`.
+4. an import in `ai-fill/testing/` from anything but `testing/`, `contract/`, `identity/` and `transport/`;
+5. in `ai-fill/stories/`, which rule 1 doesn't cover: an import of `src/index.ts`, or of any `@specstory/*` entry other than `@specstory/ai-data-grid/testing` (the stories use AI Fill as an app does, through `../../data-editor-all.js` and the mock's subpath); and an import of a story file from anywhere else in core.
 
 It also fails on an import of `@specstory/ai-data-grid-cells` or `-source` anywhere in core. The numbers match the test's own comments. `npm run build` also runs `cycle-check`, which must stay clean.
 
@@ -194,8 +196,29 @@ Two root scripts talk to the real Jev API. They aren't published (core's tarball
     tmux kill-session -t jev-proxy       # stop it
     ```
 
-    The key comes from the sandbox environment (`JEV_API_KEY`); don't type it on the command line. Point the demo at `connection: { mode: "endpoint", url: "<sb-url 8787>api/jev" }`.
-- **`scripts/jev-live-check.mjs`** is WP-AI5's live check. It sends one direct-mode request with three questions (a Choice, a Score and a Noul) about one synthetic contact through AI Fill's own client, with no retries, checks each answer with `parseJevAnswer` and the column policies, then sends the same request with a bad key to confirm a 401 becomes an `authentication` error. That is 2 HTTP requests, or 1 with `--skip-401`. (The script's header comment says "at most 4 calls (3 without --skip-401)", counting each question.) `--model` defaults to `jev-latest`. `node scripts/jev-live-check.mjs --dry-run` prints the requests, sends nothing and needs no key. It imports internal modules from `packages/core/dist/esm/ai-fill/`.
+    The key comes from the sandbox environment (`JEV_API_KEY`); don't type it on the command line. Point the demo at `connection: { mode: "endpoint", url: "<sb-url 8787>api/jev" }`, or enter that URL in an AI Fill story's endpoint URL control (see [AI Fill stories](#ai-fill-stories)).
+- **`scripts/jev-live-check.mjs`** is the live check. It sends one direct-mode request with three questions (a Choice, a Score and a Noul) about one synthetic contact through AI Fill's own client, with no retries, checks each answer with `parseJevAnswer` and the column policies, then sends the same request with a bad key to confirm a 401 becomes an `authentication` error. `--model` defaults to `jev-latest`. `node scripts/jev-live-check.mjs --dry-run` prints the requests, sends nothing and needs no key. It imports internal modules from `packages/core/dist/esm/ai-fill/`.
+
+    **Call budget.** Each question sent to Jev counts as one call, and the bad-key request (which answers no question) counts as one, so one run is **4 calls** (3 with `--skip-401`), although it sends 2 HTTP requests (1 with `--skip-401`). SPST-16 caps live calls at 20 in total; 12 are used (8 in planning, 4 in WP-AI5's run on 2026-09-26). A fill through the dev proxy is billed the same way: one call per cell evaluated. Only run it when your brief allots calls.
+
+    **Procedure.** `npm run build`, then `--dry-run` to check the request, then one run with the key already in the environment (`node scripts/jev-live-check.mjs`; never type the key on the command line). Then add a dated entry to `docs/content/docs/ai-fill/live-validation.mdx`: the date and time, the issue, the number of calls, the requested and the returned model id, each answer as returned with its decision, and any deviation from the contract. Never record the key, and make no accuracy or latency claims. Update the budget line on that page too.
+
+### AI Fill stories
+
+13 stories show AI Fill in Storybook, in four groups under **AI-Data-Grid / AI Fill**. Story names start with `01`…`13`, so they sort in order within a group.
+
+| Storybook group | Stories | File |
+| --- | --- | --- |
+| `1 Primitives and thresholds` | 01–06 | `packages/core/src/ai-fill/stories/ai-fill-primitives.stories.tsx` |
+| `2 Review, errors and rows` | 07–10 | `packages/core/src/ai-fill/stories/ai-fill-review.stories.tsx` |
+| `3 Undo with useUndoRedo` | 11 | `packages/source/src/stories/ai-fill-undo.stories.tsx` |
+| `4 Menus and opt-out` | 12–13 | `packages/core/src/ai-fill/stories/ai-fill-menus.stories.tsx` |
+
+- **Story 11 lives in the source package** because it uses the real `useUndoRedo`, and core never imports from source. It imports core by package name (`@specstory/ai-data-grid`, `/testing` and `dist/index.css`), so it runs against core's built `dist/`: `npm start` rebuilds core as you edit. Source stays at 9 tests and 5 exports.
+- **The core stories** import `DataEditor` from `../../data-editor-all.js`, like core's other stories, and the mock from `@specstory/ai-data-grid/testing` (import rule 5). Shared pieces are in `story-kit.tsx`.
+- **No network by default.** Every story turns AI Fill on only through `aiFill` and answers from `createMockJev` with fixed latency and seeded answers. Never put a key in a story.
+- **The endpoint URL control.** Every story except 08 (its errors are injected by the mock) and 13 (it has no `aiFill`) has an `endpointUrl` control. Empty means the mock; a URL switches the story to endpoint mode against it. To try a story against real Jev, start the dev proxy (see [Live Jev scripts](#live-jev-scripts-manual-only)) and Storybook, then enter the proxy's URL in the control. In the sandbox: start the proxy detached with the recipe above (its `--allow-origin` is Storybook's sandbox origin on port 9009), start Storybook detached too (`tmux new -d -s storybook "npm start"`), open the URL `sb-url 9009` prints, and enter the proxy's URL (`sb-url 8787` followed by `api/jev`) in the control. From `http://localhost:9009` the proxy allows the origin without `--allow-origin`, and the URL is `http://localhost:8787/api/jev`. Every fill then makes live, billed calls that count against the budget. Stop both sessions when you're done (`tmux kill-session -t jev-proxy`, `tmux kill-session -t storybook`).
+- `npm run smoke-storybook` opens the AI Fill stories like any other (126 stories in total); they need no allowlist entries.
 
 ## Sample apps (`test-projects/`)
 
@@ -304,6 +327,7 @@ Add `-p <port>` to the dev command to use another port. In the dev sandbox, run 
 
 - Pages are MDX in `docs/content/docs/`. `meta.json` files set the sidebar order.
 - `docs/content/docs/index.mdx` (the welcome page, served at `/docs`) and `docs/content/docs/about.mdx` (About & License) are hand-maintained.
+- The **AI Fill guide**, `docs/content/docs/ai-fill/` (10 pages, ordered by its `meta.json`), is a hand-maintained section with no GitBook source. See [The AI Fill guide (hand-maintained)](#the-ai-fill-guide-hand-maintained).
 - Every other page is generated from the Glide Data Grid GitBook docs by the importer, then hand-edited: the product name is replaced, the Extended QuickStart Guide has a "Not on npm yet" note, and the FAQ links two Storybook stories. Images are in `docs/public/images/`.
 - Keep the attribution "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed." on the welcome page, on the About & License page and in the site footer (`docs/lib/theme-config.ts`).
 
@@ -313,7 +337,11 @@ Add `-p <port>` to the dev command to use another port. In the dev sandbox, run 
 cd docs && node scripts/import-gitbook.mjs
 ```
 
-This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, downloads the 17 images again and rewrites every `meta.json`. It skips `index.mdx` and `about.mdx`, but it **overwrites every other page**. That undoes the hand edits to those pages: "Glide Data Grid" replaced with "AI Data Grid" (in five pages at the time of writing), the "Not on npm yet" note in `extended-quickstart-guide/index.mdx`, and the Storybook links in `faq.mdx`. After a re-import, review `git diff docs/content` and re-apply those edits before committing.
+This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, downloads the 17 images again and rewrites every `meta.json`. It skips `index.mdx`, `about.mdx` and the hand-maintained `ai-fill/` section (`HAND_MAINTAINED` and `HAND_MAINTAINED_SECTIONS` in the script), and the root `meta.json` it writes lists `ai-fill` before `about`. It **overwrites every other page**. That undoes the hand edits to those pages: "Glide Data Grid" replaced with "AI Data Grid" (in five pages at the time of writing), the "Not on npm yet" note in `extended-quickstart-guide/index.mdx`, and the Storybook links in `faq.mdx`. After a re-import, review `git diff docs/content` and re-apply those edits before committing.
+
+### The AI Fill guide (hand-maintained)
+
+`docs/content/docs/ai-fill/` is the user guide for AI Fill: overview and quick start, configuration, connecting to Jev, primitives, result policies, fill scopes and review, persistence, commits and undo, examples, limitations, and live validation (the record of live Jev calls). It is written by hand against the code, so update it in the same PR as any AI Fill change that users can see, together with the "AI Fill" chapter of `packages/core/API.md`. To add a page, add it to `ai-fill/meta.json`. To add another hand-maintained top-level section, add it to `HAND_MAINTAINED_SECTIONS` in `docs/scripts/import-gitbook.mjs`. Code in the guide uses only exported names, and no key, token or real row data.
 
 ### Deploys (Vercel)
 

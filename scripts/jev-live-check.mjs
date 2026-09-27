@@ -7,9 +7,10 @@
  * and runs the column policies, then makes one deliberate call with a bad key
  * to confirm a 401 is reported as an `authentication` error.
  *
- * It makes at most 4 live, billed calls (3 without --skip-401). No test or CI
- * step runs it; live calls are budgeted and recorded by hand in
- * docs/content/docs/ai-fill/live-validation.mdx.
+ * It makes at most 4 live, billed calls (3 with --skip-401): each question is
+ * one call, and the bad-key check is one, although it sends only 2 HTTP
+ * requests (1 with --skip-401). No test or CI step runs it; live calls are
+ * budgeted and recorded by hand in docs/content/docs/ai-fill/live-validation.mdx.
  *
  * Build core first (`npm run build`), then:
  *

@@ -1479,7 +1479,7 @@ Behavior not defined or officially supported. Feel free to check out what this d
 
 # AI Fill
 
-> **In development: Storybook examples, the docs site guide and the live check arrive in a later package.** AI Fill is being built in stages inside `@specstory/ai-data-grid`. The `aiFill` prop works end to end: a grid with it has AI menus, a scope confirmation, a status bar, an inspector and keyboard shortcuts, and fills, draws, commits and undoes AI results, with no AI code in the app beyond the configuration (see [Built-in UI](#built-in-ui)). Apps can also drive it through `ref.current.aiFill` (`AIFillApi`). The server helper (`@specstory/ai-data-grid/server`) and the mock (`@specstory/ai-data-grid/testing`) are complete.
+> **Guide and examples.** The [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site walks through setup, connecting to Jev, the primitives, result policies, review, undo and the limitations, with complete examples. The Storybook has 13 AI Fill stories under **AI-Data-Grid / AI Fill** (sources in `src/ai-fill/stories/`, and `ai-fill-undo.stories.tsx` in the source package); 12 run against the mock with seeded answers, and the 13th shows a grid without `aiFill`. The guide and the stories are on the hosted sites once AI Fill reaches `main`. This chapter is the reference.
 
 AI Fill is powered by [Jev](https://docs.typesafe.ai), TypeSafe's Choice, Score and Noul primitives.
 
@@ -1787,7 +1787,7 @@ A result that fails any other guard isn't written and keeps its status; `getCell
 
 A Choice semantic outcome without a `value`, and a Noul in the middle band, have nothing to write: accepting one marks it `accepted` and writes nothing.
 
-**Auto-apply.** In a "Fill and apply" run (`fill(scope, { mode: "apply" })`), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, as `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays `suggested`. Review results, manual cells and populated cells under `overwrite: "suggest"` are never auto-applied, and a result re-decided after a policy change isn't either.
+**Auto-apply.** In a "Fill and apply" run (`fill(scope, { mode: "apply" })`), a result that passes the column's `autoApply` gate is written as soon as it arrives, through the same path, as `source: "auto-apply"` and status `applied`. It must pass every guard; one that doesn't stays `suggested`. Review results, manual cells and populated cells under `overwrite: "suggest"` are never auto-applied, and a result re-decided after a policy change isn't either. The run's summary (`onRunEnd`'s `counts`, `getRunState().last` and the status bar) counts a result that auto-apply wrote as `applied`, and one that a guard kept from being written as `suggested`.
 
 **Undo with `useUndoRedo`** (`@specstory/ai-data-grid-source`). Wire it the standard way:
 

@@ -1,0 +1,55 @@
+---
+title: Limitations
+description: What AI Fill doesn't do, and the known limitations of this version.
+---
+
+## What AI Fill is not
+
+AI Fill fills cells a developer has configured, when a user or the app asks. It doesn't include:
+
+- configuration by end users, or a prompt builder;
+- columns that recompute continuously: a result is never re-run by itself, even when it goes stale;
+- learning from corrections;
+- an assisted-dropdown product, semantic lenses, semantic search, conditional formatting or joins;
+- what-if exploration or chat;
+- external enrichment (looking things up outside the row) or generated prose: Jev answers with ids and numbers only;
+- other model providers. AI Fill talks only to Jev.
+
+## Answers are model outputs
+
+- **Probability and confidence aren't accuracy.** They are what the model reports. Thresholds are your choice; evaluate them on your own data before relying on them, and before turning on `autoApply`.
+- **Answers can change between model versions.** `jev-latest` is an alias. Every answer keeps the versioned model id that produced it (for example `jev-1.13.0`), so you can tell which model answered.
+
+## Browsers can't call Jev directly
+
+TypeSafe's API currently rejects browser CORS preflights from every origin tried, so direct mode works only from Node. In a browser, it refuses without `dangerouslyAllowBrowser`, and with it the call fails as a `network` error that points to endpoint mode. Browser apps need endpoint mode, for example a route built with `createJevHandler`; for demos, use `scripts/jev-dev-proxy.mjs`. See [Connecting to Jev](/docs/ai-fill/connecting-to-jev#cors).
+
+## Filtered-out rows
+
+AI Fill knows a row only through `getRowId` and `getRowIndex` on the rows that are displayed, so it can't tell a row hidden by a filter from a deleted one. Wherever it has to find a row, a filtered-out row counts as deleted, and its result is dropped with `reason: "row-missing"` (reported through `onResult`) and nothing is written:
+
+- an answer that arrives while its row is filtered out. Fill the row again once it's displayed;
+- `notifyRowsChanged()` called while a filter hides the row (with no ids, or with its id): its decided results are dropped;
+- `accept({ cells })` naming a hidden row, and an accept or Choose from the UI that reaches one, for example an inspector left open while a filter hides its row.
+
+Otherwise a decided result on a hidden row keeps its record, "Accept all eligible" skips it, and rejecting or re-running never drops it. Storybook story **10 Sorting and filtering while pending** shows both sides.
+
+## Persistence and undo
+
+- **Suggestions live in memory.** They aren't saved, and a reload starts with none. Only accepted values persist, through your own edit handlers. Commit ids, and so `revertCommit`, last as long as the grid's AI Fill session.
+- **`useUndoRedo` is position-based.** An undo after re-sorting or filtering writes to display positions, not to the rows that were accepted. `api.revertCommit(commitId)` is the id-safe alternative.
+- **An `onCellsEdited` that returns `true` hides AI Fill's writes from `useUndoRedo`**, as it does for paste, because the per-cell `onCellEdited` calls don't happen.
+
+## Requests
+
+- **One row per request.** Rows are never packed together, so a fill over 500 rows sends at least one request per row (fewer when answers are cached): one for each distinct row state and model, with at most `maxQuestionsPerRequest` questions each. Two AI columns with different `sources` over 500 rows send up to 1,000 requests, within `concurrency` and `maxRequestsPerMinute`.
+- **Jev's error-body shape isn't fully documented,** so AI Fill reads the message from the fields it knows. An unexpected shape still maps to the right error kind by its HTTP status, with a generic message.
+
+## Accessibility
+
+The grid's canvas doesn't expose suggestions to screen readers. The menus, the confirm dialog, the inspector and the status bar are accessible DOM, and a live region announces what menu, inspector and shortcut actions did. Screen-reader users review results through the inspector.
+
+## API
+
+- `AIFillRun` (the return type of `fill`, `retry` and `rerunStale`) and `AIActiveRun` (an element of `getRunState().active`) aren't exported by name. Use inference, or `ReturnType<AIFillApi["fill"]>`.
+- `require("@specstory/ai-data-grid/server")` needs a Node version that can `require` ES modules: 20.19+, 22.12+ or 24. Older versions must use `import`.
