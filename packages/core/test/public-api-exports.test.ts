@@ -4,11 +4,13 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Guards the public API against accidental drift: the sorted export names of
- * `src/index.ts` must match the 6.0.4-alpha25 (last upstream release) list
- * exactly. Adding or removing an export is a breaking-change signal and must
- * be deliberate — update this list only when the API change is intended.
+ * `src/index.ts` must match the 6.0.4-alpha25 names plus the listed AI Fill
+ * additions. Adding or removing an export is a breaking-change signal and must
+ * be deliberate — update these lists only when the API change is intended.
  */
-const expectedExports = [
+
+/** The 6.0.4-alpha25 (last upstream release) export names. */
+const upstreamExports = [
     "AllCellRenderers",
     "AutoGridColumn",
     "BaseDrawArgs",
@@ -162,6 +164,110 @@ const expectedExports = [
     "withAlpha",
 ];
 
+/**
+ * AI Fill additions (SPST-16). Every name must follow {@link aiFillNamingRule},
+ * so AI Fill never takes a generic name from core's namespace.
+ */
+const aiFillExports = [
+    "AICellContext",
+    "AICellStatus",
+    "AIColumnDefinition",
+    "AIColumnDefinitionBase",
+    "AIColumnDefinitionFor",
+    "AIColumnId",
+    "AICommitEdit",
+    "AICommitEvent",
+    "AIDecideContext",
+    "AIDecideResult",
+    "AIDecideStatus",
+    "AIDecisionReason",
+    "AIFillConfig",
+    "AIFillConfigIssue",
+    "AIFillConnection",
+    "AIFillCustomConnection",
+    "AIFillDirectConnection",
+    "AIFillEndpointConnection",
+    "AIFillError",
+    "AIFillErrorKind",
+    "AIFillExecutionOptions",
+    "AIFillMode",
+    "AIFillRows",
+    "AIFillScope",
+    "AIGateName",
+    "AIJsonObject",
+    "AIJsonValue",
+    "AIMappedOutput",
+    "AIOutputBase",
+    "AIOverwritePolicy",
+    "AIPolicy",
+    "AIPolicyDecision",
+    "AIPolicyEvaluation",
+    "AIPolicyStatus",
+    "AIRange",
+    "AIRejectEvent",
+    "AIResultEvent",
+    "AIResultMetadata",
+    "AIRowContext",
+    "AIRowId",
+    "AIRowScope",
+    "AIRunProgressEvent",
+    "AIRunStartEvent",
+    "AIRunSummary",
+    "AISemanticOutcome",
+    "AISkipReason",
+    "ChoiceAnswer",
+    "ChoiceColumnDefinition",
+    "ChoiceGate",
+    "ChoiceOption",
+    "ChoicePolicy",
+    "ChoicePresentation",
+    "EvaluateAIPolicyInput",
+    "JevAnswer",
+    "JevAnswerFor",
+    "JevChoiceAnswer",
+    "JevChoiceQuestion",
+    "JevInstructions",
+    "JevNoulAnswer",
+    "JevNoulQuestion",
+    "JevPrimitive",
+    "JevQuestion",
+    "JevRequest",
+    "JevResponse",
+    "JevScoreAnswer",
+    "JevScoreQuestion",
+    "JevState",
+    "MapAIOutputError",
+    "MapAIOutputResult",
+    "NoulAnswer",
+    "NoulBands",
+    "NoulColumnDefinition",
+    "NoulGate",
+    "NoulLabels",
+    "NoulOutput",
+    "NoulPolicy",
+    "NoulPresentation",
+    "ParseJevAnswerResult",
+    "ParsedJevAnswer",
+    "ScoreAnswer",
+    "ScoreColumnDefinition",
+    "ScoreGate",
+    "ScoreLevel",
+    "ScoreOutput",
+    "ScorePolicy",
+    "ScorePresentation",
+    "ValidateAIFillConfigOptions",
+    "evaluateAIPolicy",
+    "isAIDestinationEmpty",
+    "mapAIOutput",
+    "parseJevAnswer",
+    "validateAIFillConfig",
+];
+
+/** Contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`. */
+const aiFillNamingRule = /AI|Jev|^(?:Choice|Score|Noul)/;
+
+const expectedExports = [...upstreamExports, ...aiFillExports].sort();
+
 function getExportedNames(entry: string): string[] {
     const program = ts.createProgram([entry], {
         allowJs: true,
@@ -183,8 +289,15 @@ function getExportedNames(entry: string): string[] {
 }
 
 describe("public API exports", () => {
-    it("match the 6.0.4-alpha25 export list", () => {
+    it("match the 6.0.4-alpha25 export list plus the AI Fill additions", () => {
         const entry = path.resolve("src/index.ts");
         expect(getExportedNames(entry)).toEqual(expectedExports);
+    });
+
+    it("keep every 6.0.4-alpha25 name and add only names that follow the AI Fill naming rule", () => {
+        expect(upstreamExports).toHaveLength(151);
+        const added = expectedExports.filter(name => !upstreamExports.includes(name));
+        expect(added).toEqual(aiFillExports);
+        expect(added.filter(name => !aiFillNamingRule.test(name))).toEqual([]);
     });
 });

@@ -112,6 +112,8 @@ The full documentation (quickstart guide, API reference, guides and FAQ) is at *
 
 The API reference, including the HTML/CSS prerequisites, is also in this repository at [packages/core/API.md](packages/core/API.md).
 
+**In development: AI Fill.** AI-filled columns (powered by TypeSafe's Jev) are being built into `@specstory/ai-data-grid` itself, not a separate package. They can't be used yet: the `aiFill` prop on `DataEditor` doesn't exist in this version. The "AI Fill" chapter of [API.md](packages/core/API.md#ai-fill) describes the configuration being built.
+
 ## Migrating from 6.x
 
 7.0.0 needs React 19 (`^19.0.0`). React 16, 17 and 18 are not supported, so if your app is on one of them, upgrade it to React 19 first, then switch packages.
