@@ -26,6 +26,9 @@ export type AIFillComposedProps = Pick<
     | "getCellContent"
     | "rows"
     | "validateCell"
+    | "className"
+    | "onCellClicked"
+    | "portalElementRef"
 >;
 
 /** What the loaded controller hands `DataEditor`. A new object means `DataEditor` must render again. */

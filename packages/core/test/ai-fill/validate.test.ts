@@ -197,6 +197,23 @@ describe("validateAIFillConfig: grid-level structure", () => {
         expectIssue(exec("fast"), "execution", /must be an object/);
     });
 
+    it("checks the built-in UI options", () => {
+        expect(
+            validate({
+                ...validConfig(),
+                menus: "compose",
+                statusBar: false,
+                shortcuts: { menu: "shift+F10", inspect: false },
+            })
+        ).toEqual([]);
+        expect(validate({ ...validConfig(), shortcuts: false })).toEqual([]);
+        expectIssue({ ...validConfig(), menus: "app" }, "menus", /"built-in", "compose", "off"/);
+        expectIssue({ ...validConfig(), statusBar: "yes" }, "statusBar", /boolean/);
+        expectIssue({ ...validConfig(), shortcuts: "none" }, "shortcuts", /must be an object/);
+        expectIssue({ ...validConfig(), shortcuts: { open: "x" } }, "shortcuts.open", /unknown shortcut/);
+        expectIssue({ ...validConfig(), shortcuts: { accept: "" } }, "shortcuts.accept", /or false/);
+    });
+
     it("requires columns to be an object", () => {
         expectIssue({ ...validConfig(), columns: [] }, "columns", /must be an object/);
     });

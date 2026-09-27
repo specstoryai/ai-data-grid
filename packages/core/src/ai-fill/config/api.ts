@@ -28,6 +28,35 @@ export type AIFillTarget =
     | { readonly selection: true }
     | { readonly column: AIColumnId; readonly filter: "eligible" | "review" | "all" };
 
+/**
+ * One AI Fill menu item, from {@link AIFillApi.getMenuItems}. With
+ * `menus: "compose"`, render these in the app's own menu and call `run` when
+ * one is picked.
+ */
+export interface AIMenuItem {
+    /**
+     * A stable id: `fill-column-empty`, `fill-column`, `fill-selection`,
+     * `fill-selection-empty`, `fill-apply`, `accept-eligible`, `review-next`,
+     * `reject-all`, `retry-failed`, `rerun-stale` and `cancel`, and for a cell
+     * `accept`, `reject`, `inspect`, `retry` and `rerun`. The built-in menu adds
+     * `more` ("More options…").
+     */
+    readonly id: string;
+    /** The text to show, including counts, for example "Fill empty cells in Persona (12 rows in filtered contacts)". */
+    readonly label: string;
+    /** Secondary text, when there is any. */
+    readonly detail?: string;
+    readonly disabled: boolean;
+    /** Why the item is disabled. */
+    readonly disabledReason?: string;
+    /**
+     * Runs the item. A fill that needs confirmation (above
+     * `execution.confirmAbove` cells, a `column` fill, or "Fill and apply")
+     * opens the confirm dialog first. Does nothing when the item is disabled.
+     */
+    readonly run: () => void;
+}
+
 /** What AI Fill knows about one cell, from {@link AIFillApi.getCellState}. */
 export interface AICellState {
     readonly rowId: AIRowId;
@@ -66,6 +95,8 @@ export interface AICellState {
 export interface AIActiveRun {
     readonly runId: string;
     readonly columnIds: readonly AIColumnId[];
+    /** The grid titles of those columns, in the same order. */
+    readonly columnTitles: readonly string[];
     /** Cells in the run. */
     readonly total: number;
     /** Cells settled so far. */
@@ -107,8 +138,10 @@ export interface AIFillRun {
  * once AI Fill has loaded, and the argument of `aiFill.onReady`. Rows are
  * always addressed by the stable ids from `rows.getRowId`.
  *
- * Inference starts only from `fill`, `retry` and `rerunStale`. Reading state,
- * painting, scrolling, selecting and sorting never send a request.
+ * Inference starts only from `fill`, `retry` and `rerunStale`, and from the
+ * built-in UI's fill, retry and re-run actions (including the `run()` of those
+ * items from `getMenuItems`). Reading state, painting, scrolling, selecting,
+ * sorting, opening a menu and opening the inspector never send a request.
  */
 export interface AIFillApi {
     /**
@@ -183,4 +216,38 @@ export interface AIFillApi {
      * column. Cells still waiting for Jev keep waiting. Nothing is written.
      */
     clear(target?: AIFillTarget): void;
+    /**
+     * The AI menu items for an AI column (`{ column }`), for an AI cell and the
+     * selection around it (`{ cell }`), or, without a target, the items that act
+     * on every AI column (the status bar's actions). The counts are computed
+     * now, without sending anything, and each is what the item acts on:
+     * "Retry N failed" and "Re-run N stale" run `retry` and `rerunStale` with
+     * `{ column, filter: "all" }` (or no target) and count the cells that run
+     * would evaluate, so results on rows that aren't displayed don't count;
+     * "Review N" and "Review next" count the results they can reach in
+     * displayed rows; "Reject all suggestions" rejects what
+     * `reject({ column, filter: "all" })` does. An item with nothing to act on
+     * is disabled. Returns `[]` for a column that isn't an AI column.
+     */
+    getMenuItems(
+        target?: { readonly column: AIColumnId } | { readonly cell: readonly [AIRowId, AIColumnId] }
+    ): AIMenuItem[];
+    /**
+     * Opens the built-in AI menu for an AI column or cell, below its header or
+     * cell. Returns `false`, and opens nothing, when the target isn't a
+     * displayed AI column or cell or when `menus` isn't `"built-in"`.
+     */
+    openMenu(target: { readonly column: AIColumnId } | { readonly cell: readonly [AIRowId, AIColumnId] }): boolean;
+    /**
+     * Selects a cell, scrolls to it and opens the inspector for its result.
+     * Returns `false`, and opens nothing, when the cell isn't displayed or has
+     * no result. Never sends a request.
+     */
+    openInspector(cell: readonly [AIRowId, AIColumnId]): boolean;
+    /**
+     * Calls `listener` after any change to a run or a cell's result. Returns a
+     * function that stops listening. For app-built UI such as a custom status
+     * display; read the state with `getRunState` and `getCellState`.
+     */
+    subscribe(listener: () => void): () => void;
 }

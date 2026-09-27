@@ -168,10 +168,10 @@ describe("composition (SPST-17 A1)", () => {
         expect(p.drawCell).not.toBe(drawCell);
         expect(p.drawHeader).not.toBe(drawHeader);
         expect(p.validateCell).toBe(validateCell);
-        // The menu callbacks pass through untouched in this package (the AI menus come with the built-in UI).
-        expect(p.onHeaderMenuClick).toBe(onHeaderMenuClick);
-        expect(p.onHeaderContextMenu).toBe(onHeaderContextMenu);
-        expect(p.onCellContextMenu).toBe(onCellContextMenu);
+        // The menu callbacks are wrapped for the built-in AI menus; ui-menus.test.tsx covers how they coexist.
+        expect(p.onHeaderMenuClick).not.toBe(onHeaderMenuClick);
+        expect(p.onHeaderContextMenu).not.toBe(onHeaderContextMenu);
+        expect(p.onCellContextMenu).not.toBe(onCellContextMenu);
         expect(drawCell).toHaveBeenCalled();
         expect(drawHeader).toHaveBeenCalled();
 
@@ -312,7 +312,7 @@ describe("rendering", () => {
 });
 
 describe("no inference without an explicit trigger (§6.1, §4.5)", () => {
-    test("painting, scrolling, selection, sorting and hovering make zero transport calls", async () => {
+    test("painting, scrolling, selection, sorting, hovering, the inspector and the menus make zero transport calls", async () => {
         const { jev, h } = contacts();
         await settle();
         h.setSelection(rangeSelection(col.persona, 0, 1, 4));
@@ -337,7 +337,17 @@ describe("no inference without an explicit trigger (§6.1, §4.5)", () => {
         h.setView(["r1", "r2"]);
         h.api().getCellState("r1", "persona");
         h.api().getRunState();
+        act(() => {
+            expect(h.api().openInspector(["r1", "persona"])).toBe(true);
+        });
+        act(() => {
+            expect(h.api().openMenu({ column: "persona" })).toBe(true);
+        });
+        h.api().getMenuItems({ column: "persona" });
+        h.api().getMenuItems({ cell: ["r1", "persona"] });
+        h.api().getMenuItems();
         await settle();
+        expect(document.querySelector('[role="menu"]')).not.toBeNull();
         expect(jev.send.mock.calls.length).toBe(calls);
     });
 

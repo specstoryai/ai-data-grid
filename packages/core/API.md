@@ -1479,7 +1479,7 @@ Behavior not defined or officially supported. Feel free to check out what this d
 
 # AI Fill
 
-> **In development: the built-in UI arrives in a later package.** AI Fill is being built in stages inside `@specstory/ai-data-grid`. The `aiFill` prop works: a grid with it fills, draws, commits and undoes AI results, and apps drive it through `ref.current.aiFill` (`AIFillApi`). The built-in menus, the confirm dialog, the status bar and the inspector come in a later stage, so for now fills start from app code or the keyboard shortcuts below, and `execution.confirmAbove` isn't acted on yet. The server helper (`@specstory/ai-data-grid/server`) and the mock (`@specstory/ai-data-grid/testing`) are complete.
+> **In development: Storybook examples, the docs site guide and the live check arrive in a later package.** AI Fill is being built in stages inside `@specstory/ai-data-grid`. The `aiFill` prop works end to end: a grid with it has AI menus, a scope confirmation, a status bar, an inspector and keyboard shortcuts, and fills, draws, commits and undoes AI results, with no AI code in the app beyond the configuration (see [Built-in UI](#built-in-ui)). Apps can also drive it through `ref.current.aiFill` (`AIFillApi`). The server helper (`@specstory/ai-data-grid/server`) and the mock (`@specstory/ai-data-grid/testing`) are complete.
 
 AI Fill is powered by [Jev](https://docs.typesafe.ai), TypeSafe's Choice, Score and Noul primitives.
 
@@ -1529,7 +1529,8 @@ function Contacts() {
     );
 }
 
-// Later, from a button or your own menu:
+// Users fill, review and accept from the grid's own menus, inspector and status bar.
+// App code can do the same through the API, for example from a toolbar button:
 ref.current?.aiFill?.fill("column-empty", { columns: ["persona"] });
 ```
 
@@ -1547,9 +1548,12 @@ What AI Fill adds to your props (each app handler is wrapped and still called, n
 | `drawCell` | Calls your `drawCell` (or draws the cell's content), then draws the AI state of cells with a result |
 | `drawHeader` | Calls your `drawHeader` (or draws the header), then draws a ✦ badge on AI columns |
 | `onCellEdited`, `onCellsEdited` | Watches edits made in the grid (an edited AI cell becomes `manual` and stale; results whose `sources` were edited become stale), then calls yours with the same arguments and returns its value. `onCellsEdited` is always passed, even when you don't pass one (it then returns `undefined`, so the grid still calls `onCellEdited`); `onCellEdited` is wrapped only when you pass it. |
-| `onKeyDown` | Calls yours first. If it called `preventDefault()` or `cancel()`, AI Fill does nothing. Otherwise **Mod+Enter** accepts and **Mod+Backspace** rejects the selected results, and **Mod+Alt+F** fills the selection (Mod is ⌘ on macOS and Ctrl elsewhere). A shortcut with nothing to act on is left alone. |
+| `onKeyDown` | Calls yours first. If it called `preventDefault()` or `cancel()`, AI Fill does nothing. Otherwise AI Fill's shortcuts act (see [Keyboard](#keyboard)). A shortcut with nothing to act on is left to the grid. |
+| `onHeaderMenuClick`, `onHeaderContextMenu`, `onCellContextMenu` | On AI columns and cells, AI Fill's menu opens instead, and ends with "More options…", which calls yours with the original arguments. Other columns and cells go straight to yours. With `menus: "compose"` or `"off"`, passed through untouched. See [Menus in apps that already have menus](#menus-in-apps-that-already-have-menus). |
+| `onCellClicked` | Calls yours, then opens the inspector when the click was on an AI cell's marker, at the cell's right edge |
+| `className` | Adds `gdg-ai-grid` and a per-grid `gdg-ai-grid-<n>` class to yours. The built-in status bar uses it to find the grid's element. |
 | `gridSelection`, `onGridSelectionChange` | Passed through when you control the selection. When you only pass `onGridSelectionChange`, AI Fill also notes each selection the grid reports. When you pass neither, AI Fill holds the selection. |
-| `getCellContent`, `validateCell`, `onHeaderMenuClick`, `onHeaderContextMenu`, `onCellContextMenu`, everything else | Passed through untouched. AI Fill reads `getCellContent` when it fills, draws, commits and reverts, and calls `validateCell` only when it commits or reverts. The built-in AI menus arrive with the built-in UI. |
+| `getCellContent`, `validateCell`, `portalElementRef`, everything else | Passed through untouched. AI Fill reads `getCellContent` when it fills, draws, commits and reverts, calls `validateCell` only when it commits or reverts, and puts its popups in `portalElementRef`. |
 
 ### The API (`AIFillApi`)
 
@@ -1558,7 +1562,7 @@ What AI Fill adds to your props (each app handler is wrapped and still called, n
 | Method | What it does |
 |---|---|
 | `fill(scope, { columns?, mode? })` | Starts a fill (see [Fill scopes](#fill-scopes)). `columns` limits it to some AI columns (default: all of them); `mode: "apply"` is "Fill and apply". Returns `{ runId, done, cells, requests, skipped, error? }`: the cells it evaluates, the requests it needs, the skipped cells by reason, and a `configuration` error when it can't run (nothing is sent). `done` resolves with the run's summary. |
-| `cancel(runId?)` | Cancels one run, or all of them. Cells go back to the result they had before, and late answers are ignored. |
+| `cancel(runId?)` | Cancels one run, or all of them. Cells still waiting for Jev go back to the result they had before, and late answers are ignored. Results that have already arrived and pass auto-apply (in any run) are written first, so a cancelled "Fill and apply" run counts them as `applied`. The Cancel items in the menus and the status bar call it. |
 | `accept(target)` | Writes the `suggested` and `review` results in the target as one batch (see [Committing, validation and undo](#committing-validation-and-undo)). Returns the commit id, or `undefined` when nothing was written. |
 | `reject(target)` | Marks the decided or stale results in the target `rejected`. Nothing is written. Returns how many were rejected. |
 | `retry(target?)`, `rerunStale(target?)` | Re-runs the failed or stale cells in the target (default: all of them), each with the scope and mode it had |
@@ -1567,6 +1571,12 @@ What AI Fill adds to your props (each app handler is wrapped and still called, n
 | `getRunState()` | `AIRunState`: the active runs with their progress, the last run's summary, the number of cells in each status, and the configuration issues |
 | `notifyRowsChanged(rowIds?)` | Tells AI Fill that rows changed outside the grid's edit handlers (see [Rows, identity and staleness](#rows-identity-and-staleness)) |
 | `clear(target?)` | Drops the results in the target, or cancels every run and drops every result. Cells waiting for Jev keep waiting. Nothing is written. |
+| `getMenuItems(target?)` | The AI menu items (`AIMenuItem[]`) for `{ column }`, for `{ cell: [rowId, columnId] }` and the selection around it, or, without a target, the grid-wide actions the status bar shows. See [Menus in apps that already have menus](#menus-in-apps-that-already-have-menus). |
+| `openMenu(target)` | Opens the built-in menu for `{ column }` or `{ cell }`, below the header or the cell. Returns `false` when the target isn't a displayed AI column or cell, or when `menus` isn't `"built-in"`. |
+| `openInspector([rowId, columnId])` | Selects the cell, scrolls to it and opens the inspector. Returns `false` when the cell isn't displayed or has no result. |
+| `subscribe(listener)` | Calls `listener` after any change to a run or a result, for app-built displays. Returns the function that stops it. |
+
+None of these send a request except `fill`, `retry`, `rerunStale`, and the `run()` of a fill, retry or re-run menu item.
 
 A **target** (`AIFillTarget`) is `{ cells: [rowId, columnId][] }`, `{ selection: true }` (the AI cells in the grid's selection) or `{ column, filter }`. For a column, `filter` narrows the results the method acts on: `"all"` keeps them all, `"eligible"` only the `suggested` ones and `"review"` only the `review` ones. `accept({ column, filter: "eligible" })` is "Accept all eligible": it never includes review results, and it covers only displayed rows, so a decided result on a filtered-out row is left alone (see [Rows, identity and staleness](#rows-identity-and-staleness) for when such a result is dropped).
 
@@ -1654,9 +1664,12 @@ const aiFill: AIFillConfig = {
 | `rowState` | The row state sent to Jev. Default: built from each column's `sources`. |
 | `rowScope` | A function returning the rows a column-wide fill covers: `() => ({ rows: "displayed" \| rowId[], label })`. Without it, column-wide fills aren't offered. |
 | `columns` | AI column definitions, keyed by `GridColumn.id` |
-| `execution` | Scheduler limits (see [Execution and errors](#execution-and-errors)): `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100; validated, but nothing acts on it until the confirm dialog arrives in a later stage), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
+| `execution` | Scheduler limits (see [Execution and errors](#execution-and-errors)): `concurrency` (4), `maxRequestsPerMinute` (600), `timeoutMs` (15000), `maxRetries` (2), `backoff` (500 ms → 5 s, jitter 0.25), `maxCellsPerRun` (1000), `confirmAbove` (100: a fill started from the built-in menus or the fill shortcut that covers more cells asks for confirmation; `api.fill` never asks), `maxQuestionsPerRequest` (16), `maxStateChars` (60000), `cacheSize` (5000) |
 | `onRunStart`, `onRunProgress`, `onRunEnd`, `onResult`, `onCommit`, `onReject`, `onError` | Observers. `onResult` fires for every decided result, including withheld and review ones. |
 | `onReady(api)` | Called once, when AI Fill has loaded and `ref.current.aiFill` exists |
+| `menus` | `"built-in"` (default), `"compose"` or `"off"`. See [Menus in apps that already have menus](#menus-in-apps-that-already-have-menus). |
+| `statusBar` | `false` hides the built-in status bar. Default `true`. |
+| `shortcuts` | `AIFillShortcuts`: rebinds or turns off each shortcut, or `false` for none. See [Keyboard](#keyboard). |
 
 ### Column settings (all primitives)
 
@@ -1738,7 +1751,7 @@ Results are keyed by `(rowId, columnId)`, never by display position:
 - **Known limitation: a filtered-out row counts as a deleted row** wherever AI Fill has to look the row up. AI Fill only knows a row through `getRowId` / `getRowIndex` on the displayed rows, so it can't tell a filtered-out row from a deleted one. In these cases a filtered-out row's result is dropped, `onResult` reports it with status `cancelled` and `reason: "row-missing"`, and nothing is written:
     - an answer that arrives while the row is filtered out (fill the row again once it's displayed);
     - `notifyRowsChanged()` called while a filter hides the row (with no ids, or with its id): its decided results are dropped;
-    - `accept` with a `{ cells }` target that names the hidden row: the commit path finds the row missing and drops the result.
+    - `accept` with a `{ cells }` target that names the hidden row: the commit path finds the row missing and drops the result. The same happens to an accept or Choose from the UI that reaches a hidden row, for example the `run()` of `getMenuItems({ cell })` items for a hidden row, or an inspector left open while a filter hides its row. The built-in menus and shortcuts otherwise act only on displayed cells, and rejecting or re-running never drops a result.
 - **Edits in the grid.** An edit to a source column makes the row's results in the AI columns that list it `stale`, whether they are pending or decided. An edit to an AI cell makes its result `manual` and `stale`: it is never auto-applied or accepted. A late answer for a stale cell is stored as stale and never shown as a suggestion.
 - **Changes outside the grid.** Call `api.notifyRowsChanged(rowIds?)` after changing rows without the grid's edit handlers. Their results are fingerprinted again: a changed input makes a result stale, a changed destination makes it `manual` and stale, and a decided result whose row is gone, or filtered out (see the limitation above), is dropped with `row-missing`. You don't have to call it for safety: every answer and every commit re-checks the inputs and the destination.
 - **Accepted results** keep their commit id. They are never suggested again, including after an undo. Filling again is always explicit.
@@ -1797,6 +1810,116 @@ A bulk accept is then **one undo step**: undo restores every cell, redo writes t
 - If your `onCellsEdited` returns `true`, the per-cell `onCellEdited` calls don't happen, so `useUndoRedo` never sees the edits. The same is true of paste today.
 
 **`revertCommit(commitId)`** writes a commit's previous values back by row id, through the same batch path (selection, `onCellsEdited`, `onCellEdited`), and returns how many cells it restored. It leaves a cell alone when its row is gone, when it no longer holds the committed value (a newer edit), when it is read-only now, or when `validateCell` rejects the old value. A commit is reverted at most once. The results stay `accepted`. With `onCommit`'s `previous` and `next` values, custom undo stacks can do the same.
+
+## Built-in UI
+
+A grid with `aiFill` supplies the whole review workflow itself: the app writes no AI menus, request loops, review controls or renderers. The UI loads with AI Fill's controller, so a grid without `aiFill` loads none of it.
+
+**Menus.** An AI column's header gets a ▾ and a ✦ badge. The ▾, a right-click on the header, and the menu shortcut open the **column menu**:
+
+| Item | When | What it does |
+|---|---|---|
+| Fill empty cells in *Persona* (*N* rows in *filtered contacts*) | `rowScope` is set and the column allows `column-empty` | Fills the empty cells within `rowScope` |
+| Fill every cell in *Persona* (*N* rows in …)… | `rowScope` is set, the column lists `column` in `fillScopes`, and `overwrite` isn't `"never"` | Fills every cell within `rowScope`. Always asks first. |
+| Fill selected cells (*N*) | The column allows `selection` | Fills the column's cells in the selection |
+| Fill and apply… | The column's policy has `autoApply` | A "Fill and apply" run over the empty cells in `rowScope`, or over the selection when there is no `rowScope` or the column doesn't allow `column-empty`. Always asks first. |
+| Accept *N* eligible | | Writes the column's `suggested` results in displayed rows, as one batch. Never includes review results. |
+| Review *N* | | Selects the next `review` result in a displayed row, after the focused cell, and opens the inspector on it |
+| Reject all suggestions | | `reject({ column, filter: "all" })`: rejects the column's `suggested`, `review`, `withheld` and `stale` results, including those on filtered-out rows |
+| Retry *N* failed, Re-run *N* stale | | `retry({ column, filter: "all" })` or `rerunStale({ column, filter: "all" })`: evaluates the column's failed or stale cells again. Rows that aren't displayed are skipped as not loaded yet. |
+| Cancel | A run is in progress | Cancels every run |
+
+A right-click on an AI cell, or the menu shortcut on one, opens the **cell menu**: "Fill selected cells (*N*)" and "Fill empty selected cells (*N*)" for every AI column in the selection, "Fill and apply…" when one of them has `autoApply`, then "Accept", "Reject", "Inspect…" and "Retry" (or "Re-run" for a stale or rejected result) for the cell itself, and "Cancel" during a run. The counts are worked out when the menu opens, without sending anything. An item that can't act is shown disabled, with the reason under it (for example "No cells to fill: 2 already have a value"). Each *N* is what the item acts on: "Accept *N* eligible" and "Review *N*" count results in displayed rows only, and "Retry *N* failed" and "Re-run *N* stale" count the cells the run would evaluate, which leaves out results on filtered-out rows. An item with nothing it can act on is disabled, for example "Nothing to retry: 1 not loaded yet" when the only failed result is on a filtered-out row.
+
+**Stating the scope.** A fill from the menus or the fill shortcut asks first when it covers more than `execution.confirmAbove` cells (default 100), when it is a `column` fill, and when it is "Fill and apply". The confirm dialog (`role="dialog"`) lists the columns, the row scope (`rowScope`'s label, or the selection), the cells to evaluate, the cells skipped by reason (already have a value, read-only, not loaded yet, not applicable, missing input, already have a result for the same input), the estimated number of requests, and whether anything will be written. Nothing is sent until it's confirmed. Confirming works the fill out again, and starts it only if the scope is still the one shown: if it changed while the dialog was open (a filter, new data, or different cells with the same count), nothing starts, and the dialog shows the new scope, says it changed, and asks again. A fill that can't run (no `rowScope`, or more than `maxCellsPerRun` cells) shows why instead. `api.fill` never asks: the app decided.
+
+**The status bar** (`gdg-ai-status`, `role="status"`, `aria-live="polite"`) floats over the bottom edge of the grid without changing its layout, and the grid stays fully usable under a run. During a run it shows "Evaluating *Persona*: 18 / 42" and Cancel. Afterwards it shows the summary ("Done: 12 suggested · 3 review · 2 withheld · 1 errors · 4 skipped", or "Cancelled: …"). After "Fill and apply" it starts with the applied count, for example "Done: 5 applied · 2 suggested · …": a result that auto-apply wrote counts as applied, and one that a commit guard kept from being written counts as suggested. The summary is `getRunState().last`, the same counts `onRunEnd` gets. With it come "Review next", "Accept *N* eligible" and "Retry *N* failed" when they have something to do, and × to dismiss it. These are the grid-wide items from `getMenuItems()`, across every AI column, and they count the way the column menu's do: "Retry *N* failed" is `retry()`, and *N* leaves out results on filtered-out rows. "Review next" walks the results waiting for a decision (`review` and `suggested`) in displayed rows, in display order after the focused cell, wrapping around, and it's only offered when there is one to reach. With `statusBar: false` it isn't shown; render `<AIFillStatus api={ref.current?.aiFill} />` wherever you like instead. `AIFillStatus` is a small component that loads the status bar on first render, and renders nothing while `api` is `undefined`.
+
+**The inspector** (`gdg-ai-inspector`, `role="dialog"`) opens from "Inspect…", from a click on a cell's AI marker, from the inspect shortcut, from "Review next", and from `api.openInspector`. Opening it selects the cell, and never sends a request. It shows only the structured answer and your configuration; Jev returns no prose, and none is invented:
+
+- the status, the suggested display text and the value it writes (or "no value to write")
+- the decision and its reason, with the exact value and the threshold (for example "review: probability 0.6 < ready.minProbability 0.8", then "minProbability 0.6, threshold 0.8")
+- the error, a blocked commit's reason, or that the cell was edited after the request
+- **Choice:** the options ranked by probability, with bars, the selected one marked, limited by `presentation.alternatives` when set, and the model confidence, labelled as model confidence and not accuracy
+- **Score:** the score on the rubric, and each level with its probability, with the mapped level marked, and the model confidence
+- **Noul:** the probability of yes and, with bands, the band it falls in (for example "Uncertain (between 0.2 and 0.8: review)"). A Noul has no confidence, and none is shown.
+- the model id that answered, and when the answer was received
+
+Its actions all write through the [commit path](#committing-validation-and-undo): **Accept** (also Enter), **Reject**, **Choose** (pick a value and "Write choice"; written as `source: "choose"` and checked by every commit guard, `overwrite` included; available for suggested, review and withheld results), **Edit manually** (closes the inspector, selects the cell and sends it Enter, so the cell's normal editor opens and the edit goes through your `onCellEdited`; with `keybindings.activateCell` off, it only selects the cell), and **Retry** or **Re-run** for failed, stale and rejected results. Choose offers:
+
+- **Choice:** every option whose `outcome` is `"value"` (the default), plus semantic-outcome options that set a `value`, each written as `value ?? label ?? id`.
+- **Score:** each level, written as its index with `store: "score"` (the default) or `"level"`, its label with `"level-label"`, and its `value` with `"level-value"` (levels without a `value` aren't offered). A function `store` offers no levels, so Choose isn't shown.
+- **Noul:** Yes and No (your `output.labels`), written as `true` / `false` with `store: "boolean"`, as the label with `"label"`, and as 1 / 0 with `"probability"` (the default).
+
+**Popups** (the menus, the confirm dialog and the inspector) render into `portalElementRef ?? #portal`, the same element the grid's overlay editor uses, and carry the `click-outside-ignore` class, so the grid doesn't treat clicks on them as clicks outside. A click outside a popup closes it. They copy the grid's `--gdg-*` theme variables, so they follow its theme.
+
+**Screen readers.** The canvas doesn't expose suggestions. The menus, the confirm dialog, the inspector and the status bar are accessible DOM, and a hidden polite live region (`gdg-ai-sr`, in the portal) announces what menu, inspector and shortcut actions did, for example "Accepted 3 suggestions".
+
+### Styling
+
+The styles are in `index.css` with the rest of the grid's; there is no extra CSS import. Every element has a `gdg-ai-*` class (`gdg-ai-menu`, `gdg-ai-menu-item`, `gdg-ai-dialog`, `gdg-ai-inspector`, `gdg-ai-status`, `gdg-ai-bars`, `gdg-ai-primary` and so on), and every color reads a `--gdg-ai-*` variable that falls back to a `--gdg-*` theme variable. Set them on `:root`, or on an element that contains both the grid and the portal element. The popups render in the portal and copy only the grid's `theme` variables, so `--gdg-ai-*` variables set on the grid's container reach the status bar but not the popups:
+
+| Variable | Falls back to | Used for |
+|---|---|---|
+| `--gdg-ai-font-family` | `--gdg-font-family` | All AI UI text |
+| `--gdg-ai-text` | `--gdg-text-dark` | Text |
+| `--gdg-ai-text-muted` | `--gdg-text-light` | Secondary text, disabled items, labels |
+| `--gdg-ai-bg` | `--gdg-bg-cell` | Popup, status bar and button backgrounds |
+| `--gdg-ai-border` | `--gdg-border-color` | Borders and the menu separator |
+| `--gdg-ai-accent` | `--gdg-accent-color` | The primary button and focus rings |
+| `--gdg-ai-accent-fg` | `--gdg-accent-fg` | Text on the primary button |
+| `--gdg-ai-accent-light` | `--gdg-accent-light` | The focused or hovered menu item |
+| `--gdg-ai-bar` | `--gdg-accent-color` | Probability bars |
+| `--gdg-ai-bar-track` | `--gdg-bg-bubble` | The bars' track |
+| `--gdg-ai-review` | `#b45309` | Review decisions |
+| `--gdg-ai-error` | `#b91c1c` | Errors and blocked commits |
+
+The canvas markers keep using the grid `theme` passed to `drawCell`.
+
+## Menus in apps that already have menus
+
+`onHeaderMenuClick`, `onHeaderContextMenu` and `onCellContextMenu` are yours to keep. `aiFill.menus` decides how AI Fill's menu fits in:
+
+- **`"built-in"` (the default).** Columns and cells that aren't AI columns go straight to your handlers, unchanged: the same arguments, and nothing prevented. On an AI column or cell, AI Fill's menu opens instead (and the browser's context menu is suppressed with the event's `preventDefault()`). If you passed a handler for that menu, the AI menu ends with **"More options…"**, which calls it with the original `(col, bounds)`, `(col, event)` or `(cell, event)` arguments, so your menu is one click away. A menu opened from the keyboard or `api.openMenu` has no original event, so it has no "More options…".
+- **`"compose"`.** AI Fill's menu never opens, and your handlers are always called. Put AI Fill's items into your own menu with `api.getMenuItems(target)`:
+
+    ```tsx
+    onHeaderMenuClick={(col, bounds) => {
+        const id = columns[col].id;
+        const ai = id === undefined ? [] : ref.current?.aiFill?.getMenuItems({ column: id }) ?? [];
+        openMyMenu(bounds, [...myItems(col), ...ai.map(item => ({
+            key: item.id, label: item.label, hint: item.detail ?? item.disabledReason,
+            disabled: item.disabled, onSelect: item.run,
+        }))]);
+    }}
+    ```
+
+    Each `AIMenuItem` is `{ id, label, detail?, disabled, disabledReason?, run }`. The ids are stable: `fill-column-empty`, `fill-column`, `fill-selection`, `fill-selection-empty`, `fill-apply`, `accept-eligible`, `review-next`, `reject-all`, `retry-failed`, `rerun-stale` and `cancel`, and for a cell `accept`, `reject`, `inspect`, `retry` and `rerun`. `run()` does what the built-in item does, including asking for confirmation, and does nothing when the item is disabled. `getMenuItems({ cell: [rowId, columnId] })` counts the selection's AI cells, and `getMenuItems()` returns the grid-wide actions. It returns `[]` for a column that isn't an AI column.
+- **`"off"`.** No AI menus. The API, the inspector, the status bar and the shortcuts still work.
+
+## Keyboard
+
+The shortcuts go through `DataEditor`'s `onKeyDown`, after yours: if your handler calls `preventDefault()` or `cancel()`, AI Fill does nothing. Each acts only when it has something to do, and otherwise leaves the key to the grid (so Alt+ArrowDown still moves the selection on a cell without a result).
+
+| Shortcut (default) | `AIFillShortcuts` key | Action |
+|---|---|---|
+| Shift+F10, ContextMenu | `menu` | Opens the column menu when a whole AI column is selected, otherwise the cell menu for the focused AI cell. Only with `menus: "built-in"`. |
+| Alt+ArrowDown | `inspect` | Opens the inspector for the focused cell, when it has a result |
+| Mod+Enter | `accept` | Accepts the selected `suggested` and `review` results, as one batch |
+| Mod+Backspace | `reject` | Rejects the selected `suggested`, `review`, `withheld` and `stale` results |
+| Mod+Alt+F | `fill` | Fills the AI cells in the selection, asking first above `confirmAbove` |
+
+Mod is ⌘ on macOS and Ctrl elsewhere. Rebind or turn off any of them with `aiFill.shortcuts`, in the syntax of the grid's `keybindings`: modifiers joined with `+` (`ctrl`, `shift`, `alt`, `meta`, and `primary` for Mod), then the key, with `|` between alternatives. `false` turns one off, and `shortcuts: false` turns them all off:
+
+```ts
+shortcuts: { inspect: "alt+i", fill: false }
+```
+
+Inside the UI:
+
+- **Menus** (`role="menu"`, items `role="menuitem"`): focus moves to the first item. ArrowDown and ArrowUp move (wrapping), Home and End jump, Enter and Space pick, a letter jumps to the next item starting with it, and Esc or Tab closes the menu. Disabled items can be focused but not picked.
+- **The confirm dialog and the inspector** (`role="dialog"`): Tab and Shift+Tab stay inside, and Esc closes. The confirm dialog focuses its confirm button. The inspector focuses itself, so Enter accepts; on a focused button, Enter presses that button.
+- **Focus returns to the grid** when a menu or dialog closes from the keyboard or after an action. A click outside, or "More options…", leaves focus where it went.
 
 ## Connecting to Jev
 
@@ -2032,7 +2155,7 @@ Every `AIFillError` has a `kind`, a `message` and `retryable`, plus `httpStatus`
 | `onRunStart({ runId, columnIds, cells, apply })` | A run starts (not for a refused fill). `cells` counts the cells it evaluates. |
 | `onRunProgress({ runId, done, total })` | After each cell settles |
 | `onResult(event)` | For every settled cell: suggested, review, withheld, error and stale results, and `row-missing` drops. The event carries the result metadata: `runId`, `rowId`, `columnId`, `requestedModel`, `model`, the short `questionFingerprint` and `inputFingerprint`, the `answer`, and `timings` (`queuedAt`, `sentAt`, `receivedAt`). Re-evaluation after a configuration change doesn't call it. |
-| `onRunEnd(summary)` | A started run ends, including when cancelled: `{ runId, cancelled, counts, skipped }`, with `counts` by status and `skipped` by reason |
+| `onRunEnd(summary)` | A started run ends, including when cancelled: `{ runId, cancelled, counts, skipped }`, with `counts` by status and `skipped` by reason. Each result counts under the status it settled with, except that one the run's auto-apply wrote counts as `applied` (also when the run was cancelled after writing it), so the counts agree with `getCellState` when `onRunEnd` fires, unless a result was accepted, rejected or edited during the run. A result that passed `autoApply` but that a commit guard kept from being written counts as `suggested`. |
 | `onError(error)` | For a refused fill, once per failed request for each run waiting on it (once per run for `authentication`), and for each cell error. A `decide` that returns `apply` for a column without `autoApply` is reported once per column and message for the grid's lifetime. |
 | `onReject({ cells })` | Results are rejected. Nothing is written. |
 | `onCommit({ commitId, source, edits })` | Results are written, with each edit's previous and next cell and its metadata |
@@ -2058,8 +2181,9 @@ From `@specstory/ai-data-grid`:
 | `mapAIOutput(definition, answer, ctx?)` | Maps a parsed answer. Returns `{ ok: true, output }`, where the `AIMappedOutput` keeps the raw `answer`, the `display` text and the `value` to write (with `hasValue`) apart, plus the semantic `outcome`; or `{ ok: false, error }`. |
 | `evaluateAIPolicy({ definition, answer, context, mode? })` | Runs mapping, the gates and `decide` on a parsed answer, and returns the status with its `AIPolicyDecision` and output, or an error. It makes no request. |
 | `isAIDestinationEmpty(cell)` | The default emptiness check for destination cells. `0` and `false` are values, not empty. |
+| `<AIFillStatus api className? style? />` | The status bar as a component you place yourself, for grids with `statusBar: false` (see [Built-in UI](#built-in-ui)). Its props type is `AIFillStatusProps`. |
 
-The API types are `AIFillApi`, `AIFillTarget`, `AICellState` and `AIRunState` (see [The API](#the-api-aifillapi)). The `aiFill` prop is on `DataEditorProps`, and `DataEditorRef` has the optional `aiFill` member; neither adds an export name.
+The API types are `AIFillApi`, `AIFillTarget`, `AICellState`, `AIRunState` and `AIMenuItem` (see [The API](#the-api-aifillapi)), and the shortcuts are typed by `AIFillShortcuts`. The `aiFill` prop is on `DataEditorProps`, and `DataEditorRef` has the optional `aiFill` member; neither adds an export name.
 
 The types cover the Jev contract (`JevRequest`, `JevResponse`, `JevQuestion`, `JevAnswer` and the per-primitive `JevChoice*`, `JevScore*` and `JevNoul*` types), the endpoint contract's error body (`JevEndpointErrorBody`), the parsed answers (`ChoiceAnswer`, `ScoreAnswer`, `NoulAnswer`), the configuration (`AIFillConfig`, `AIColumnDefinition` and its per-primitive parts), and the results (`AIPolicyDecision`, `AIMappedOutput`, `AIFillError`, and the result, run, commit and reject events). Each has TSDoc.
 

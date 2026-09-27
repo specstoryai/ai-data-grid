@@ -616,6 +616,21 @@ function checkColumn(
     }
 }
 
+const shortcutNames = ["menu", "inspect", "accept", "reject", "fill"];
+
+function checkUI(c: Collector, raw: Rec): void {
+    c.optionalEnum(raw, "menus", "", ["built-in", "compose", "off"]);
+    if (raw.statusBar !== undefined && typeof raw.statusBar !== "boolean") c.add("statusBar", "must be a boolean");
+    if (raw.shortcuts === false) return;
+    const shortcuts = c.optionalRecord(raw, "shortcuts", "");
+    for (const [key, value] of Object.entries(shortcuts ?? {})) {
+        const path = join("shortcuts", key);
+        if (!shortcutNames.includes(key)) c.add(path, `unknown shortcut; expected one of ${shortcutNames.join(", ")}`);
+        else if (value !== undefined && value !== false && !isNonEmptyString(value))
+            c.add(path, 'must be a key such as "primary+Enter", or false');
+    }
+}
+
 /** Implements the public `validateAIFillConfig`; its reference documentation is on the export in `ai-fill/index.ts`. */
 export function validateAIFillConfig(
     config: AIFillConfig,
@@ -652,6 +667,7 @@ export function validateAIFillConfig(
     }
     const execution = c.optionalRecord(raw, "execution", "");
     if (execution !== undefined) checkExecution(c, execution);
+    checkUI(c, raw);
 
     let gridColumnIds: Set<string> | undefined;
     if (options.columns !== undefined) {

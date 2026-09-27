@@ -11,6 +11,7 @@ import * as validate from "./config/validate.js";
 import * as cells from "./policy/cells.js";
 import * as mapOutput from "./policy/map-output.js";
 import * as evaluatePolicy from "./policy/evaluate-policy.js";
+import * as status from "./react/status.js";
 
 export type {
     AIJsonObject,
@@ -39,7 +40,8 @@ export type { JevEndpointErrorBody } from "./contract/endpoint.js";
 
 export type * from "./config/types.js";
 export type * from "./config/results.js";
-export type { AIFillApi, AIFillTarget, AICellState, AIRunState } from "./config/api.js";
+export type { AIFillApi, AIFillTarget, AICellState, AIRunState, AIMenuItem } from "./config/api.js";
+export type { AIFillStatusProps } from "./react/status.js";
 export type { AIFillConfigIssue, ValidateAIFillConfigOptions } from "./config/validate.js";
 
 export type { MapAIOutputError, MapAIOutputResult } from "./policy/map-output.js";
@@ -84,7 +86,8 @@ export const parseJevAnswer: typeof parseAnswer.parseJevAnswer = parseAnswer.par
  * It checks the structure (connection shape, direct mode's
  * `dangerouslyAllowBrowser` in browsers, `model`, `rows.getRowId`, AI columns
  * matching grid column ids, sources, 2–255 Choice options, 2–10 Score levels,
- * Noul bands for `boolean` and `label`) and the policies: thresholds finite and
+ * Noul bands for `boolean` and `label`, and the built-in UI options `menus`,
+ * `statusBar` and `shortcuts`) and the policies: thresholds finite and
  * in [0, 1] (Score `score` bounds in [0, levels − 1]), `min <= max`, Noul
  * `falseAtOrBelow < trueAtOrAbove`, referenced option and level ids exist, no
  * confidence measure on a Noul, gates monotonic (`show` ≤ `ready` ≤ `autoApply`
@@ -153,3 +156,15 @@ export const mapAIOutput: typeof mapOutput.mapAIOutput = mapOutput.mapAIOutput;
  * so re-running it on a stored answer after a policy change is free.
  */
 export const evaluateAIPolicy: typeof evaluatePolicy.evaluateAIPolicy = evaluatePolicy.evaluateAIPolicy;
+
+/**
+ * AI Fill's status bar as a component you place yourself, for grids with
+ * `aiFill.statusBar: false`: `<AIFillStatus api={ref.current?.aiFill} />`. It
+ * shows progress and Cancel while a run is in progress (`role="status"`,
+ * polite live region), then the run's summary (suggested · review · withheld ·
+ * errors · skipped) with "Review next", "Accept N eligible" and "Retry
+ * failed". It renders nothing while `api` is `undefined`. The component is a
+ * small wrapper that loads the status bar on first render, so importing it
+ * doesn't add AI Fill's UI to an app's initial bundle.
+ */
+export const AIFillStatus: typeof status.AIFillStatus = status.AIFillStatus;
