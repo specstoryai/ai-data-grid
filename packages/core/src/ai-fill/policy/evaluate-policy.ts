@@ -267,29 +267,7 @@ function declarativeDecision(
     });
 }
 
-/**
- * Decides one validated answer (steps 4–6 of the result precedence). It maps
- * the answer with `mapAIOutput`, then:
- *
- * 5. `show` fails → `withheld`; a Noul in the middle band of a `boolean` or
- *    `label` mapping → `review` (or `withheld` with `between: "withhold"`);
- *    `ready` fails → `review`; otherwise `suggested`. A suggested result that
- *    passes `autoApply` is an `apply-candidate`, but only in `"apply"` mode and
- *    only when there is a value to write.
- * 6. `decide`, when configured, receives the full answer, the cell context,
- *    the candidate and the declarative decision. It may return `withheld`,
- *    `review`, `suggested` or `apply`, or `undefined` to keep the decision. It
- *    can't create a value. `apply` counts only when the column configures
- *    `autoApply` (otherwise the result is `suggested` and `configurationError`
- *    is set). A throw or an invalid return is a `policy-callback` error.
- *
- * Every comparison is exact: a `min` passes at `value >= min`, a `max` at
- * `value <= max`, on the raw doubles, with no epsilon or rounding. A gate reads
- * only the measure it names, so confidence never stands in for probability.
- *
- * It makes no request and has no side effects beyond the configured callbacks,
- * so re-running it on a stored answer after a policy change is free.
- */
+/** Implements the public `evaluateAIPolicy`; its reference documentation is on the export in `ai-fill/index.ts`. */
 export function evaluateAIPolicy(input: EvaluateAIPolicyInput): AIPolicyEvaluation {
     const { definition, answer, context } = input;
     const mode = input.mode ?? "suggest";

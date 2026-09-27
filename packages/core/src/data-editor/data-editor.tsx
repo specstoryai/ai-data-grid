@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import * as React from "react";
+import type { AIFillApi } from "../ai-fill/config/api.js";
 import { assert, assertNever, maybe } from "../common/support.js";
 import clamp from "lodash/clamp.js";
 import uniq from "lodash/uniq.js";
@@ -757,6 +758,11 @@ export interface DataEditorRef {
         posY: number,
         ev?: MouseEvent | TouchEvent
     ) => GridMouseEventArgs | undefined;
+    /**
+     * AI Fill's API. Set only on a `DataEditor` with the `aiFill` prop, once AI
+     * Fill has loaded; `undefined` otherwise.
+     */
+    aiFill?: AIFillApi;
 }
 
 const loadingCell: GridCell = {

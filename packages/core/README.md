@@ -93,6 +93,30 @@ function getData([col, row]: Item): GridCell {
 }
 ```
 
+## AI Fill
+
+AI Fill adds AI-filled columns to a grid in configuration alone, powered by [Jev](https://docs.typesafe.ai) (TypeSafe's Choice, Score and Noul). You describe each AI column's question and how answers become cell values; AI Fill fills the cells you ask it to, shows suggestions in the grid, and writes only what is accepted (or what your "Fill and apply" rules allow), through your own edit handlers, so `validateCell` and `useUndoRedo` keep working. It is still in development: the built-in menus and dialogs arrive in a later release, and fills start from `ref.current.aiFill` (or the Mod+Alt+F shortcut).
+
+Turn it on with one prop. Without `aiFill`, the grid is unchanged and no AI code loads:
+
+```tsx
+const aiFill = React.useMemo<AIFillConfig>(
+    () => ({
+        connection: { mode: "endpoint", url: "/api/jev" }, // your server holds the API key
+        model: "jev-latest",
+        rows: { getRowId: row => view[row].id },
+        columns: { persona: personaDefinition }, // keyed by GridColumn.id
+    }),
+    [view]
+);
+
+<DataEditor {...props} ref={ref} aiFill={aiFill} />;
+
+ref.current?.aiFill?.fill("selection-empty");
+```
+
+The [AI Fill chapter of API.md](API.md#ai-fill) covers the quick start, the configuration, result policies, rows and staleness, committing and undo, connecting to Jev (`@specstory/ai-data-grid/server`) and testing with the mock (`@specstory/ai-data-grid/testing`).
+
 ## Full API documentation
 
 The API reference, including the HTML/CSS prerequisites, is in `API.md`, which ships in this package.

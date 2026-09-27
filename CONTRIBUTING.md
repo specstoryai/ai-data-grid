@@ -55,11 +55,11 @@ Run these from the root. CI runs the first five.
 | `npm run build` | Builds all three packages into `dist/esm`, `dist/cjs` and `dist/dts`, plus `dist/index.css` for core and cells (source has no CSS), then lints them (ESLint, plus a `cycle-check` for import cycles in core). Two existing `no-console` warnings are expected; errors fail. |
 | `npm test -- --run` | Core unit tests (vitest), run once. Without `--run` vitest watches. Includes the AI Fill bundle-budget and `/server` load tests, which need `npm run build` first (see [Working on AI Fill](#working-on-ai-fill)). |
 | `npm run test-cells -- --run` | Cells unit tests. |
-| `npm run test-source -- --run` | Source unit tests. |
+| `npm run test-source -- --run` | Source unit tests. `ai-fill-undo.test.tsx` imports `@specstory/ai-data-grid` and its `/testing` subpath through the workspace link, which resolves to core's built `dist/`, so run `npm run build` first (CI does). |
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 745 (355 of them in `test/ai-fill/`), cells 65 and source 8. Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 812 (422 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -73,7 +73,7 @@ It needs Playwright's Chromium. If it isn't installed yet, run `npx playwright i
 
 ## Working on AI Fill
 
-AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. So far it has the pure foundation (contract, config, identity, policy) and the execution layer (transport, engine, `/server`, `/testing`). It has no React code, and nothing in `DataEditor` uses it yet. The `aiFill` prop, the React controller and the built-in UI come in later packages. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`; the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
+AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. So far it has the pure foundation (contract, config, identity, policy), the execution layer (transport, engine, `/server`, `/testing`) and the grid integration: the optional `aiFill` prop on `DataEditor` (`src/data-editor-all.tsx`), a static bridge and a lazily loaded controller (`react/`). The built-in UI (menus, confirm dialog, status bar, inspector) and the stories come in later packages. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`; the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
 
 ### Code map
 
@@ -86,13 +86,38 @@ AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work pac
 | `src/ai-fill/policy/` | `mapAIOutput`, `evaluateAIPolicy`, `isAIDestinationEmpty` and the default `toCell` (`cells.ts`), and the commit-guard helpers (`commit-guards.ts`, internal). |
 | `src/ai-fill/transport/` | The Jev clients for the three connection modes (`client.ts`), error normalization and the HTTP status mapping (`errors.ts`), backoff and `Retry-After` parsing (`retry.ts`), and browser detection (`environment.ts`). Internal. |
 | `src/ai-fill/engine/` | The execution engine (`engine.ts`: plan, run, cancel, retry, re-evaluation, `recordCommit`), the per-cell result store (`store.ts`), the scheduler and its token bucket (`scheduler.ts`, `token-bucket.ts`), the answer cache (`lru-cache.ts`), request grouping (`requests.ts`), row-state building (`state.ts`) and the `execution` defaults (`defaults.ts`). Internal: WP-AI3 wires it into `DataEditor`. |
+| `src/ai-fill/config/api.ts` | The public API types: `AIFillApi` (`ref.current.aiFill`), `AIFillTarget`, `AICellState`, `AIRunState`. |
+| `src/ai-fill/react/bridge.ts` | The static half of the `aiFill` prop: the `AIFillBridge` and controller prop types and `linkAIFillRef`, which points the app's ref at the grid's handle plus `aiFill`. The only AI Fill module allowed in a grid's initial bundle, so keep it to types and tiny helpers. |
+| `src/ai-fill/react/controller.tsx` | The lazily loaded controller component (`React.lazy` in `data-editor-all.tsx`). It only drives an `AIFillSession`'s lifecycle and renders nothing. |
+| `src/ai-fill/react/session.ts` | Everything the controller does, without React: prop composition, fills and scopes, the commit path, `revertCommit`, invalidation from edits, repaint batching, auto-apply and the keyboard shortcuts. |
+| `src/ai-fill/react/grid-host.ts` | `AIFillGridHost`: reads the grid for the engine by row id (`getRowIndex`, checked against `getRowId`, or a per-task scan) and column id. |
+| `src/ai-fill/react/draw.ts` | The canvas presentations of cell states and the AI column header badge. |
 | `src/ai-fill/server/index.ts` | The `@specstory/ai-data-grid/server` entry: `createJevHandler` and `toNodeListener`. |
 | `src/ai-fill/testing/index.ts` | The `@specstory/ai-data-grid/testing` entry: `createMockJev`. |
 | `test/ai-fill/*.test.ts` | Unit tests per module, plus the `boundaries`, `bundle-budget`, `server-load` and `no-live-jev` guards below. |
-| `test/ai-fill/fixtures/` | Shared fixtures: `jev-contract.ts` holds Jev request and response bodies copied from the TypeSafe docs examples (update them from the docs, never from a test run), `definitions.ts` holds synthetic column definitions, and `grid.ts` is a synthetic in-memory grid for the engine tests. |
+| `test/ai-fill/*.test.tsx` | Grid-level tests that render a real `DataEditor` with `aiFill`: `grid-integration` (the prop, composition, rendering, no inference without a trigger), `grid-fill` (primitives end to end, scopes and skip reasons, accept, reject and commit guards, column targets), `grid-identity` (sorting, filtering, deleting and editing while pending, `getRowIndex`), `commit-undo-contract` (the commit batch and `revertCommit`), and `unconfigured-grid` (the golden test). |
+| `test/ai-fill/fixtures/` | Shared fixtures: `jev-contract.ts` holds Jev request and response bodies copied from the TypeSafe docs examples (update them from the docs, never from a test run), `definitions.ts` holds synthetic column definitions, `grid.ts` is a synthetic in-memory grid for the engine tests, `harness.tsx` renders a `DataEditor` with `aiFill` for the grid-level tests, and `contacts.ts` is the synthetic contacts grid they use. |
 | `test/ai-fill/live-jev-guard.ts` | The live-Jev `fetch` guard that `vitest.setup.ts` installs for every core test. |
 
-Paths are relative to `packages/core`. Later packages add `react/` and `stories/` under `src/ai-fill/`; they don't exist yet.
+Paths are relative to `packages/core`. WP-AI4 adds `react/ui/` (the built-in UI) and WP-AI5 `stories/` under `src/ai-fill/`; they don't exist yet. Source's AI Fill test is `packages/source/test/ai-fill-undo.test.tsx` (see [Tests and fixtures](#tests-and-fixtures)).
+
+### The `aiFill` prop and the `react/` layer
+
+`data-editor-all.tsx` (the exported `DataEditor`) takes the optional `aiFill` prop. It statically imports only `ai-fill/react/bridge.js` (for `linkAIFillRef`) and type-only modules, and loads the controller with `React.lazy(() => import("./ai-fill/react/controller.js"))`, rendered in a `Suspense` next to the grid only while `aiFill` is set. Once loaded, the controller hands back a bridge, and each render passes the app's props through `bridge.compose(props, aiFill)`. `data-editor.tsx` only gains the type-only `DataEditorRef.aiFill?` member. The behaviour users see is in API.md ("Quick start (`aiFill` prop)"); the architecture is in [AS-BUILT.md](AS-BUILT.md#grid-integration-wp-ai3).
+
+When you change this layer:
+
+- **Keep the unset path identical.** Without `aiFill`, the grid must get the app's props and ref untouched, and nothing may import the controller. `test/ai-fill/unconfigured-grid.test.tsx` checks this against a snapshot (`test/ai-fill/__snapshots__/unconfigured-grid.test.tsx.snap`) of the DOM, the canvas calls and every app callback, taken before the prop existed (commit `a3390df`). **Never update that snapshot** (no `vitest -u` on it): if it fails, the change broke the unconfigured grid. Fix the code.
+- **Wrap, never replace.** Every composed app handler is still called with the same arguments, and its return value is passed back. `getCellContent` and `validateCell` are never wrapped. Wrappers are memoized per app handler, so they keep their identity while the app's handler does.
+- **Keep the initial chunk small.** Anything `data-editor-all.tsx` imports at runtime lands in every grid's initial bundle. Put new code behind the controller, and check `bundle-budget` (see below). The public helper functions in `src/ai-fill/index.ts` are exported as constants read from module namespaces, not with `export { … } from`, because esbuild's code splitting otherwise pulls their modules into the initial chunk once the lazy chunk imports them too. Keep that pattern for any new runtime export.
+
+### Invariants
+
+These hold everywhere in AI Fill; the grid-level tests check them.
+
+- **Records are keyed by id.** Results, commits and the blocked-commit reasons are keyed by `(rowId, columnId)` from `rows.getRowId` and `GridColumn.id`, never by display position. Resolve display coordinates only at the moment you need them (drawing, writing), from the latest props, through `AIFillGridHost`. A `getRowIndex` answer that doesn't map back to the same id is a missing row.
+- **Commits re-check everything.** The commit path re-reads the row and runs every guard (`policy/commit-guards.ts`: already committed, row missing, stale inputs, changed destination, read-only, overwrite, `validateCell`) right before it writes, then calls `engine.recordCommit` and writes only what that returns. Never write a result without going through it, and never write outside the app's `onCellsEdited` / `onCellEdited`.
+- **Nothing infers by itself.** Requests start only from `fill`, `retry`, `rerunStale` and the Mod+Alt+F shortcut. Painting, scrolling, selecting, sorting, hovering, reading state and changing the policy never send a request (`grid-integration.test.tsx`, "no inference without an explicit trigger").
 
 ### Entry points
 
@@ -130,6 +155,8 @@ Every new export name from `.` (`src/index.ts`) contains `AI`, `AIFill` or `Jev`
 - **Tests never call Jev.** Use `createMockJev` (from `src/ai-fill/testing/index.js`), a fake transport, answers built in the test, or `test/ai-fill/fixtures/`. `vitest.setup.ts` installs `test/ai-fill/live-jev-guard.ts`, which rejects any `fetch` to `typesafe.ai` or a subdomain and fails the test that tried, even if the code under test caught the rejection (`no-live-jev.test.ts` checks the guard). Live Jev calls are for manual validation only (see [Live Jev scripts](#live-jev-scripts-manual-only)) and are recorded outside the tests.
 - **Node-environment tests.** Core's tests run in jsdom. A file that starts with `// @vitest-environment node` runs in plain Node instead, for code that must work without a DOM (`boundaries`, `server`, `server-load`); `vitest.setup.ts` skips its DOM-only setup (canvas mock, `ResizeObserver`, `Image.decode`) when there's no `window`.
 - **`server-load.test.ts` needs a build**, like `bundle-budget`: it loads `dist/esm` and `dist/cjs` `ai-fill/server/index.js` with `import()` and `require()`, and fails with "run \`npm run build\` first" when they're missing.
+- **Grid-level tests** render a real `DataEditor` in jsdom with core's `test/test-utils.tsx` (`prep`, `Context`, `sendClick`) and `vitest-canvas-mock`, through `renderAIGrid` in `test/ai-fill/fixtures/harness.tsx`. The harness keeps synthetic rows by id with a display order the test can sort and filter, logs every callback and edit, and can run with a controlled, listened-to or uncontrolled selection. Jev is `createMockJev` behind a `custom` connection; `gatedJev` holds each request until the test calls `release()`, so tests can sort, filter or edit while a request is pending. Tests use fake timers: call `settle()` after rendering so the lazily loaded controller has loaded (it waits for `vi.dynamicImportSettled()`).
+- **Source's `test/ai-fill-undo.test.tsx`** is the one AI Fill test outside core (approved as A-Q1). It wires the real `useUndoRedo` to a `DataEditor` with `aiFill` and `createMockJev`, and checks that a bulk accept is one undo step, that undo restores every cell and redo writes them again once, and that no suggestion comes back. It imports core by package name, so it tests core's built `dist/`: run `npm run build` before `npm run test-source`.
 - **Run `npm run test-projects`** in every AI Fill package from WP-AI2 on, as well as the check commands (see [Sample apps](#sample-apps-test-projects)).
 - **Core's tarball ships `src/` and `test/`** (core has no `files` field). Fixtures use synthetic row data only, with request ids removed. Never commit a key, token or `.env` file, and never put `JEV_API_KEY` in a test, story, fixture or CI.
 - Core gets no new runtime or peer dependencies for AI Fill. Use `fetch` and the platform's `AbortController`, `TextEncoder`, `Headers`, `Request` and `Response`, not the TypeSafe SDK.
@@ -304,7 +331,7 @@ With no argument it copies the current root version to the packages. It is also 
 - the `--gdg-*` CSS variables and the `gdg-` class names;
 - the runtime identifiers `glide-cell-{col}-{row}` (DOM id), `glide-select` (class) and `glide_fade_in` (keyframe). Renaming them waits for 8.0.
 
-Each package has a `test/public-api-exports.test.ts`. It reads the package's `src/index.ts` with the TypeScript compiler API and compares the sorted export names with a hard-coded list (core 243, cells 27, source 5). Core's list is the 151 upstream names plus the 92 AI Fill names (see [Export names](#export-names)). Adding, removing or renaming an export fails the test. If the change is intended (a new export is not breaking; removals and renames wait for 8.0), update `expectedExports` in the same PR and say why in the PR description.
+Each package has a `test/public-api-exports.test.ts`. It reads the package's `src/index.ts` with the TypeScript compiler API and compares the sorted export names with a hard-coded list (core 248, cells 27, source 5). Core's list is the 151 upstream names plus the 97 AI Fill names (see [Export names](#export-names)). Adding, removing or renaming an export fails the test. If the change is intended (a new export is not breaking; removals and renames wait for 8.0), update `expectedExports` in the same PR and say why in the PR description.
 
 ## Git and PR workflow
 

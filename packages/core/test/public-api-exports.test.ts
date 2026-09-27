@@ -170,6 +170,7 @@ const upstreamExports = [
  */
 const aiFillExports = [
     "AICellContext",
+    "AICellState",
     "AICellStatus",
     "AIColumnDefinition",
     "AIColumnDefinitionBase",
@@ -181,6 +182,7 @@ const aiFillExports = [
     "AIDecideResult",
     "AIDecideStatus",
     "AIDecisionReason",
+    "AIFillApi",
     "AIFillConfig",
     "AIFillConfigIssue",
     "AIFillConnection",
@@ -193,6 +195,7 @@ const aiFillExports = [
     "AIFillMode",
     "AIFillRows",
     "AIFillScope",
+    "AIFillTarget",
     "AIGateName",
     "AIJsonObject",
     "AIJsonValue",
@@ -212,6 +215,7 @@ const aiFillExports = [
     "AIRowScope",
     "AIRunProgressEvent",
     "AIRunStartEvent",
+    "AIRunState",
     "AIRunSummary",
     "AISemanticOutcome",
     "AISkipReason",
