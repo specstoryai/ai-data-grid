@@ -139,6 +139,11 @@ describe("AI Fill bundle budget for a DataEditor-only app", () => {
         expect(report.initialAiModules.filter(input => !allowedInitialAiModules.has(input))).toEqual([]);
     });
 
+    it("keeps the execution layer (transport, engine, server, testing) out of the initial chunks", () => {
+        const executionLayer = /(?:^|\/)ai-fill\/(?:transport|engine|server|testing)\//;
+        expect(report.initialAiModules.filter(input => executionLayer.test(input))).toEqual([]);
+    });
+
     it(`keeps the lazy AI Fill chunks at or below ${limits.lazyAiChunks} B gzip`, () => {
         expect(report.lazyAiChunks).toBeLessThanOrEqual(limits.lazyAiChunks);
     });

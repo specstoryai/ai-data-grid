@@ -226,6 +226,7 @@ const aiFillExports = [
     "JevAnswerFor",
     "JevChoiceAnswer",
     "JevChoiceQuestion",
+    "JevEndpointErrorBody",
     "JevInstructions",
     "JevNoulAnswer",
     "JevNoulQuestion",
@@ -268,6 +269,16 @@ const aiFillNamingRule = /AI|Jev|^(?:Choice|Score|Noul)/;
 
 const expectedExports = [...upstreamExports, ...aiFillExports].sort();
 
+/**
+ * `@specstory/ai-data-grid/server` (AI Fill's server helper). The subpaths are
+ * their own namespaces, so the naming rule for `.` doesn't apply; the lists
+ * are pinned exactly instead.
+ */
+const expectedServerExports = ["JevHandlerOptions", "JevNodeListener", "createJevHandler", "toNodeListener"];
+
+/** `@specstory/ai-data-grid/testing` (AI Fill's mock Jev). */
+const expectedTestingExports = ["MockJev", "MockJevCall", "MockJevOptions", "MockJevRule", "createMockJev"];
+
 function getExportedNames(entry: string): string[] {
     const program = ts.createProgram([entry], {
         allowJs: true,
@@ -299,5 +310,10 @@ describe("public API exports", () => {
         const added = expectedExports.filter(name => !upstreamExports.includes(name));
         expect(added).toEqual(aiFillExports);
         expect(added.filter(name => !aiFillNamingRule.test(name))).toEqual([]);
+    });
+
+    it("match the /server and /testing export lists", () => {
+        expect(getExportedNames(path.resolve("src/ai-fill/server/index.ts"))).toEqual(expectedServerExports);
+        expect(getExportedNames(path.resolve("src/ai-fill/testing/index.ts"))).toEqual(expectedTestingExports);
     });
 });

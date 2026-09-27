@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-25 (SPST-20: AI Fill WP-AI1, PR #16 at `df9af6f7`)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), and the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged).
+**Last updated:** 2026-09-26 (SPST-24: AI Fill WP-AI2 fix round 1, PR #17 at `dcd36604`)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged), and AI Fill's execution layer with the `/server` and `/testing` subpaths (WP-AI2, SPST-23 / PR #17, stacked on PR #16, not merged).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -30,13 +30,13 @@ None of them is published to npm yet.
 
 **source.** `packages/source/build.sh` doesn't use `compile`. It runs `rm -rf dist`, then `tsc -p tsconfig.esm.json` and `tsc -p tsconfig.cjs.json` in parallel, straight into `dist/esm` and `dist/cjs`. Both configs set `declarationDir` to `dist/dts`, so both runs write declarations there. There is no tmp directory, no `wyw-in-js` step and no CSS. The output is `dist/esm`, `dist/cjs`, `dist/dts` and the two `tsconfig.*.tsbuildinfo` files, which are left in `dist/`.
 
-Because the JS doesn't import any CSS, consumers must import it themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles. `source` has no `dist/index.css` and needs no CSS import. Entry points, the same in all three packages: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`.
+Because the JS doesn't import any CSS, consumers must import it themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles. `source` has no `dist/index.css` and needs no CSS import. Entry points, the same in all three packages: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`. Since WP-AI2, core's `exports` also has `./server` and `./testing` (see [Entry points](#entry-points-server-and-testing)).
 
 ### What ships in each tarball (`npm pack --dry-run`)
 
 | Package | `files` | Contents |
 | --- | --- | --- |
-| core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 862 files at PR #16 (768 before AI Fill): `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
+| core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 978 files at PR #17 (862 at PR #16, 768 before AI Fill): `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
 | cells | `["dist"]` | 120 files: `dist/`, `LICENSE`, `README.md`, `package.json` |
 | source | `["dist"]` | 41 files: `dist/` (including two `tsconfig.*.tsbuildinfo` files), `LICENSE`, `README.md`, `package.json` |
 
@@ -63,7 +63,7 @@ This is unchanged from upstream apart from the names.
 
 `packages/{core,cells,source}/test/public-api-exports.test.ts` build a TypeScript program for the package's `src/index.ts`, list the module's exports with the type checker, sort them, and compare them with a hard-coded `expectedExports` list taken from 6.0.4-alpha25: 151 names in core, 27 in cells, 5 in source. These added one test per package (core 388, cells 65, source 8; the baseline was 387, 64, 7). They check names only, not prop or type shapes.
 
-Since WP-AI1, core's list is `upstreamExports` (the 151 names) plus `aiFillExports` (92 names), 243 in total. A second core test checks that all 151 upstream names are kept and that every added name matches the AI Fill naming rule `/AI|Jev|^(?:Choice|Score|Noul)/` (see [AI Fill](#ai-fill-in-development)).
+Since WP-AI1, core's list is `upstreamExports` (the 151 names) plus `aiFillExports` (93 names since WP-AI2), 244 in total. A second core test checks that all 151 upstream names are kept and that every added name matches the AI Fill naming rule `/AI|Jev|^(?:Choice|Score|Noul)/` (see [AI Fill](#ai-fill-in-development)). A third pins the `/server` (4 names) and `/testing` (5 names) entries exactly; the naming rule doesn't apply to them.
 
 ## License and attribution
 
@@ -145,6 +145,7 @@ This tests what users install (the tarballs, with their `LICENSE`, `exports` map
 | `next-app` | Next 16 App Router, React 19, TypeScript 5.9 | `next build` | `npm start` (`next start`) |
 
 - Both render a `DataEditor` with text, number and boolean columns plus the star cell from `@specstory/ai-data-grid-cells`, and import `@specstory/ai-data-grid/dist/index.css`.
+- `next-app/app/api/jev/route.ts` (WP-AI2) exports `POST = createJevHandler({ apiKey: process.env.TYPESAFE_API_KEY ?? "", authorize: () => false })` from `@specstory/ai-data-grid/server`. `next build` compiles and type-checks it as the dynamic route `ƒ /api/jev`, which proves the subpath resolves from the tarball. It rejects every request, so it never calls Jev. `vite-app` doesn't use the subpaths.
 - `next-app/app/page.tsx` is a `"use client"` page that loads `components/Grid.tsx` with `next/dynamic` and `ssr: false`, because the grid needs `window`.
 - Each sample has `.npmrc` with `legacy-peer-deps=true`, and depends on `file:../.packs/specstory-ai-data-grid*-7.0.0.tgz`.
 - `test-projects/.gitignore` ignores `.packs/`, `node_modules/`, `dist/`, `.next/` and `package-lock.json`. The sample lockfiles are regenerated on every run and never committed.
@@ -268,25 +269,31 @@ Vercel project ai-data-grid-docs (team spec-story)
 
 ## AI Fill (in development)
 
-AI Fill (SPST-16) is developer-configured AI filling of grid columns with Jev, TypeSafe's Choice, Score and Noul primitives. It is being built into core, `@specstory/ai-data-grid`, in five stacked PRs (WP-AI1 to WP-AI5). The design is SPST-17's plan with its Amendment 1. Only WP-AI1 (PR #16, not merged) exists so far: a pure TypeScript foundation with no network code and no React code. `DataEditor`, `data-editor-all.tsx` and `DataEditorRef` don't reference it yet, and core's `package.json` (`exports`, dependencies, `cycle-check`) is unchanged. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, marked as in development.
+AI Fill (SPST-16) is developer-configured AI filling of grid columns with Jev, TypeSafe's Choice, Score and Noul primitives. It is being built into core, `@specstory/ai-data-grid`, in five stacked PRs (WP-AI1 to WP-AI5). The design is SPST-17's plan with its Amendment 1. Two packages exist so far, neither merged: WP-AI1 (PR #16), a pure TypeScript foundation, and WP-AI2 (PR #17, stacked on it), the execution layer (Jev clients, scheduler, cache, result store) plus the `/server` and `/testing` entry points. There is still no React code: `DataEditor`, `data-editor-all.tsx` and `DataEditorRef` don't reference AI Fill, and nothing imports the engine yet, so AI Fill can't fill a grid. Core's dependencies are unchanged; WP-AI2 added two `exports` subpaths and two `cycle-check` roots. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, marked as in development.
 
 ### Module layout
 
-All paths are under `packages/core/src/ai-fill/`. Tests are in `packages/core/test/ai-fill/` (185 tests in 8 files; core also gained a second export test in `test/public-api-exports.test.ts`, for 574 in total).
+All paths are under `packages/core/src/ai-fill/`. Tests are in `packages/core/test/ai-fill/` (355 tests in 17 files; core also gained two export tests in `test/public-api-exports.test.ts`, for 745 in total).
 
 | Module | Contents | Public |
 | --- | --- | --- |
 | `index.ts` | Barrel of the public names, re-exported by `src/index.ts` with `export *`. | — |
-| `contract/` | Jev request, question and answer types (`types.ts`); `parseJevAnswer` (`parse-answer.ts`), which checks a raw answer against its question and returns a `ParsedJevAnswer` (`ChoiceAnswer`, `ScoreAnswer` or `NoulAnswer`) or a reason. | yes |
+| `contract/` | Jev request, question and answer types (`types.ts`); `parseJevAnswer` (`parse-answer.ts`), which checks a raw answer against its question and returns a `ParsedJevAnswer` (`ChoiceAnswer`, `ScoreAnswer` or `NoulAnswer`) or a reason; `JevEndpointErrorBody` (`endpoint.ts`). | yes |
 | `config/` | 40 configuration types (`types.ts`), 20 result, event and error types (`results.ts`), and `validateAIFillConfig` (`validate.ts`), which returns every problem as `{ path, message, columnId? }`. | yes |
 | `identity/` | `canonicalJson`, `buildQuestion`, `questionFingerprint`, `inputFingerprint`, `cacheKey`, `resolveModel` and `shortHash`. | no |
 | `policy/` | `mapAIOutput` (`map-output.ts`), `evaluateAIPolicy` (`evaluate-policy.ts`), `isAIDestinationEmpty` and `defaultToCell` (`cells.ts`), and the commit-guard helpers (`commit-guards.ts`). | the first three |
+| `transport/` | `createJevTransport` (`client.ts`) for the endpoint, direct and custom modes; `JevTransportError`, `errorFromResponse` and the status mapping (`errors.ts`); `backoffDelay`, `retryDelay` and an abortable `sleep` (`retry.ts`); `isBrowserEnvironment` (`environment.ts`). | no |
+| `engine/` | `AIFillEngine` (`engine.ts`), `AIFillStore` (`store.ts`), `RequestScheduler` (`scheduler.ts`), `TokenBucket` (`token-bucket.ts`), the LRU answer cache (`lru-cache.ts`), `groupRequests` (`requests.ts`), row-state building and missing-input checks (`state.ts`), `defaultExecution` and `resolveExecution` (`defaults.ts`). | no |
+| `server/index.ts` | `createJevHandler`, `toNodeListener`, `JevHandlerOptions`, `JevNodeListener`. | `/server` |
+| `testing/index.ts` | `createMockJev`, `MockJev`, `MockJevOptions`, `MockJevRule`, `MockJevCall`. | `/testing` |
 
-Planned layers that don't exist yet: `transport/` and `engine/` (the Jev client, scheduler and result store), `server/` and `testing/` (the `@specstory/ai-data-grid/server` and `/testing` subpaths), `react/` (the `aiFill` prop's controller, the bridge and the UI) and `stories/`.
+Planned layers that don't exist yet: `react/` (the `aiFill` prop's controller, the bridge and the UI) and `stories/`.
 
 ### Public API
 
 WP-AI1 adds 92 core exports (151 → 243): 5 functions (`validateAIFillConfig`, `parseJevAnswer`, `evaluateAIPolicy`, `mapAIOutput`, `isAIDestinationEmpty`) and 87 types (20 contract types, the 40 config and 20 result types, and 7 helper types: `ParseJevAnswerResult`, `AIFillConfigIssue`, `ValidateAIFillConfigOptions`, `MapAIOutputResult`, `MapAIOutputError`, `EvaluateAIPolicyInput`, `AIPolicyEvaluation`). The configuration, result and event types already describe the later layers (connection modes, execution limits, fill scopes, observers); only the functions above run in this stage.
+
+WP-AI2 adds one type to `.` (`JevEndpointErrorBody`, 244 in total) and makes `AIResultEvent` gain an optional `reason?: "row-missing"`. The `/server` entry exports 4 names and `/testing` 5 (see the table above). The engine and transport are internal: tests and `scripts/jev-live-check.mjs` import them by path.
 
 ### Behaviour worth knowing
 
@@ -298,23 +305,102 @@ WP-AI1 adds 92 core exports (151 → 243): 5 functions (`validateAIFillConfig`, 
 - **`decide`** receives frozen copies of the answer, candidate and decision (`policy/evaluate-policy.ts`). A throw or invalid return is a `policy-callback` error, and nothing is written.
 - **Emptiness** (`policy/cells.ts`): `0` and `false` are values. The cells package's dropdown cell is empty when its `data.value` is `""`, `null` or `undefined`, detected by `data.kind === "dropdown-cell"`, so core doesn't import the cells package.
 
+### Execution (WP-AI2)
+
+Nothing calls the engine yet; WP-AI3's controller will construct an `AIFillEngine` with the config and a host whose `readCell(rowId, columnId, sources)` reads the destination and source cells by row id (or returns `undefined` for a missing row). The user-facing behaviour is in API.md's "Execution and errors" section; this is the data flow behind it.
+
+```
+fill(target) ─► plan()                       per cell: applies / fillScopes / populated / missing-input /
+                                             cached → skip reason; throwing callback → configuration error;
+                                             over maxCellsPerRun or grid-level issue → refused (onError only)
+            ─► run(plan)                     onRunStart; store.enqueue (new requestSeq, keeps the previous record)
+                 ├─ state > maxStateChars ─► input-too-large, settled at once
+                 ├─ LRU cache hit ────────► settled from the cache, no request
+                 ├─ same request in flight ► joins that flight (dedup)
+                 └─ groupRequests ────────► one request per (rowId, model, canonical state),
+                                            questions q0…, chunks of maxQuestionsPerRequest
+            ─► RequestScheduler              FIFO, ≤ concurrency in flight, TokenBucket(maxRequestsPerMinute),
+                                             paused after a final 429/503/529; cancelled tasks pruned
+            ─► JevTransport.send             endpoint / direct / custom; per-attempt timeout, AbortSignal,
+                                             retries with backoff or the server's delay (≤ 60 s)
+            ─► on arrival                    runId + requestSeq must match; re-read the row: gone → dropped
+                                             (row-missing), input changed → stale, destination changed → stale
+                                             + manual; else parseJevAnswer → evaluateAIPolicy → store record
+            ─► onResult / onRunProgress / onRunEnd
+```
+
+- **Store** (`engine/store.ts`): one record per `(rowId, columnId)`, never per display row. Statuses in flight are `queued` and `pending`; decided ones are `suggested`, `review` and `withheld`. Each enqueue bumps `requestSeq` and keeps the previous record, which `cancel` restores. A record keeps its identity (question fingerprint, input fingerprint, model), the destination snapshot, timings and, once committed, a commit id.
+- **Transport** (`transport/client.ts`): every mode sends the same `JevRequest`. The endpoint client adds `connection.headers()` on each attempt; the direct client posts to `${baseURL}/v1/systemone` with a bearer key, refuses in a browser without `dangerouslyAllowBrowser` (no request), warns once per page with it, turns a browser network failure into a `network` error pointing to endpoint mode, and redacts the key from error text. Every result and error carries `x-typesafe-request-id` when present.
+- **Scheduler** (`engine/scheduler.ts`, `token-bucket.ts`): limits are read again before every dispatch, so `setConfig` applies to queued work. The bucket holds `max(1, ceil(maxRequestsPerMinute / 60))` tokens and starts full. A final 429, 503 or 529 pauses the whole queue for `min(server delay ?? backoff.maxMs, 60 s)`.
+- **Engine API** (internal): `plan`, `run`, `fill`, `retry` (failed cells, same scope and mode), `rerunStale`, `cancel`, `reject`, `recordCommit`, `markEdited`, `notifyRowsChanged`, `setConfig`, `getRecord`, `subscribe`, `metadata` and `dispose`. `recordCommit` reserves a write: WP-AI3's commit path calls it after its guards and immediately before writing, and writes only the cells it returns in `committed`. So far it refuses only an already-committed result (`commit-blocked`).
+- **Callbacks** go through one `notify` helper: a throwing app callback is rethrown in a microtask, so it reaches the console without stopping the engine.
+
+### Entry points (`/server` and `/testing`)
+
+Core's `package.json` `exports`:
+
+| Subpath | `types` | `import` | `require` |
+| --- | --- | --- | --- |
+| `.` | `dist/dts/index.d.ts` | `dist/esm/index.js` | `dist/cjs/index.js` |
+| `./index.css` | — | `dist/index.css` | `dist/index.css` |
+| `./server` | `dist/dts/ai-fill/server/index.d.ts` | `dist/esm/ai-fill/server/index.js` | `dist/cjs/ai-fill/server/index.js` |
+| `./testing` | `dist/dts/ai-fill/testing/index.d.ts` | `dist/esm/ai-fill/testing/index.js` | `dist/cjs/ai-fill/testing/index.js` |
+
+Core is `"type": "module"`, and `tsconfig.cjs.json` compiles with `module: Node16`, so `dist/cjs` is ES modules too. `require("@specstory/ai-data-grid/server")` therefore works only through Node's `require(esm)` (Node 20.19+, 22.12+, 24); `test/ai-fill/server-load.test.ts` checks both `import()` and `createRequire` of the built files in a Node environment. `cycle-check` runs from `src/index.ts`, `src/ai-fill/server/index.ts` and `src/ai-fill/testing/index.ts`.
+
+### Endpoint contract and server helper
+
+- **Contract.** The browser sends `POST <url>` with Jev's own `JevRequest` body (`{ model, state, questions }`). Success is Jev's response body unchanged, with `x-typesafe-request-id`. Failure is a non-2xx status with `JevEndpointErrorBody` (`{ error: { type, message, retryAfterMs?, detail? } }`), and Jev's status and `Retry-After` / `retry-after-ms` headers forwarded, so the client maps it exactly as it maps a direct Jev error.
+- **`createJevHandler`** (`server/index.ts`) is a Fetch-API `(Request) => Promise<Response>`. Safeguards, in order: POST only (405); `authorize` must be passed at construction (`TypeError` otherwise) and must return exactly `true` per request (403, also on a throw); an empty `apiKey` gives 500 `server_configuration` per request rather than failing at load, so a Next build without the key still works; `maxBodyBytes` (256,000) is checked against `content-length` and again while streaming (413); the body must be JSON of the right shape (400); `maxQuestions` (32, 413); `allowedModels` (`["jev-latest"]`, 400 `model_not_allowed`); `timeoutMs` (20,000, then 504); an unreachable Jev, or a caller that aborted its request, is 502 (an already-aborted request never reaches Jev). The timeout and the caller's `request.signal` race the whole upstream step, `fetch` plus the body read, like `withTimeout` in `transport/client.ts`: the handler answers on time even when a custom `fetch` or the body ignores its abort signal, and the abandoned promise's late result or rejection is ignored. It forwards only `{ state, model, questions }` with its own `authorization`, `content-type` and `accept` headers, adds no CORS headers, and logs nothing.
+- **Keeping the key out of responses** (`server/index.ts`): the key, as the literal string and in its JSON-escaped form, is replaced with `[redacted]` in a successful body, which is otherwise passed through byte for byte. In an error, `type`, `message` and every string in `detail` (object keys included) are redacted. Forwarded headers (`x-typesafe-request-id`, plus `retry-after` and `retry-after-ms` on errors) are dropped when their value contains the key, and a request id is forwarded only if it matches `/^[!-~]{1,128}$/` (1–128 visible ASCII characters). The error body's `retryAfterMs` is computed from the forwarded headers only.
+- **`toNodeListener`** adapts the handler to Node `http`/Express. It uses `req.body` when middleware already parsed it, otherwise it streams the request.
+
+### Error taxonomy
+
+`transport/errors.ts` turns every failure into an `AIFillError` kind, the same for direct Jev and for an endpoint:
+
+| Source | Kind | Retryable |
+| --- | --- | --- |
+| HTTP 400, 404, 405; an error body with `type: "server_configuration"` (the server helper's 500) | `configuration` | no |
+| HTTP 401, 403 | `authentication` (aborts the whole run) | no |
+| HTTP 408, 504; no response within `timeoutMs` | `timeout` | yes |
+| HTTP 413; state over `maxStateChars` | `input-too-large` | no |
+| HTTP 422 and other 4xx | `invalid-request` | no |
+| HTTP 429 | `rate-limit` | yes |
+| HTTP 503, 529 | `overloaded` | yes |
+| other 5xx; the request couldn't be sent | `network` | yes |
+| the response has no answer for a question id | `evaluation` | yes |
+| the body isn't JSON or has no `answers`; the answer fails `parseJevAnswer` | `malformed` | no |
+
+Engine-side kinds (`type-mismatch`, `policy-callback`, `commit-blocked`, and `configuration` from config issues and throwing callbacks) are listed in API.md's Errors table. Jev's error body shape isn't fully documented, so the message is read from `error.message`, `message` or `detail`.
+
+### Scripts and test infrastructure
+
+- **`scripts/jev-dev-proxy.mjs`** (manual only, unpublished): `createJevHandler` plus `toNodeListener` behind `node:http` on `0.0.0.0:8787` by default, with its own CORS layer. The origin allowlist is `http://localhost:*`, `http://127.0.0.1:*` and exact `--allow-origin` values (never `*` or `null`); `authorize` checks the same list, so a request with no allowed `Origin` never reaches Jev. It logs method, path, status and time only. Commands are in [CONTRIBUTING.md](CONTRIBUTING.md#live-jev-scripts-manual-only).
+- **`scripts/jev-live-check.mjs`** (manual only, for WP-AI5): one direct-mode request with three questions about a synthetic contact, with `maxRetries: 0`, plus one bad-key request expecting 401 (2 HTTP requests, 1 with `--skip-401`); `--dry-run` sends nothing. It imports `buildQuestion` and `createJevTransport` from `packages/core/dist/esm/ai-fill/`, so it needs a build.
+- **Live-Jev guard.** `vitest.setup.ts` installs `test/ai-fill/live-jev-guard.ts` for every core test: it wraps `fetch`, rejects any URL on `typesafe.ai` or a subdomain, and fails the test in `afterEach` even if the code under test swallowed the rejection. `no-live-jev.test.ts` checks it.
+- **Node-environment tests.** `vitest.setup.ts` now runs its DOM-only setup (`vitest-canvas-mock`, `ResizeObserver`, `Image.decode`) only when `window` exists, so files marked `// @vitest-environment node` (`boundaries`, `server`, `server-load`) run in plain Node. Under jsdom it behaves as before.
+- **Mock Jev** (`testing/index.ts`): rules, fixture replay, generated answers seeded by seed, state and question, latency, error injection for every transport kind and a call log that never records auth values. Its `fetch` speaks Jev's protocol for URLs ending in `/v1/systemone` and the endpoint protocol otherwise, without the handler's checks. It reports `jev-mock-1.0.0` for `jev-latest` and `jev-preview`.
+
 ### Guard tests
 
-- `test/ai-fill/boundaries.test.ts` parses every `src/**/*.ts(x)` with the TypeScript compiler and enforces the import rules: `ai-fill/` never imports `src/index.ts`, `src/data-editor-all.tsx` or `@specstory/*`; only `src/index.ts` and `src/data-editor-all.tsx` import `ai-fill/` (plus type-only imports from `src/data-editor/data-editor.tsx`); `ai-fill/testing/` imports only `testing/`, `contract/`, `identity/` and `transport/`; core never imports cells or source. The rule that the `/server` graph has no React, DOM or Linaria import is added with `/server` in WP-AI2.
+- `test/ai-fill/boundaries.test.ts` parses every `src/**/*.ts(x)` with the TypeScript compiler and enforces the import rules: (1) `ai-fill/` never imports `src/index.ts`, `src/data-editor-all.tsx` or `@specstory/*`; (2) only `src/index.ts` and `src/data-editor-all.tsx` import `ai-fill/` (plus type-only imports from `src/data-editor/data-editor.tsx`); (3) the graph reachable from `ai-fill/server/index.ts` (relative imports, type-only included) has no `react`, `react-dom` or `@linaria/*` import, no `.tsx` file and no module-level `window` or `document` reference; (4) `ai-fill/testing/` imports only `testing/`, `contract/`, `identity/` and `transport/`; and core never imports cells or source. It runs in the Node environment.
+- `test/public-api-exports.test.ts` pins `.`, `/server` and `/testing` (see [How the API is guarded](#how-the-api-is-guarded)).
+- `test/ai-fill/server-load.test.ts` loads the built `/server` with `import()` and `require()` in Node and runs a request through it with a fake `fetch`. Like the bundle budget, it needs `npm run build` first.
 - `test/ai-fill/bundle-budget.test.ts`, see below.
 
 ### Bundle budget
 
 AI Fill must cost little for apps that render `DataEditor` without `aiFill`. `test/ai-fill/bundle-budget.test.ts` bundles an entry that imports `DataEditor` and `dist/index.css` from core's built `dist/esm`, with the root esbuild CLI (0.25.12): `--bundle --minify --splitting --format=esm`, with `react`, `react-dom`, `marked`, `lodash` and `react-responsive-carousel` external. Sizes are GNU `gzip -9` of the concatenated output files. It uses the CLI because esbuild's JS API refuses to run under jsdom.
 
-| Measure | Baseline (SPST-17 A7, `main` at `a0a121c`) | Measured by the test (`main` and PR #16) | Limit |
+| Measure | Baseline (SPST-17 A7, `main` at `a0a121c`) | Measured by the test (`main`, PR #16 and PR #17) | Limit |
 | --- | --- | --- | --- |
 | Initial JS (entry chunk plus the chunks it imports statically) | 70,374 B | 70,305 B | 71,900 B (+1.5 KB) |
 | CSS | 2,052 B | 2,044 B | 4,600 B (+2.5 KB) |
-| AI Fill modules in the initial chunks | — | none | none except `ai-fill/react/bridge.js` |
+| AI Fill modules in the initial chunks | — | none | none except `ai-fill/react/bridge.js`; never `transport/`, `engine/`, `server/` or `testing/` (added in WP-AI2) |
 | Lazy AI Fill chunks | — | 0 B | 40,000 B |
 
-The A7 figures came from a slightly different measurement than the test's (the test gzips the concatenated files); the limits are A7's. It reads `dist/`, so it needs `npm run build` first. CI builds before testing. WP-AI3 (the bridge) and WP-AI4 (the CSS) are where the numbers are expected to move.
+The A7 figures came from a slightly different measurement than the test's (the test gzips the concatenated files); the limits are A7's. It reads `dist/`, so it needs `npm run build` first. CI builds before testing. WP-AI3 (the bridge) and WP-AI4 (the CSS) are where the numbers are expected to move. The lazy figure is 0 B because nothing imports the engine yet; the Implementor measured the engine with everything it pulls in at about 22.5 KB gzip, which will count against the 40,000 B cap once WP-AI3's controller imports it.
 
 ## Known limitations and risks
 
@@ -333,9 +419,14 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - **`.devcontainer/` is stale.** It pins a Node 14 image and runs a `.devcontainer/run.sh` that doesn't exist. It isn't documented as a way to work on the repo.
 - `packages/cells/test/date-picker-cell.test.tsx` was fixed in WP1: it rendered the wrong cell and left a `findByDisplayValue` promise unawaited, which failed CI intermittently.
 - Open `npm audit` findings remain in the root install; run `npm audit` for the current list.
-- **Browsers can't call Jev directly today.** TypeSafe's API rejects CORS preflights from every origin tried during planning (SPST-17 §1), so AI Fill's planned direct-key mode will only work from Node. Browser apps will need endpoint mode (their own server) or a local dev proxy. WP-AI1 has no network code; this affects WP-AI2 onwards.
-- **AI Fill isn't usable yet.** WP-AI1 exports types and pure functions only. The `aiFill` prop, `DataEditorRef.aiFill`, the transport and the `/server` and `/testing` subpaths arrive in later packages.
-- **`npm test` in core needs a build.** `bundle-budget.test.ts` reads `dist/` and fails on a fresh clone until `npm run build` has run, and it measures stale output after source changes. It also needs the `gzip` binary.
+- **Browsers can't call Jev directly today.** TypeSafe's API rejects CORS preflights from every origin tried during planning (SPST-17 §1), so direct mode only works from Node. In a browser it refuses without `dangerouslyAllowBrowser`, and with it a call fails as a `network` error that points to endpoint mode. Browser apps need endpoint mode (their own server, for example with `createJevHandler`) or, for demos, `scripts/jev-dev-proxy.mjs`.
+- **AI Fill can't fill a grid yet.** The execution engine exists but nothing constructs it: the `aiFill` prop, `DataEditorRef.aiFill`, the controller and the built-in UI arrive in WP-AI3 and WP-AI4. `/server` and `/testing` work now.
+- **Documented but not yet acted on:** `execution.confirmAbove` (WP-AI4's confirm dialog), `rows.getRowIndex` (WP-AI3's commit path), and the validation, read-only, overwrite and staleness causes of `commit-blocked` (WP-AI3). API.md and the TSDoc say so.
+- **`npm test` in core needs a build.** `bundle-budget.test.ts` and `server-load.test.ts` read `dist/` and fail on a fresh clone until `npm run build` has run, and they test stale output after source changes. The bundle budget also needs the `gzip` binary.
+- **Lazy-chunk headroom.** The engine and what it imports come to about 22.5 KB gzip (Implementor's measurement), leaving about 17.5 KB of the 40,000 B lazy cap for WP-AI3's controller and WP-AI4's UI.
+- **`require("@specstory/ai-data-grid/server")` needs `require(esm)`** (Node 20.19+, 22.12+ or 24), because core's `dist/cjs` is ES modules. Older Node versions must use `import`.
+- **Jev's error-body shape isn't fully documented,** so the transport reads the message from `error.message`, `message` or `detail`. A new shape would still map by status, with a generic message.
+- **`scripts/jev-live-check.mjs`'s header comment** counts "at most 4 live calls (3 without --skip-401)", one per question; it sends 2 HTTP requests (1 with `--skip-401`). It also points to `docs/content/docs/ai-fill/live-validation.mdx`, which WP-AI5 hasn't created yet.
 
 ## Decision log
 
@@ -391,6 +482,17 @@ The A7 figures came from a slightly different measurement than the test's (the t
 | 2026-09-25 | SPST-19 | The cells package's dropdown cell is empty by its `data.value`, recognized by `data.kind === "dropdown-cell"`. | Custom cells need their own emptiness rule, and core can't import the cells package. |
 | 2026-09-25 | SPST-17 Amendment 1 (A8), SPST-19 | Every new core export contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`, enforced by `public-api-exports.test.ts`. Identity, mapping and commit-guard helpers stay internal. | AI Fill shouldn't take generic names in core's namespace; renaming a public export later would be a breaking change. |
 | 2026-09-25 | SPST-17 Amendment 1 (A7), SPST-19 | Cap what AI Fill adds for apps without `aiFill` with `bundle-budget.test.ts`: initial JS ≤ 71,900 B and CSS ≤ 4,600 B gzip, only `bridge.js` in the initial chunks, lazy AI chunks ≤ 40,000 B. | Moving AI Fill into core must not make every grid heavier. The test makes growth visible in each PR. |
+| 2026-09-25 | SPST-17 §6, SPST-23 / PR #17 | Call Jev over raw HTTP with our own retry: per-attempt timeout, exponential backoff 500 ms → 5 s with 0.25 jitter, server delays (`retry-after-ms`, `Retry-After`, body `retryAfterMs`) honored up to 60 s, and a queue-wide pause after a final 429/503/529. | The grid needs cancellation, per-cell settling and one scheduler across columns, and core takes no SDK dependency. Capping server delays keeps a bad header from stalling a run. |
+| 2026-09-25 | SPST-17 §7, SPST-23 / PR #17 | `createJevHandler` requires `authorize` at construction and throws without it; an empty `apiKey` is a per-request 500 instead of a construction error. | An endpoint that spends the key must never ship open by accident. Next.js evaluates route modules at build time, often without the key, so an empty key can't throw. |
+| 2026-09-25 | SPST-16 (plan default), SPST-23 / PR #17 | One row per request; a row's columns with the same state and model share a request (`q0`, `q1`, …, up to `maxQuestionsPerRequest`). | Rows never mix in one Jev evaluation, so a cell's answer depends only on its row. Sharing a request across columns cuts calls without that risk. |
+| 2026-09-25 | SPST-17 Amendment 1 (A3), SPST-23 / PR #17 | The server helper and the mock ship as the core subpaths `@specstory/ai-data-grid/server` and `/testing`. Their exports are pinned exactly; the `.` naming rule doesn't apply to them, so `toNodeListener` keeps its generic name. | One package (Jake's decision), with server and test code kept out of the browser entry. A subpath is already its own namespace. |
+| 2026-09-25 | SPST-23 / PR #17 | Core's `dist/cjs` stays ES modules, so `require` of `/server` relies on Node's `require(esm)`, checked by `server-load.test.ts`. | It matches how the rest of core is built; changing the CJS build is out of scope for AI Fill. |
+| 2026-09-25 | SPST-16 (Jake, answer 2), SPST-23 / PR #17 | Browser demos use an unpublished local dev proxy (`scripts/jev-dev-proxy.mjs`) whose CORS and `authorize` allow only localhost, 127.0.0.1 and exact `--allow-origin` origins, never `*`, and refuse requests without an allowed `Origin`. | TypeSafe rejects browser preflights. An allowlist keeps other sites (and `curl` without an origin) from spending the developer's key through the proxy. |
+| 2026-09-25 | SPST-17 Amendment 1 (A-Q3), SPST-23 / PR #17 | Add a one-file `/server` route to `test-projects/next-app` (`app/api/jev/route.ts`) whose `authorize` rejects everything. | `next build` then proves the subpath resolves and type-checks from the tarball, with no live call. |
+| 2026-09-25 | SPST-23 / PR #17 | Tests run behind a live-Jev `fetch` guard in `vitest.setup.ts`, and that setup skips its DOM-only part when there's no `window`, so `// @vitest-environment node` works in core. | Tests must never reach `api.typesafe.ai`, even by mistake. `/server` must be tested without a DOM. |
+| 2026-09-25 | SPST-23 / PR #17 | Engine details: the token bucket allows a burst of one second's worth of requests; the queue pause falls back to `backoff.maxMs` without a server delay; cancel restores each cell's previous record; re-evaluation after `setConfig` doesn't fire `onResult`; a throwing app callback is rethrown in a microtask; a result that was already committed is refused as `commit-blocked`. | Smooth rate limiting without starving the first requests; cancel leaves the grid as it was; `onResult` reports answers from Jev, not policy replays; app bugs stay visible without breaking AI Fill; a result is written at most once. |
+| 2026-09-25 | SPST-23 / PR #17 | `AIFillRunSummary` wasn't added; WP-AI1's `AIRunSummary` is the run summary type. `AIResultEvent` gained an optional `reason: "row-missing"`. | Avoids a duplicate public type. The engine needs a way to report an answer dropped because its row is gone. |
+| 2026-09-26 | SPST-25 (verification round 1), SPST-23 / PR #17 | `createJevHandler` races the whole upstream step (`fetch` and body read) against `timeoutMs` and the caller's signal; a caller abort is a 502 `upstream_unreachable`. The key is redacted from a successful body (literal and JSON-escaped), forwarded headers that contain it are dropped rather than rewritten, and a request id is forwarded only if it's 1–128 visible ASCII characters (otherwise the client gets no `requestId`). | Verification round 1 found that the helper could hang past `timeoutMs` when `fetch` or the body ignored abort, and could echo the key to the caller in a forwarded header. A `[redacted]` request id or `Retry-After` is no use to a client, so dropping is safer than rewriting. |
 
 ## Open follow-ups
 
@@ -409,4 +511,5 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - First npm publish under `@specstory` (needs Jake's approval).
 - `@toast-ui/react-editor` is unmaintained with a `react ^17` peer. If a React release breaks it, replace it with a small wrapper around `@toast-ui/editor`.
 - `scripts/check-article-cell-editor.mjs` aims at the article cell by canvas coordinates; make it find the cell some other way if the story changes often.
-- AI Fill: WP-AI2 (transport, scheduler, result store, `/server`, `/testing`, and the `/server` boundary rule), WP-AI3 (the `aiFill` prop), WP-AI4 (built-in UI) and WP-AI5 (Storybook, docs site guide, live check). Remove the "in development" note from `packages/core/API.md` when the `aiFill` prop lands.
+- AI Fill: WP-AI3 (the `aiFill` prop, wiring the engine, `rows.getRowIndex` and the commit guards), WP-AI4 (built-in UI, including `confirmAbove`) and WP-AI5 (Storybook, docs site guide, live check). Remove the "in development" note from `packages/core/API.md` when the `aiFill` prop lands.
+- Fix `scripts/jev-live-check.mjs`'s header comment (call count, and the `live-validation.mdx` path) when WP-AI5 creates that page.

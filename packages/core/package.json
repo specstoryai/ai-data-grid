@@ -23,12 +23,22 @@
         "./index.css": {
             "import": "./dist/index.css",
             "require": "./dist/index.css"
+        },
+        "./server": {
+            "types": "./dist/dts/ai-fill/server/index.d.ts",
+            "import": "./dist/esm/ai-fill/server/index.js",
+            "require": "./dist/cjs/ai-fill/server/index.js"
+        },
+        "./testing": {
+            "types": "./dist/dts/ai-fill/testing/index.d.ts",
+            "import": "./dist/esm/ai-fill/testing/index.js",
+            "require": "./dist/cjs/ai-fill/testing/index.js"
         }
     },
     "scripts": {
         "build": "./build.sh",
         "lint": "concurrently \"npm run cycle-check\" \"eslint src --ext .ts,.tsx\"",
-        "cycle-check": "ts-helper -p ./tsconfig.json -r ./src/index.ts -c",
+        "cycle-check": "ts-helper -p ./tsconfig.json -r ./src/index.ts -c && ts-helper -p ./tsconfig.json -r ./src/ai-fill/server/index.ts -c && ts-helper -p ./tsconfig.json -r ./src/ai-fill/testing/index.ts -c",
         "test": "vitest",
         "check-package": "package-check",
         "watch": "chokidar 'src/**/*.ts*' -c './build.sh'"

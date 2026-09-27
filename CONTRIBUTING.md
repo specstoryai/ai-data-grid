@@ -40,6 +40,7 @@ The root `package.json` `overrides` only affect this repository's install, not t
 | `.storybook/` | Storybook config (branded "AI Data Grid"). |
 | `scripts/smoke-storybook.mjs` | Headless smoke test of the built Storybook. |
 | `scripts/check-test-project.mjs`, `scripts/check-article-cell-editor.mjs` | Headless checks for a running sample app and for the cells article editor. See [Sample apps](#sample-apps-test-projects). |
+| `scripts/jev-dev-proxy.mjs`, `scripts/jev-live-check.mjs` | Manual-only AI Fill tools that make live Jev calls. See [Live Jev scripts](#live-jev-scripts-manual-only). |
 | `.github/workflows/ci.yml` | The only CI workflow. |
 | `test-projects/` | Sample apps (`vite-app`, `next-app`) that install the packed tarballs. See [Sample apps](#sample-apps-test-projects). |
 | `docs/` | The documentation site, a standalone Next.js app outside the npm workspaces. See [Working on the docs site](#working-on-the-docs-site). |
@@ -52,13 +53,13 @@ Run these from the root. CI runs the first five.
 | --- | --- |
 | `npm ci` | Clean install from the root lockfile. |
 | `npm run build` | Builds all three packages into `dist/esm`, `dist/cjs` and `dist/dts`, plus `dist/index.css` for core and cells (source has no CSS), then lints them (ESLint, plus a `cycle-check` for import cycles in core). Two existing `no-console` warnings are expected; errors fail. |
-| `npm test -- --run` | Core unit tests (vitest), run once. Without `--run` vitest watches. Includes the AI Fill bundle-budget test, which needs `npm run build` first (see [Working on AI Fill](#working-on-ai-fill)). |
+| `npm test -- --run` | Core unit tests (vitest), run once. Without `--run` vitest watches. Includes the AI Fill bundle-budget and `/server` load tests, which need `npm run build` first (see [Working on AI Fill](#working-on-ai-fill)). |
 | `npm run test-cells -- --run` | Cells unit tests. |
 | `npm run test-source -- --run` | Source unit tests. |
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 574 (185 of them in `test/ai-fill/`), cells 65 and source 8. Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 745 (355 of them in `test/ai-fill/`), cells 65 and source 8. Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -72,21 +73,30 @@ It needs Playwright's Chromium. If it isn't installed yet, run `npx playwright i
 
 ## Working on AI Fill
 
-AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. This stage has no network code, no React code, and nothing in `DataEditor` uses it yet. The `aiFill` prop and the other layers come in later packages. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`; the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
+AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. So far it has the pure foundation (contract, config, identity, policy) and the execution layer (transport, engine, `/server`, `/testing`). It has no React code, and nothing in `DataEditor` uses it yet. The `aiFill` prop, the React controller and the built-in UI come in later packages. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`; the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
 
 ### Code map
 
 | Path | What it is |
 | --- | --- |
 | `src/ai-fill/index.ts` | Internal barrel listing only the public AI Fill names. `src/index.ts` re-exports it with `export * from "./ai-fill/index.js"`. |
-| `src/ai-fill/contract/` | The Jev request and answer types, and `parseJevAnswer` (every malformed-answer rule). |
+| `src/ai-fill/contract/` | The Jev request and answer types, `parseJevAnswer` (every malformed-answer rule), and the endpoint contract's error body `JevEndpointErrorBody` (`endpoint.ts`). |
 | `src/ai-fill/config/` | The configuration types (`types.ts`), result, event and error types (`results.ts`), and `validateAIFillConfig` (`validate.ts`). |
 | `src/ai-fill/identity/` | Canonical JSON, `buildQuestion`, the question and input fingerprints, the cache key and the display-only `shortHash`. Internal. |
 | `src/ai-fill/policy/` | `mapAIOutput`, `evaluateAIPolicy`, `isAIDestinationEmpty` and the default `toCell` (`cells.ts`), and the commit-guard helpers (`commit-guards.ts`, internal). |
-| `test/ai-fill/*.test.ts` | Unit tests per module, plus the `boundaries` and `bundle-budget` guards below. |
-| `test/ai-fill/fixtures/` | Shared fixtures: `jev-contract.ts` holds Jev request and response bodies copied from the TypeSafe docs examples (update them from the docs, never from a test run), `definitions.ts` holds synthetic column definitions. |
+| `src/ai-fill/transport/` | The Jev clients for the three connection modes (`client.ts`), error normalization and the HTTP status mapping (`errors.ts`), backoff and `Retry-After` parsing (`retry.ts`), and browser detection (`environment.ts`). Internal. |
+| `src/ai-fill/engine/` | The execution engine (`engine.ts`: plan, run, cancel, retry, re-evaluation, `recordCommit`), the per-cell result store (`store.ts`), the scheduler and its token bucket (`scheduler.ts`, `token-bucket.ts`), the answer cache (`lru-cache.ts`), request grouping (`requests.ts`), row-state building (`state.ts`) and the `execution` defaults (`defaults.ts`). Internal: WP-AI3 wires it into `DataEditor`. |
+| `src/ai-fill/server/index.ts` | The `@specstory/ai-data-grid/server` entry: `createJevHandler` and `toNodeListener`. |
+| `src/ai-fill/testing/index.ts` | The `@specstory/ai-data-grid/testing` entry: `createMockJev`. |
+| `test/ai-fill/*.test.ts` | Unit tests per module, plus the `boundaries`, `bundle-budget`, `server-load` and `no-live-jev` guards below. |
+| `test/ai-fill/fixtures/` | Shared fixtures: `jev-contract.ts` holds Jev request and response bodies copied from the TypeSafe docs examples (update them from the docs, never from a test run), `definitions.ts` holds synthetic column definitions, and `grid.ts` is a synthetic in-memory grid for the engine tests. |
+| `test/ai-fill/live-jev-guard.ts` | The live-Jev `fetch` guard that `vitest.setup.ts` installs for every core test. |
 
-Paths are relative to `packages/core`. Later packages add `transport/`, `engine/`, `server/`, `testing/`, `react/` and `stories/` under `src/ai-fill/`; they don't exist yet.
+Paths are relative to `packages/core`. Later packages add `react/` and `stories/` under `src/ai-fill/`; they don't exist yet.
+
+### Entry points
+
+Core's `package.json` `exports` has two AI Fill subpaths next to `.` and `./index.css`: `./server` (`dist/*/ai-fill/server/index.*`) and `./testing` (`dist/*/ai-fill/testing/index.*`). `cycle-check` runs on all three roots (`src/index.ts`, `src/ai-fill/server/index.ts`, `src/ai-fill/testing/index.ts`). If you add or rename an entry point, run `npm run test-projects`: the `next-app` sample's `app/api/jev/route.ts` imports `createJevHandler` from the tarball, so its `next build` checks that `/server` resolves and type-checks.
 
 ### Import rules (`test/ai-fill/boundaries.test.ts`)
 
@@ -94,10 +104,10 @@ The test parses every `.ts`/`.tsx` file under `src/` and fails on:
 
 1. an import in `ai-fill/` from `src/index.ts`, `src/data-editor-all.tsx` or any `@specstory/*` package. Import core types from the module that defines them, for example `../../internal/data-grid/data-grid-types.js`;
 2. an import of `ai-fill/` from anywhere outside it except `src/index.ts` and `src/data-editor-all.tsx`. `src/data-editor/data-editor.tsx` may use type-only imports;
-3. an import in `ai-fill/testing/` from anything but `testing/`, `contract/`, `identity/` and `transport/`;
-4. an import of `@specstory/ai-data-grid-cells` or `-source` anywhere in core.
+3. in the graph of files reachable from `ai-fill/server/index.ts` (through relative imports, type-only ones included): a `react`, `react-dom` or `@linaria/*` import, a `.tsx` file, or a `window` or `document` reference outside a function body. `/server` must load in plain Node;
+4. an import in `ai-fill/testing/` from anything but `testing/`, `contract/`, `identity/` and `transport/`.
 
-The planned rule that the `/server` graph has no React, DOM or Linaria import is added with `/server`. `npm run build` also runs `cycle-check`, which must stay clean.
+It also fails on an import of `@specstory/ai-data-grid-cells` or `-source` anywhere in core. The numbers match the test's own comments. `npm run build` also runs `cycle-check`, which must stay clean.
 
 ### Bundle budget (`test/ai-fill/bundle-budget.test.ts`)
 
@@ -106,19 +116,41 @@ This test caps what AI Fill costs apps that render `DataEditor` without using AI
 - the initial JS (the entry chunk and every chunk it imports statically) is over 71,900 B gzip;
 - the CSS is over 4,600 B gzip;
 - any `ai-fill/` module other than `ai-fill/react/bridge.js` is in the initial chunks;
+- any `ai-fill/transport/`, `engine/`, `server/` or `testing/` module is in the initial chunks;
 - the lazily loaded AI Fill chunks are over 40,000 B gzip.
 
 It prints the measured sizes (`bundle-budget: initial JS … B gzip, …`). It reads `dist/`, so **run `npm run build` before `npm test`**: without `dist/esm/index.js` it fails with "run \`npm run build\` first", and after source changes it measures stale output. It also needs the `gzip` binary on `PATH`. CI builds before it tests, so it runs there as is. The limits and baseline are recorded in [AS-BUILT.md](AS-BUILT.md#bundle-budget).
 
 ### Export names
 
-Every new core export name contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`, so AI Fill never takes a generic name from core's namespace. `test/public-api-exports.test.ts` keeps the 151 upstream names (`upstreamExports`) and the AI Fill names (`aiFillExports`) in separate lists and checks every addition against that rule. Helpers that apps don't need stay unexported: list public names in `src/ai-fill/index.ts` only, and import internal helpers in tests from their module, for example `../../src/ai-fill/identity/fingerprints.js`.
+Every new export name from `.` (`src/index.ts`) contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`, so AI Fill never takes a generic name from core's namespace. `test/public-api-exports.test.ts` keeps the 151 upstream names (`upstreamExports`) and the AI Fill names (`aiFillExports`) in separate lists and checks every addition against that rule. The `/server` and `/testing` subpaths are their own namespaces, so the rule doesn't apply to them (`toNodeListener` doesn't match it); instead their names are pinned exactly by `expectedServerExports` (4) and `expectedTestingExports` (5) in the same file. Update the matching list whenever you change an entry's exports. Helpers that apps don't need stay unexported: list public names in `src/ai-fill/index.ts` only, and import internal helpers in tests from their module, for example `../../src/ai-fill/identity/fingerprints.js`.
 
 ### Tests and fixtures
 
-- **Tests never call Jev.** Build answers in the test or use `test/ai-fill/fixtures/`. Live Jev calls are for manual validation only and are recorded outside the tests.
+- **Tests never call Jev.** Use `createMockJev` (from `src/ai-fill/testing/index.js`), a fake transport, answers built in the test, or `test/ai-fill/fixtures/`. `vitest.setup.ts` installs `test/ai-fill/live-jev-guard.ts`, which rejects any `fetch` to `typesafe.ai` or a subdomain and fails the test that tried, even if the code under test caught the rejection (`no-live-jev.test.ts` checks the guard). Live Jev calls are for manual validation only (see [Live Jev scripts](#live-jev-scripts-manual-only)) and are recorded outside the tests.
+- **Node-environment tests.** Core's tests run in jsdom. A file that starts with `// @vitest-environment node` runs in plain Node instead, for code that must work without a DOM (`boundaries`, `server`, `server-load`); `vitest.setup.ts` skips its DOM-only setup (canvas mock, `ResizeObserver`, `Image.decode`) when there's no `window`.
+- **`server-load.test.ts` needs a build**, like `bundle-budget`: it loads `dist/esm` and `dist/cjs` `ai-fill/server/index.js` with `import()` and `require()`, and fails with "run \`npm run build\` first" when they're missing.
+- **Run `npm run test-projects`** in every AI Fill package from WP-AI2 on, as well as the check commands (see [Sample apps](#sample-apps-test-projects)).
 - **Core's tarball ships `src/` and `test/`** (core has no `files` field). Fixtures use synthetic row data only, with request ids removed. Never commit a key, token or `.env` file, and never put `JEV_API_KEY` in a test, story, fixture or CI.
 - Core gets no new runtime or peer dependencies for AI Fill. Use `fetch` and the platform's `AbortController`, `TextEncoder`, `Headers`, `Request` and `Response`, not the TypeSafe SDK.
+
+### Live Jev scripts (manual only)
+
+Two root scripts talk to the real Jev API. They aren't published (core's tarball doesn't include `scripts/`), and no test or CI step runs them. Both import core's build, so run `npm run build` first. They read the key from `JEV_API_KEY` (or `TYPESAFE_API_KEY`) and never print it. Every call they forward is live and billed, and SPST-16 caps live calls (see the brief for your package before you make any).
+
+- **`scripts/jev-dev-proxy.mjs`** runs `createJevHandler` behind a small `node:http` server, so a browser demo can use endpoint mode (TypeSafe's API rejects browser CORS preflights). Flags: `--port` (default `8787`), `--host` (default `0.0.0.0`), `--allow-origin <origin>` and `--allow-model <model>` (both repeatable; any `--allow-model` replaces the default `jev-latest`), `--help`. It allows `http://localhost:<any port>`, `http://127.0.0.1:<any port>` and the exact `--allow-origin` origins; it refuses `--allow-origin '*'` and `null`. A request without an allowed `Origin` header gets a 403 before it reaches Jev, so test it with `curl -H "Origin: http://localhost:9009" …`. Any path works, for example `http://<host>:8787/api/jev`. It logs only method, path, status and time.
+
+    In the sandbox, run it detached in tmux and allow the sandbox URL of the page that calls it (the proxy port and the page's port differ, so list the page's origin):
+
+    ```bash
+    npm run build
+    tmux new -d -s jev-proxy "node scripts/jev-dev-proxy.mjs --host 0.0.0.0 --port 8787 --allow-origin $(sb-url 9009 | sed 's#/$##') 2>&1 | tee /tmp/jev-proxy.log"
+    tmux capture-pane -pt jev-proxy      # shows the listening address and allowed origins
+    tmux kill-session -t jev-proxy       # stop it
+    ```
+
+    The key comes from the sandbox environment (`JEV_API_KEY`); don't type it on the command line. Point the demo at `connection: { mode: "endpoint", url: "<sb-url 8787>api/jev" }`.
+- **`scripts/jev-live-check.mjs`** is WP-AI5's live check. It sends one direct-mode request with three questions (a Choice, a Score and a Noul) about one synthetic contact through AI Fill's own client, with no retries, checks each answer with `parseJevAnswer` and the column policies, then sends the same request with a bad key to confirm a 401 becomes an `authentication` error. That is 2 HTTP requests, or 1 with `--skip-401`. (The script's header comment says "at most 4 calls (3 without --skip-401)", counting each question.) `--model` defaults to `jev-latest`. `node scripts/jev-live-check.mjs --dry-run` prints the requests, sends nothing and needs no key. It imports internal modules from `packages/core/dist/esm/ai-fill/`.
 
 ## Sample apps (`test-projects/`)
 
@@ -127,7 +159,7 @@ Every new core export name contains `AI`, `AIFill` or `Jev`, or starts with `Cho
 - `vite-app`: Vite 8, React 19, TypeScript. `npm run build` runs `tsc --noEmit && vite build`.
 - `next-app`: Next 16 App Router, React 19. `app/page.tsx` is a `"use client"` page that loads the grid component (`components/Grid.tsx`) with `next/dynamic` and `ssr: false`. `npm run build` runs `next build`.
 
-Both render a `DataEditor` with text, number, boolean and star (from `-cells`) columns, and import `@specstory/ai-data-grid/dist/index.css`.
+Both render a `DataEditor` with text, number, boolean and star (from `-cells`) columns, and import `@specstory/ai-data-grid/dist/index.css`. `next-app` also has `app/api/jev/route.ts`, a `POST` route built with `createJevHandler` from `@specstory/ai-data-grid/server`. It only checks that `/server` resolves and type-checks from the tarball: its `authorize` rejects every request, so it never calls Jev.
 
 Build and check them from the root:
 
@@ -141,7 +173,7 @@ This runs `test-projects/bootstrap-projects.sh`, which:
 2. `npm pack`s the three packages into `test-projects/.packs/`;
 3. in each sample, deletes `node_modules` and `package-lock.json`, runs `npm install` with the tarballs, then `npm run build`.
 
-It ends with `All test projects built successfully.` and takes under a minute with a warm npm cache, but it installs about 500 MB of `node_modules` into the samples. It isn't in CI. Run it when you change what users install: package `exports`, `main`/`module`/`types`, `files`, the CSS entry, peer dependencies or dependencies.
+It ends with `All test projects built successfully.` and takes under a minute with a warm npm cache, but it installs about 500 MB of `node_modules` into the samples. It isn't in CI. Run it when you change what users install: package `exports`, `main`/`module`/`types`, `files`, the CSS entry, peer dependencies or dependencies, and in every AI Fill package from WP-AI2 on.
 
 Each sample has `.npmrc` with `legacy-peer-deps=true`. Their `package.json` files depend on `file:../.packs/…-7.0.0.tgz`, so update them if the version changes. `.packs/`, `node_modules/`, `dist/`, `.next/` and the samples' `package-lock.json` are gitignored and regenerated on every run.
 
