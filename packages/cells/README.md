@@ -81,7 +81,7 @@ The toolbar has headings (paragraph and H1–H6), bold, italic, strikethrough, h
 Save stores the article's Markdown in `data.markdown`:
 
 - If you save without changing anything, the original Markdown is kept byte for byte.
-- If you edit the article, the whole article is saved in the editor's GFM form, which can rewrite parts you didn't touch without changing their meaning: tables are padded and their alignment rows written as `:-`, `:-:` or `-:`; `-` and `+` bullets become `*`, and `---` and `___` rules become `***`; setext headings become `#` headings; indented and `~~~` code blocks become backtick fences; reference links become inline links, and bare URLs become `<url>` autolinks; two-space hard breaks become `\`; named entities such as `&copy;` become the characters they stand for; and a trailing newline is added.
+- If you edit the article, the whole article is saved in the editor's GFM form, which can rewrite parts you didn't touch without changing their meaning: tables are padded and their alignment rows written as `:-`, `:-:` or `-:`; bullets are written with `*`, except that adjacent bullet lists alternate between `*` and `-` so they stay separate; `---` and `___` rules become `***`; setext headings become `#` headings; indented and `~~~` code blocks become backtick fences; reference links become inline links, and bare URLs become `<url>` autolinks; two-space hard breaks become `\`; named entities such as `&copy;` become the characters they stand for; and a trailing newline is added.
 - Raw HTML, HTML comments and `$$…$$` blocks are saved byte for byte either way.
 - If the editor can't load an article, it shows the stored Markdown as plain text, and Save keeps it unchanged.
 
@@ -102,7 +102,7 @@ Article Markdown, and anything pasted or dropped into the editor, is treated as 
 - **The instance is private.** Calls to `DOMPurify.setConfig` or `DOMPurify.addHook` in your app don't change how articles are handled.
 - **Link and image URLs are filtered.** A link or image URL that DOMPurify's URL policy rejects, such as a `javascript:` URL, is rendered empty in the viewer and the editor, and the link dialog doesn't accept it. `https:`, `http:`, `mailto:`, `tel:` and relative URLs are allowed, and `data:` URLs only for images.
 - **No paste or drop is left to the browser.** The editor handles every paste and drop itself or ignores it, so the browser never inserts content on its own. A paste or drop into a code block inserts plain text only.
-- **It fails closed.** If DOMPurify reports that it can't run in the current environment, pasted HTML is inserted as plain text, and every link and image URL is rendered empty. This isn't expected in current browsers.
+- **It fails closed.** If DOMPurify reports that it can't run in the current environment, pasted or dropped HTML is inserted as plain text (or nothing, if there's no plain-text version), and every link and image URL is rendered empty. This isn't expected in current browsers.
 
 Limitations:
 
