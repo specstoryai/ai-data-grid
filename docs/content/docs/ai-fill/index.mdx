@@ -7,10 +7,6 @@ AI Fill lets you add AI-filled columns to a `DataEditor` in configuration alone.
 
 It is part of `@specstory/ai-data-grid`: there is no second package to install, no new runtime dependency, and a grid without the `aiFill` prop doesn't change and doesn't load any AI code.
 
-<Note title="Not on npm yet">
-  AI Fill ships in `@specstory/ai-data-grid` 7.0.0, which hasn't been published to npm yet. Until it is, build the packages from the repository and install the tarballs, as described in the repository README's [Installing before the npm release](https://github.com/specstoryai/ai-data-grid#installing-before-the-npm-release) section.
-</Note>
-
 ## What Jev answers
 
 Jev returns structured answers, not prose. Each primitive answers a different kind of question:
@@ -97,7 +93,7 @@ Every accepted value is written through your `onCellEdited` (or `onCellsEdited`)
 - **It loads lazily.** AI Fill's controller loads in its own chunk the first time `aiFill` is set. Until it has loaded (normally a few milliseconds) the grid renders as if the prop were unset. Then `ref.current.aiFill` is set, and `aiFill.onReady(api)` is called once with the same API.
 - **Keep the object stable,** for example with `useMemo`. A new object is validated and applied again: a changed policy re-decides stored answers without a request, a changed question marks results stale, and a removed column drops its results.
 - **Clearing it** aborts every request in flight and drops every result. Nothing is written, and the grid isn't remounted.
-- **Your handlers are wrapped, never replaced.** AI Fill composes `columns`, `drawCell`, `drawHeader`, the edit handlers, `onKeyDown`, the menu handlers, `onCellClicked`, `className` and the selection props with yours, and passes everything else through. The API reference lists [what it does with each prop](https://github.com/specstoryai/ai-data-grid/blob/main/packages/core/API.md#quick-start-aifill-prop).
+- **Your handlers are wrapped, never replaced.** AI Fill composes `columns`, `drawCell`, `drawHeader`, the edit handlers, `onKeyDown`, the menu handlers, `onCellClicked`, `className` and the selection props with yours, and passes everything else through. The API reference lists what it does with each prop, in the "Quick start (`aiFill` prop)" section of [`API.md`](https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/API.md), which ships in the package.
 
 ### The API
 
@@ -145,6 +141,6 @@ The [Storybook](https://ai-data-grid-storybook.vercel.app) has 13 AI Fill storie
   </Card>
 </CardGroup>
 
-The complete reference, including every type, is the "AI Fill" chapter of [`packages/core/API.md`](https://github.com/specstoryai/ai-data-grid/blob/main/packages/core/API.md#ai-fill).
+The complete reference, including every type, is the "AI Fill" chapter of [`API.md`](https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/API.md), which ships in the `@specstory/ai-data-grid` package.
 
 AI Data Grid is forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed. AI Fill is new in AI Data Grid.
