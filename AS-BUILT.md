@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-26 (SPST-33: AI Fill WP-AI5, PR #20 at `f0942356` (the merge of WP-AI4's verified head `6f86c3e1`, with the applied-count fix, the confirm dialog's re-plan and WP-AI2's `/server` fix) plus this docs commit)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged), AI Fill's execution layer with the `/server` and `/testing` subpaths (WP-AI2, SPST-23 / PR #17, stacked on PR #16, not merged), AI Fill's grid integration: the `aiFill` prop, rendering, fill, commit and undo (WP-AI3, SPST-26 / PR #18, stacked on PR #17, not merged), AI Fill's built-in UI: menus, confirm dialog, status bar, inspector and keyboard (WP-AI4, SPST-29 / PR #19, stacked on PR #18, not merged), and AI Fill's Storybook stories, docs site guide and live validation (WP-AI5, SPST-32 / PR #20, stacked on PR #19 at `6f86c3e1`, not merged).
+**Last updated:** 2026-09-28 (SPST-52: the docs for SPST-48, PR #22 at `374af0a2` plus this docs commit)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), AI Fill in core (WP-AI1 to WP-AI5, SPST-19, 23, 26, 29 and 32 / PRs #16 to #20, merged 2026-09-27), and the vendored Toast UI editor and article sanitizer in cells (SPST-48 / PR #22, not merged).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -14,7 +14,7 @@ The root `package.json` (name `root`, version `7.0.0`) declares three npm worksp
 | Workspace | npm name | Depends on | Peer dependencies |
 | --- | --- | --- | --- |
 | `packages/core` | `@specstory/ai-data-grid` | `@linaria/react`, `canvas-hypertxt`, `react-number-format` | `react`, `react-dom` (`^19.0.0`), `lodash`, `marked`, `react-responsive-carousel` |
-| `packages/cells` | `@specstory/ai-data-grid-cells` | `@specstory/ai-data-grid` `7.0.0` (exact), `@linaria/react`, `@toast-ui/editor`, `@toast-ui/react-editor`, `react-select` | `react`, `react-dom` (same range) |
+| `packages/cells` | `@specstory/ai-data-grid-cells` | `@specstory/ai-data-grid` `7.0.0` (exact), `@linaria/react`, `dompurify` `^3.4.16`, eight `prosemirror-*` packages (`commands`, `history`, `inputrules`, `keymap`, `model`, `state`, `transform`, `view`), `react-select`. `@toast-ui/editor` `3.2.2` is an exact devDependency only (see [Vendored Toast UI editor](#vendored-toast-ui-editor-and-article-sanitizer)). | `react`, `react-dom` (same range) |
 | `packages/source` | `@specstory/ai-data-grid-source` | `@specstory/ai-data-grid` `7.0.0` (exact) | `react`, `react-dom` (same range), `lodash` |
 
 None of them is published to npm yet.
@@ -28,16 +28,18 @@ None of them is published to npm yet.
 3. The tmp directories replace `dist/esm`, `dist/cjs` and `dist/dts` (the esm run moves `dts-tmp`), and the `tsconfig.*.tsbuildinfo` files are deleted.
 4. `generate_index_css` writes `dist/index.css`, which `@import`s every extracted `.css` file.
 
+Cells' `build.sh` also copies the vendored Toast UI editor first: `vendor/toast-ui/{editor.js,LICENSE,README.md}` to `dist/vendor/toast-ui/`, and `vendor/toast-ui/toastui-editor.css` to `dist/toastui-editor.css`, outside `dist/esm` so that `generate_index_css` doesn't fold it into `dist/index.css`.
+
 **source.** `packages/source/build.sh` doesn't use `compile`. It runs `rm -rf dist`, then `tsc -p tsconfig.esm.json` and `tsc -p tsconfig.cjs.json` in parallel, straight into `dist/esm` and `dist/cjs`. Both configs set `declarationDir` to `dist/dts`, so both runs write declarations there. There is no tmp directory, no `wyw-in-js` step and no CSS. The output is `dist/esm`, `dist/cjs`, `dist/dts` and the two `tsconfig.*.tsbuildinfo` files, which are left in `dist/`.
 
-Because the JS doesn't import any CSS, consumers must import it themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles. `source` has no `dist/index.css` and needs no CSS import. Entry points, the same in all three packages: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`. Since WP-AI2, core's `exports` also has `./server` and `./testing` (see [Entry points](#entry-points-server-and-testing)).
+Because the JS doesn't import any CSS, consumers must import it themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles, plus `@specstory/ai-data-grid-cells/dist/toastui-editor.css` (the export `./dist/toastui-editor.css`, SPST-48) for apps that use ArticleCell. `source` has no `dist/index.css` and needs no CSS import. Entry points, the same in all three packages: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`. Since WP-AI2, core's `exports` also has `./server` and `./testing` (see [Entry points](#entry-points-server-and-testing)).
 
 ### What ships in each tarball (`npm pack --dry-run`)
 
 | Package | `files` | Contents |
 | --- | --- | --- |
 | core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 1,105 files at PR #20 (1,029 at PR #18, 978 at PR #17, 862 at PR #16, 768 before AI Fill): `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
-| cells | `["dist"]` | 120 files: `dist/`, `LICENSE`, `README.md`, `package.json` |
+| cells | `["dist"]` | 124 files at PR #22 (120 before it; SPST-48 adds `dist/toastui-editor.css` and `dist/vendor/toast-ui/{editor.js,LICENSE,README.md}`): `dist/`, `LICENSE`, `README.md`, `package.json` |
 | source | `["dist"]` | 41 files: `dist/` (including two `tsconfig.*.tsbuildinfo` files), `LICENSE`, `README.md`, `package.json` |
 
 This is unchanged from upstream apart from the names.
@@ -68,7 +70,7 @@ Since WP-AI1, core's list is `upstreamExports` (the 151 names) plus `aiFillExpor
 ## License and attribution
 
 - Four `LICENSE` files (root, `packages/core`, `packages/cells`, `packages/source`) keep the MIT text and `Copyright (c) 2021 typeguard, Inc.`, with `Copyright (c) 2026 ai-data-grid contributors` on the next line. `npm pack --dry-run` lists `LICENSE` in all three packages.
-- `THIRD_PARTY_NOTICES.md` lists Glide Data Grid (full MIT text), the `dequal` port by Luke Edwards (`packages/core/src/common/support.ts`) and the `use-callback-ref` pattern by Anton Korzunov (`packages/core/src/data-editor/use-initial-scroll-offset.ts`). The in-code attribution comments stay at both sites.
+- `THIRD_PARTY_NOTICES.md` lists Glide Data Grid (full MIT text), the `dequal` port by Luke Edwards (`packages/core/src/common/support.ts`) and the `use-callback-ref` pattern by Anton Korzunov (`packages/core/src/data-editor/use-initial-scroll-offset.ts`). The in-code attribution comments stay at both sites. Since SPST-48 it also lists Toast UI Editor (MIT, `Copyright (c) 2020 NHN Cloud Corp.`) and the components bundled in its build (ToastMark, which includes commonmark.js-derived code, tui-code-snippet, entities, mdurl and tslib), with their license texts, and says that DOMPurify is now an ordinary npm dependency rather than embedded. The same texts ship in cells' tarball as `dist/vendor/toast-ui/LICENSE`.
 - The READMEs carry "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed." The only other uses of the old names in the READMEs are the 6.x → 7.0.0 migration tables and the root README's note that the docs site is converted from the Glide Data Grid GitBook docs.
 
 ## Toolchain and lockfile
@@ -116,18 +118,69 @@ These apply to this repository's install only; they don't reach the published pa
 
 The root `.npmrc` keeps `legacy-peer-deps=true`.
 
-### `@toast-ui/react-editor` (cells article editor)
+### The article editor and React 19 (history)
 
-Kept. It declares a `react ^17.0.1` peer and is unmaintained, but the article cell editor works under React 19: `scripts/check-article-cell-editor.mjs` opens it in the Storybook custom-cells story, types, saves, reopens and cancels with no console errors (5 of 5 runs during WP2; 1 run on 2026-09-25 during SPST-13).
+Until SPST-48, cells used `@toast-ui/react-editor` 3.2.3, which declares a `react ^17.0.1` peer. It worked under React 19 (checked headless during WP2 and SPST-13), but npm printed `npm warn ERESOLVE overriding peer dependency` when installing `-cells`, and `--strict-peer-deps` installs failed; the cells README documented an `overrides` workaround. SPST-48 replaced it with an in-repo wrapper (see below), so the warning and the workaround are gone.
 
-Install impact for users, measured with npm 11.19 on 2026-09-25 by installing the packed tarballs next to `react@19` / `react-dom@19` in an empty app with no `.npmrc`:
+## Vendored Toast UI editor and article sanitizer
 
-- default npm: exit 0, with `npm warn ERESOLVE overriding peer dependency` for `@toast-ui/react-editor@3.2.3`; one `react` (19.x) is installed. `npm ci` from the resulting lockfile also succeeds with the warning.
-- `--strict-peer-deps`: fails with `npm error code ERESOLVE`.
-- an app-level `overrides` entry `"@toast-ui/react-editor": { "react": "$react", "react-dom": "$react-dom" }`: no warning, and `--strict-peer-deps` passes. This is the workaround in the cells README.
-- `legacy-peer-deps=true`: no warning, but npm no longer auto-installs peers (`lodash`, `marked`, `react-responsive-carousel` were missing).
+ArticleCell (cells) draws the first line of its Markdown on the canvas, with no DOM and no sanitizer. Its overlay editor (`src/cells/article-cell-editor.tsx`, loaded with `React.lazy`) runs Toast UI Editor 3.2.2. Until SPST-48, Toast UI embedded DOMPurify 2.3.3, in range of GHSA-gx9m-whjm-85jf, GHSA-p3vf-v8qc-cwcr and GHSA-mmhx-hmjr-r674, in two copies (the ESM editor and the UMD viewer `@toast-ui/react-editor` imported), which `npm audit` couldn't see. Toast UI is archived: 3.2.2 is its last release. The design is in the SPST-49 plan.
 
-If a future React breaks it, the fallback is a small wrapper around `@toast-ui/editor`, which is already a cells dependency.
+### Layout
+
+`packages/cells/vendor/toast-ui/`, a sibling of `src/` (outside `eslint src` and `tsc`'s `rootDir`):
+
+| File | What it is |
+| --- | --- |
+| `editor.js` | Generated: Toast UI's `dist/esm/index.js` (input sha256 `ff713150…`) with patches P1–P4 and a comment-only header (H0). Output sha256 `30e4b607…`. |
+| `toastui-editor.css` | Generated: a verbatim copy of `dist/toastui-editor.css` (sha256 `c0ceb967…`). |
+| `editor.d.ts` | Hand-written types for what the wrapper uses only. Not shipped. |
+| `LICENSE` | Toast UI's MIT text and the licenses of the components bundled in its build. |
+| `README.md` | Provenance (npm integrity, source tag, the input and output sha256s), the patch table and the regenerate and check commands. |
+
+`src/cells/article-cell-editor.tsx` imports `../../vendor/toast-ui/editor.js`, a path that resolves the same way from `src/cells/`, `dist/esm/cells/` and `dist/cjs/cells/`, so the tarball needs one copy (`dist/vendor/toast-ui/`). Storybook's `cell.stories.tsx` imports `../vendor/toast-ui/toastui-editor.css`.
+
+### Generator
+
+`scripts/vendor-toast-ui.mjs [--check]` reads the exact devDependency `@toast-ui/editor` `3.2.2` of cells (it resolves the CJS entry and walks up, because the package's exports map doesn't expose `package.json`), verifies the version and both input sha256s, applies every patch at an exact anchor with an expected match count, and writes `editor.js` and the CSS. `--check` compares with the committed files and exits non-zero on any difference. Any input drift fails the run. The devDependency is the generator's input only: source never imports it and it never ships.
+
+### Patches
+
+| Patch | What it does |
+| --- | --- |
+| P1 | Removes the embedded DOMPurify 2.3.3 and imports the external `dompurify`: `var purify = DOMPurify()` is a **private instance**, so an app's `setConfig` or `addHook` on the default instance can't weaken it. `sanitizeHTML` throws if `purify.isSupported` is false (**fail closed**; DOMPurify 3 returns its input unchanged when unsupported). |
+| P2 | `changePastedHTML` (Toast UI's ProseMirror `transformPastedHTML`) sanitizes pasted HTML with `FORBID_ATTR: ['data-raw-html']` before the Office list conversion, which assigns HTML to `innerHTML` of an element in the live document. |
+| P3 | Every `data-raw-html` read (13 parse rules and the table-cell rule, 14 sites) goes through `safeRawHTMLTag(dom)`: the value is kept only if it equals the element's own tag name and is one Toast UI itself writes (`b strong i em s del code a img hr br pre ul ol li h1`–`h6 blockquote table thead tbody tr th td`); otherwise `null`. `rawHTML` becomes the tag name that `toDOM` and the Markdown writer emit, so this stops pasted or dropped HTML from creating arbitrary elements. |
+| P4 | Link `toDOM` `href`, image `toDOM` `src` and `ImageView`'s `image.src` render a URL only if `purify.isValidAttribute(tag, attr, url)` accepts it, otherwise an empty value. The model keeps the URL, so saved Markdown is unchanged. |
+
+Where sanitizing happens after the patches:
+
+- **Viewer, the editor's hidden Markdown preview, and Markdown-to-WYSIWYG conversion of inline and block HTML:** Toast UI's `sanitizeHTML`, now on the private DOMPurify 3 instance, with Toast UI's `FORBID_TAGS` (`input script textarea form button select meta style link title object base`) and `ADD_ATTR` (`rel target hreflang type`). Toast UI adds `iframe` or `embed` to the allowed tags only for a `customHTMLRenderer` that renders them, and ArticleCell passes none, so both stay excluded, as in DOMPurify's defaults.
+- **Paste:** P2, then the parse rules (P3).
+- **Drop:** Toast UI's `dropImage` plugin reports every drop as handled, so ProseMirror never parses dropped HTML and P2 doesn't run. In Chromium an HTML drop onto the editor then inserts nothing (as before SPST-48). A browser that inserts dropped content natively hands the new DOM to ProseMirror's DOM observer and parse rules, where P3 applies.
+- **Links and images in WYSIWYG:** P4.
+
+### Wrapper
+
+`article-cell-editor.tsx` replaces `@toast-ui/react-editor`. It keeps the default export (`ProvideEditorComponent<ArticleCell>`) and the DOM contract: `#gdg-markdown-wysiwyg`, `#gdg-markdown-readonly`, `.gdg-footer`, `.gdg-save-button`, `.gdg-close-button`, the `onKeyDown` `stopPropagation`, and the read-only padding and `75vh` height.
+
+- In a `useEffect` it appends a fresh element and creates `new Editor({ initialEditType: "wysiwyg", hideModeSwitch: true, autofocus: true, height: "75vh", usageStatistics: false, initialValue, toolbarItems })` with the same five toolbar groups as before. A read-only cell gets `Editor.factory({ viewer: true, … })` from the same module, so the UMD viewer is gone. Unmount calls `destroy()` and removes the element, which keeps StrictMode's double mount clean.
+- **Save** reads `getMarkdown()`. Toast UI normalizes Markdown when it loads it, so the wrapper records `getMarkdown()` right after creation as a baseline: if the Markdown still equals it, Save returns the original `p.value.data.markdown` byte for byte; otherwise it saves Toast UI's Markdown. This fixed a bug inherited from 6.x: the old `onChange={setTempValue}` received Toast UI's editor type, so Save stored the literal string `"wysiwyg"`.
+- **Close** calls `onFinishedEditing(undefined)`, as before.
+
+### DOMPurify range and deduplication
+
+- `dompurify` `^3.4.16` is a cells dependency. On 2026-09-28, 3.4.13 was the highest first-patched version of any 3.x advisory, and 3.4.16 was `latest` and tested, so it's the floor. Toast UI's configuration uses no feature named in a 3.x advisory.
+- In a consumer, npm hoists one copy if the app's own `dompurify` range overlaps; if the app pins 2.x or anything below 3.4.16, npm nests a copy under `@specstory/ai-data-grid-cells/node_modules`, and bundlers resolve `editor.js`'s import from its own location, so the editor still gets 3.4.16 or later. The private instance shares no configuration or hooks with the app even when the module is shared. Only an app-level `overrides` entry can force a lower version, which isn't supported.
+- `npm audit` sees `dompurify`, and consumers get its patch releases through their own lockfile. It can't see the vendored Toast UI code, which is cells' own files; its status rests on the vendor tests, the vendor README's provenance and the advisory database (Toast UI's only advisory, GHSA-cr56-66mx-293v, affects `<2.2.0`).
+
+### Tests and checks
+
+- `packages/cells/test/article-cell-sanitizer.test.tsx` (61 tests, jsdom 26, the real DOMPurify): R, 18 rendering payloads through the Viewer and the editor's initial Markdown (36); P, paste and drop (10), with a spy on the `innerHTML` setter for live-document elements; S, safe content and behavior (10), including Save with and without a change, Close, read-only, reopen, normal paste and Office list paste; I, sanitizer identity (5): the private instance is created from the external module (3.4.16 or later), isolation from the app's `setConfig`/`addHook`, a prototype-pollution case through the Viewer, and fail closed.
+- `packages/cells/test/article-cell-vendor.test.ts` (3 tests): V01 runs the generator's `--check`; V02 checks that `editor.js` has no embedded DOMPurify, imports `dompurify` exactly once and carries the P1–P4 markers (14 P3 sites, 3 P4 sites); V03 checks that no `src/` file imports `@toast-ui/`, that cells' dependencies have no `@toast-ui/*`, `dompurify` is a `^3` range at 3.4.16 or above, `@toast-ui/editor` is only the exact `3.2.2` devDependency, and every bare import of `editor.js` is a dependency.
+- The payloads are synthetic, in `packages/cells/test/fixtures/article-sanitizer-payloads.mjs`, shared with the browser check. Cells' tarball ships only `dist`, so they don't ship.
+- Cells tests went from 65 to 129. Core, source and every export snapshot are unchanged.
+- The Chromium checks are described under [Check scripts](#check-scripts).
 
 ## Sample apps (`test-projects/`)
 
@@ -159,7 +212,8 @@ On 2026-09-25 (SPST-13) a run took 14 s with a warm npm cache and left about 400
 Both need Playwright's Chromium and aren't in CI.
 
 - `scripts/check-test-project.mjs <base-url> <sample-node_modules-dir>` scans the given `node_modules` (including nested and scoped `node_modules`) for `react` packages, then loads the URL in headless Chromium, waits for a `<canvas>` (30 s) and 2 s more. It fails if there's no canvas, any console or page error, or the `react` copies don't share exactly one version. Missing arguments print the usage and exit 2.
-- `scripts/check-article-cell-editor.mjs [url]` defaults to `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`. It double-clicks the article cell at fixed canvas coordinates (the Article column, index 8, at x = 1250 + 75 px; row 1, at y = 36 + 34 + 17 px), retrying up to 3 times, then types, saves, reopens and cancels. Console errors fail it, except `Failed to load resource` 404s (the story's image cell with an undefined URL).
+- `scripts/check-article-cell-editor.mjs [url]` defaults to `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`. It double-clicks the article cell at fixed canvas coordinates (the Article column, index 8, at x = 1250 + 75 px; row *r* at y = 36 + 34 *r* + 17 px), retrying up to 3 times. On row 1 it types and saves, and fails unless the story's `Edit Cell` log (`onCellEdited`) carries a `data.markdown` containing the typed text; it reopens and cancels, and fails unless there was exactly one edit. On row 0, a read-only article, it fails unless `#gdg-markdown-readonly` shows the article's text with no toolbar, ProseMirror editor or Save button (the saved-value and read-only steps were added in SPST-48). Console errors fail it, except `Failed to load resource` 404s (the story's image cell with an undefined URL).
+- `scripts/check-article-cell-sanitizer.mjs [consumer-node_modules]` (SPST-48) defaults to `test-projects/vite-app/node_modules` and exits 2 if that has no `@specstory/ai-data-grid-cells`. It bundles an in-memory page with esbuild that uses only the public `ArticleCell.provideEditor(cell).editor`, with React, the cells package and `dompurify` resolved from that consumer, and the editor CSS from `@specstory/ai-data-grid-cells/dist/toastui-editor.css` (or, for a consumer of an older cells tarball, `@toast-ui/editor`'s CSS). In Chromium it runs each fixture through the Viewer, the editor's initial Markdown, paste, a real drag and drop, and a "native drop" (the payload dropped on a plain contenteditable, so Chromium applies its own drop sanitization, then inserted into the editor's DOM). A case fails if its `window.__xss` sentinel ran or the dangerous-DOM predicate finds anything; Save after typing must return the typed Markdown; page errors other than `Failed to load resource` fail it. It prints the bundle's sanitizer-related esbuild inputs, the `dompurify` version resolved from the cells package and bundled, and the count of embedded DOMPurify 2.3.3 copies.
 
 ## Storybook
 
@@ -558,7 +612,15 @@ The A7 figures came from a slightly different measurement than the test's (the t
 
 ## Known limitations and risks
 
-- **`@toast-ui/react-editor` is unmaintained and declares a `react ^17.0.1` peer.** npm warns on install of `-cells` (see [above](#toast-uireact-editor-cells-article-editor)). Fallback if React breaks it: a wrapper around `@toast-ui/editor`.
+- **We own the security of an archived editor.** Toast UI Editor is archived and gets no fixes. SPST-48's audit found three unpublished Toast UI issues (patched as P2–P4), and more may exist. The mitigations are sanitizing at every HTML entry point found, P3 and P4 at the node level, and the tests. Replacing the editor is an open follow-up.
+- **Fail closed is an error.** If DOMPurify reports itself unsupported, `sanitizeHTML` throws when the article editor or viewer renders, instead of inserting unsanitized HTML. ArticleCell has no error boundary, so the error reaches the app's nearest one. Not expected in browsers.
+- **A consumer `overrides` entry can force an older, vulnerable `dompurify`** on cells. That's documented as unsupported in the cells README.
+- **DOMPurify's defaults stay in force.** Inline `style` attributes, SVG and MathML without scripts, and remote images are allowed in articles, as before SPST-48. CSS-based UI redress and tracking pixels are out of scope.
+- **Stored Markdown isn't rewritten.** A `javascript:` link already in an article's Markdown stays there; only its rendering is blocked (P4 and the Viewer's sanitizer).
+- **Save normalizes edited articles.** An edited article is saved as Toast UI's `getMarkdown()` output, which can re-serialize parts that weren't touched. Only an unchanged article is saved byte for byte.
+- **An HTML drop onto the article editor inserts nothing in Chromium,** because Toast UI's `dropImage` plugin claims every drop (pre-existing).
+- **Pasting a misnested `<table>` into the article editor throws** in Toast UI's `getTableContentFromSlice`, and the paste is aborted. Pre-existing, functional, unchanged by SPST-48.
+- **The full `npm audit` (dev dependencies included) still lists `dompurify` 2.5.9,** nested under the exact `@toast-ui/editor` 3.2.2 devDependency that is only the generator's input. Source never imports it and it never ships; `npm audit --omit=dev` is clean for this chain at PR #22.
 - **The article-editor check aims by canvas coordinates.** A layout change to the custom-cells story breaks `scripts/check-article-cell-editor.mjs` until its coordinates are updated.
 - **`check-test-project.mjs` counts React versions, not copies.** Two copies of the same React version would pass.
 - **`@glideapps/ts-helper` is still a core devDependency** (with its dependencies `@glideapps/graphs` and `@glideapps/ts-necessities` in the lockfile). It's the external tool behind `cycle-check`, not shipped code.
@@ -684,6 +746,10 @@ The A7 figures came from a slightly different measurement than the test's (the t
 | 2026-09-26 | SPST-32 / PR #20 | The AI Fill guide is a hand-maintained docs site section (`ai-fill/`, `HAND_MAINTAINED_SECTIONS` in the importer), listed before About. | It has no GitBook source, and a re-import must neither overwrite nor unlist it. |
 | 2026-09-26 | SPST-32 / PR #20 | The live check ran once (2026-09-26 00:26 UTC): 4 calls, `jev-latest` answered by `jev-1.13.0`, answer shapes as documented. It is recorded in `live-validation.mdx` with the answers as returned and no key, accuracy or latency claim. SPST-16 has used 12 of 20 live calls. | Confirms the contract against the real API once, and keeps live calls separate from mocked tests and within the budget. |
 | 2026-09-26 | SPST-32 / PR #20, Orchestrator decision 2026-09-26 01:15 UTC | The applied-count bug (a "Fill and apply" run's summary counts auto-applied results as `suggested`) is documented as a known issue at PR #20's head, not fixed there; WP-AI4's fix round 2 (SPST-29) fixes it. | It's WP-AI3/WP-AI4 code, and WP-AI5 changes no product code. The docs stay true at each head. Closed when PR #20 merged WP-AI4's verified head `6f86c3e1`: the known-issue notes were removed from API.md, the guide and story 7, and story 7 now shows the applied count. |
+| 2026-09-28 | SPST-48, plan SPST-49 (option b), PR #22 | Fix ArticleCell's embedded DOMPurify 2.3.3 by vendoring a reproducibly generated, patched copy of Toast UI Editor 3.2.2's ESM build into cells (`vendor/toast-ui/`, from `scripts/vendor-toast-ui.mjs`), with patches P1–P4, and replace `@toast-ui/react-editor` with an in-repo wrapper. No new npm package. This supersedes the 2026-09-25 SPST-4 decision to keep `@toast-ui/react-editor`. | No Toast UI upgrade exists (archived). `customHTMLSanitizer` (option a) covers only the Viewer and the preview, and both 2.3.3 copies would still ship and run. Cells bundles nothing, so a root `overrides` or patch-package fix can't reach consumers. Replacing the editor (option c) means UI work and a Markdown-normalization decision, too much for a release blocker. Vendoring also fixed three Toast UI issues found in planning, and the wrapper removed the `react ^17` peer and the Save bug. |
+| 2026-09-28 | SPST-48, SPST-49 §1.4 and §2.2 | `dompurify` `^3.4.16` is an ordinary cells dependency, used through a private instance (`DOMPurify()`) that fails closed when unsupported. | 3.4.16 was `latest` and tested, above every 3.x advisory's fix (3.4.13). A plain semver dependency is visible to `npm audit` and updates through consumers' lockfiles. A private instance can't be weakened by an app's `setConfig` or hooks. DOMPurify 3 returns input unchanged when unsupported, so the guard throws instead. |
+| 2026-09-28 | SPST-48 / PR #22 (Implementor deviation 1) | P3 accepts a `data-raw-html` value only if it equals the element's own tag name and is in Toast UI's list, which includes `h1`–`h6`, `blockquote` and the table tags as well as the plan's inline and list tags. | Toast UI's `addRawHTMLAttributeToDOM` writes those tags too; leaving them out would rewrite raw-HTML headings and tables as Markdown on first save. Toast UI only ever writes the element's own name, so the equality check is stricter than a plain allowlist. |
+| 2026-09-28 | SPST-48, SPST-49 §2.1 | Ship Toast UI's CSS as `dist/toastui-editor.css` (export `./dist/toastui-editor.css`), outside `dist/esm`. Apps change `import "@toast-ui/editor/dist/toastui-editor.css"` to the new path. | Apps no longer install `@toast-ui/*`, so the CSS has to come from cells. Keeping it out of `dist/esm` stops `generate_index_css` from adding Toast UI's global `.ProseMirror` rules to `dist/index.css` for every cells user. No 7.0.0 is published, so the path change breaks nobody. |
 
 ## Open follow-ups
 
@@ -700,7 +766,8 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - Replace `@glideapps/ts-helper` for `cycle-check`.
 - Decide whether the core tarball should get a `files` field, and fix or delete `.devcontainer/`.
 - First npm publish under `@specstory` (needs Jake's approval).
-- `@toast-ui/react-editor` is unmaintained with a `react ^17` peer. If a React release breaks it, replace it with a small wrapper around `@toast-ui/editor`.
+- Replace the archived Toast UI editor (SPST-49 option c), probably in 8.0. Candidates from SPST-48's planning: Tiptap 3 with `@tiptap/markdown`, or Milkdown, for the editor (both headless: the toolbar, link dialog and table controls would have to be built, and the first save would normalize stored Markdown), plus react-markdown with remark-gfm for read-only cells. Raw HTML in articles would stop rendering, which needs Jake's decision.
+- Optionally pin the dev-only generator input's nested `dompurify` with a root `overrides` entry, so the full `npm audit` is also clean for this chain, and optionally support Trusted Types (`RETURN_TRUSTED_TYPE`) in the article sanitizer.
 - `scripts/check-article-cell-editor.mjs` aims at the article cell by canvas coordinates; make it find the cell some other way if the story changes often.
 - AI Fill: once the AI Fill PRs reach `main`, check that `https://ai-data-grid-docs.vercel.app/docs/ai-fill` and the Storybook's AI Fill group serve, and drop "(in development)" from this file's AI Fill heading.
 - AI Fill: an optional app signal for "row still exists", so a result or answer for a filtered-out row can be kept instead of dropped as `row-missing` (SPST-17 §5).

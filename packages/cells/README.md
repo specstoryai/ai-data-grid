@@ -36,6 +36,8 @@ import "@specstory/ai-data-grid/dist/index.css";
 import "@specstory/ai-data-grid-cells/dist/index.css";
 ```
 
+If you use ArticleCell, also import its editor CSS (see [Note on ArticleCell](#note-on-articlecell)).
+
 # Usage
 
 Step 1: Import the cell renderers you want to use and pass them to the grid. `allCells` contains all of them; each renderer is also exported on its own (`StarCell`, `DropdownCell`, ...).
@@ -72,40 +74,41 @@ const getCellContent = React.useCallback(() => {
 
 ## Note on ArticleCell
 
-The ArticleCell uses `@toast-ui/editor` to provide its editor. To make sure it works correctly your project will need to import the css file it depends on.
+The ArticleCell's editor and read-only viewer are a patched copy of [Toast UI Editor](https://github.com/nhn/tui.editor) 3.2.2 that ships inside this package, so you don't install anything from `@toast-ui/*`. Import its CSS once in your app, next to the other CSS imports:
 
-```
-import "@toast-ui/editor/dist/toastui-editor.css";
-```
-
-### React 19 and the `@toast-ui/react-editor` peer warning
-
-The ArticleCell editor uses `@toast-ui/react-editor`, which declares a `react ^17.0.1` peer dependency. It works with React 19, but npm reports the mismatch when you install this package:
-
-- With npm's default settings the install succeeds (exit code 0) with a warning that starts `npm warn ERESOLVE overriding peer dependency` and names `@toast-ui/react-editor`. Only your React 19 is installed.
-- With `--strict-peer-deps` (or `strict-peer-deps=true` in `.npmrc`) the install fails with `npm error code ERESOLVE`.
-
-To remove the warning and make strict installs pass, tell npm to use your app's React for that package by adding this to your app's `package.json` (your app must list `react` and `react-dom` as dependencies):
-
-```json
-"overrides": {
-    "@toast-ui/react-editor": {
-        "react": "$react",
-        "react-dom": "$react-dom"
-    }
-}
+```ts
+import "@specstory/ai-data-grid-cells/dist/toastui-editor.css";
 ```
 
-Setting `legacy-peer-deps=true` in `.npmrc` also removes the warning, but npm then stops installing peer dependencies automatically, so you must install `lodash`, `marked` and `react-responsive-carousel` yourself.
+Save stores the article's Markdown as the editor writes it. Toast UI re-serializes the whole article, so an edited article can come back with parts you didn't touch in Toast UI's own, equivalent Markdown form. If you save without changing anything, the original Markdown is kept byte for byte.
+
+### Article content security
+
+Article Markdown, and anything pasted into the editor, is treated as untrusted:
+
+- Everything the viewer and the editor render from Markdown, including raw HTML inside it, is sanitized with [DOMPurify](https://github.com/cure53/DOMPurify). DOMPurify is a regular dependency of this package (`dompurify` `^3.4.16`), so `npm audit` sees it, and you get its patch releases through your own lockfile (for example `npm update dompurify`) without a new release of this package.
+- The editor sanitizes with its own private DOMPurify instance. Calls to `DOMPurify.setConfig` or `DOMPurify.addHook` in your app don't change how articles are sanitized.
+- Pasted HTML, including content pasted from Microsoft Office, is sanitized before the editor processes it. Pasted or dropped HTML can't make the editor create elements other than the formatting elements Toast UI itself uses.
+- In the editor, link and image URLs that DOMPurify rejects, such as `javascript:` URLs, are rendered empty.
+
+Limitations:
+
+- Sanitizing uses DOMPurify's default allowlist, minus the tags Toast UI forbids. Inline `style` attributes, SVG and MathML without scripts, and images from remote URLs are still allowed. If you need to block remote images, for example tracking pixels, use a Content Security Policy.
+- The stored Markdown isn't rewritten. A `javascript:` link that is already in an article's Markdown stays there; only its rendering is blocked. If you render stored articles somewhere else, sanitize them there too.
+- If DOMPurify reports that it can't run in the current environment, the editor throws an error instead of rendering unsanitized HTML. ArticleCell has no error boundary of its own, so the error reaches your app's nearest error boundary. This isn't expected in current browsers.
+- Forcing an older `dompurify` for this package, for example with an `overrides` entry in your app's `package.json`, isn't supported. If your app itself depends on `dompurify` 2.x or an older 3.x, npm installs a separate copy that matches `^3.4.16` for this package, and the editor uses that one.
+- Toast UI Editor's upstream project is archived and gets no fixes. Security fixes for the article editor come from this package.
 
 ## Migrating from 6.x
 
-The API is unchanged from the 6.x cells package, but 7.0.0 needs React 19. If your app is on React 16, 17 or 18, upgrade it to React 19 first. Then change the package names only:
+The API is unchanged from the 6.x cells package, but 7.0.0 needs React 19. If your app is on React 16, 17 or 18, upgrade it to React 19 first. Then change the package names:
 
 | 6.x package | 7.0.0 package |
 | --- | --- |
 | `@glideapps/glide-data-grid` | `@specstory/ai-data-grid` |
 | `@glideapps/glide-data-grid-cells` | `@specstory/ai-data-grid-cells` |
+
+If you use ArticleCell, also change its CSS import: `import "@toast-ui/editor/dist/toastui-editor.css"` becomes `import "@specstory/ai-data-grid-cells/dist/toastui-editor.css"`. This package no longer depends on `@toast-ui/editor` or `@toast-ui/react-editor`.
 
 ## License
 

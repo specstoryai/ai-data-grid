@@ -13,7 +13,7 @@ AI Data Grid is a hard fork of Glide Data Grid (forked from upstream `main` at `
     npm ci
     ```
 
-    `package-lock.json` at the root is the only committed lockfile (the packages are npm workspaces and have none of their own; the sample apps' lockfiles are gitignored, see [Sample apps](#sample-apps-test-projects)). Never commit a lockfile that `npm ci` rejects: if you change dependencies with `npm install`, run `npm ci` afterwards to check it. `.npmrc` sets `legacy-peer-deps=true`, partly because `@toast-ui/react-editor` (a `cells` dependency) declares a `react ^17.0.1` peer.
+    `package-lock.json` at the root is the only committed lockfile (the packages are npm workspaces and have none of their own; the sample apps' lockfiles are gitignored, see [Sample apps](#sample-apps-test-projects)). Never commit a lockfile that `npm ci` rejects: if you change dependencies with `npm install`, run `npm ci` afterwards to check it. `.npmrc` sets `legacy-peer-deps=true`. (One of its original reasons, `@toast-ui/react-editor`'s `react ^17.0.1` peer, is gone: cells no longer depends on it.)
 
 ### React 19 only, and the root `overrides`
 
@@ -35,11 +35,13 @@ The root `package.json` `overrides` only affect this repository's install, not t
 | `packages/core` | `@specstory/ai-data-grid`, the grid. Source in `src/`, tests in `test/`, stories in `src/docs/` and `src/**/*.stories.tsx`. `API.md` is the API reference and `CHANGELOG.md` the release notes. |
 | `packages/core/src/ai-fill/` | AI Fill, part of core (not a separate package). See [Working on AI Fill](#working-on-ai-fill). Its tests are in `packages/core/test/ai-fill/`. |
 | `packages/cells` | `@specstory/ai-data-grid-cells`, extra cell renderers (`src/cells/`). |
+| `packages/cells/vendor/toast-ui/` | The patched Toast UI Editor 3.2.2 that ArticleCell's editor and viewer run. `editor.js` and `toastui-editor.css` are generated; never edit them by hand. See [Vendored Toast UI editor](#vendored-toast-ui-editor). |
 | `packages/source` | `@specstory/ai-data-grid-source`, data source hooks. |
 | `config/build-util.sh` | Shared build steps used by each package's `build.sh`. |
 | `.storybook/` | Storybook config (branded "AI Data Grid"). |
 | `scripts/smoke-storybook.mjs` | Headless smoke test of the built Storybook. |
-| `scripts/check-test-project.mjs`, `scripts/check-article-cell-editor.mjs` | Headless checks for a running sample app and for the cells article editor. See [Sample apps](#sample-apps-test-projects). |
+| `scripts/check-test-project.mjs`, `scripts/check-article-cell-editor.mjs`, `scripts/check-article-cell-sanitizer.mjs` | Headless checks for a running sample app, for the cells article editor and for the article sanitizer. See [Sample apps](#sample-apps-test-projects). |
+| `scripts/vendor-toast-ui.mjs` | Generates or checks `packages/cells/vendor/toast-ui/`. See [Vendored Toast UI editor](#vendored-toast-ui-editor). |
 | `scripts/jev-dev-proxy.mjs`, `scripts/jev-live-check.mjs` | Manual-only AI Fill tools that make live Jev calls. See [Live Jev scripts](#live-jev-scripts-manual-only). |
 | `.github/workflows/ci.yml` | The only CI workflow. |
 | `test-projects/` | Sample apps (`vite-app`, `next-app`) that install the packed tarballs. See [Sample apps](#sample-apps-test-projects). |
@@ -59,7 +61,7 @@ Run these from the root. CI runs the first five.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 65 and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 129 (65 plus 64 for the article sanitizer and the vendored editor) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -259,14 +261,50 @@ Run the servers in another terminal (or detached) and stop them afterwards.
 
 ### Article cell editor check
 
-`scripts/check-article-cell-editor.mjs [url]` opens the cells "Custom cells" story in headless Chromium, double-clicks an article cell, types, saves, reopens and cancels, and fails on any console error except a `Failed to load resource` 404. The default URL is `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`, so serve a Storybook on port 9009 first, for example:
+`scripts/check-article-cell-editor.mjs [url]` opens the cells "Custom cells" story in headless Chromium and checks the article cell end to end:
+
+1. It double-clicks an editable article cell (row 1), types, and saves. The story logs `onCellEdited` as `Edit Cell`, and the check fails unless the logged `data.markdown` contains the typed text.
+2. It reopens the editor and cancels, and fails unless that made no second edit.
+3. It double-clicks a read-only article cell (row 0) and fails unless the viewer shows the article's text with no toolbar, editor or Save button.
+
+It fails on any console error except a `Failed to load resource` 404. The default URL is `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`, so serve a Storybook on port 9009 first, for example:
 
 ```bash
 npm run prod-storybook                             # builds, then serves storybook-build/ on 9009; leave it running
 node scripts/check-article-cell-editor.mjs
 ```
 
-Or pass another URL as the only argument. It finds the cell by canvas coordinates (the widths of the columns before it), so if you change that story's columns, update the coordinates in the script. Run it when you touch the article cell or upgrade `@toast-ui/*` or React.
+Or pass another URL as the only argument. It finds the cells by canvas coordinates (the widths of the columns before it), so if you change that story's columns or rows, update the coordinates in the script. Run it when you touch the article cell, the vendored editor or React.
+
+### Article sanitizer check
+
+`scripts/check-article-cell-sanitizer.mjs [consumer-node_modules]` checks the article sanitizer in headless Chromium, where script execution is observable (the cells unit tests run in jsdom, which doesn't run scripts). It bundles a small page with esbuild that uses only the public `ArticleCell` API, with every package resolved from the given `node_modules` (default `test-projects/vite-app/node_modules`), so it tests what that consumer installed. It runs the synthetic payloads in `packages/cells/test/fixtures/article-sanitizer-payloads.mjs` through the viewer, the editor's initial Markdown, paste and drop, and fails if a payload's script ran or left dangerous DOM, or if Save after typing doesn't return the typed Markdown. It also prints the sanitizer inputs of the bundle and the `dompurify` version the cells package resolves.
+
+```bash
+npm run build && npm run test-projects             # the check reads the installed tarballs
+node scripts/check-article-cell-sanitizer.mjs
+```
+
+It needs Playwright's Chromium, and exits 2 if the consumer has no `@specstory/ai-data-grid-cells`. Run it when you touch the article cell, the vendored editor, its patches or the `dompurify` range. The payloads are synthetic test fixtures: keep them in `packages/cells/test/` (cells' tarball ships only `dist`) and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
+
+## Vendored Toast UI editor
+
+ArticleCell's editor and read-only viewer run `packages/cells/vendor/toast-ui/editor.js`, Toast UI Editor 3.2.2's ESM build with four patches (P1–P4) that replace its embedded DOMPurify with the `dompurify` dependency and harden paste, drop and URL rendering. The directory's `README.md` has the provenance, the pinned hashes and the patch list, and [AS-BUILT.md](AS-BUILT.md#vendored-toast-ui-editor-and-article-sanitizer) explains the design.
+
+- **Never edit `editor.js` or `toastui-editor.css` by hand.** `scripts/vendor-toast-ui.mjs` generates them from the exact devDependency `"@toast-ui/editor": "3.2.2"` of `packages/cells`. It checks both input sha256s and applies every patch at an exact anchor with an expected match count, so any drift fails the run.
+
+    ```bash
+    node scripts/vendor-toast-ui.mjs          # regenerate editor.js and toastui-editor.css
+    node scripts/vendor-toast-ui.mjs --check  # exit non-zero if the committed files differ
+    ```
+
+    To change a patch, change the generator, regenerate, and update the output sha256 in `vendor/toast-ui/README.md`. `packages/cells/test/article-cell-vendor.test.ts` runs the check in every cells test run (so in CI), and also fails if `editor.js` contains an embedded DOMPurify or lacks a patch marker, if `src/` imports `@toast-ui/`, if a `@toast-ui/*` package is a cells dependency, or if a bare import of `editor.js` isn't one.
+- **`@toast-ui/editor` is only the generator's input.** Source never imports it and it never ships. Don't add it, or `@toast-ui/react-editor`, back to `dependencies`.
+- **`editor.d.ts`** is hand-written and covers only what `src/cells/article-cell-editor.tsx` uses. Extend it when the wrapper needs more.
+- **`build.sh`** copies `editor.js`, `LICENSE` and `README.md` to `dist/vendor/toast-ui/`, and the CSS to `dist/toastui-editor.css` (the export `./dist/toastui-editor.css`). The CSS stays out of `dist/esm`, so `dist/index.css` doesn't pick up Toast UI's global rules.
+- **Raising the DOMPurify floor.** When a DOMPurify advisory affects the range, raise `dompurify` in `packages/cells/package.json`, run `npm install` and then `npm ci`, and run the cells tests and the [article sanitizer check](#article-sanitizer-check). The vendor test (V03) accepts only a `^3.x` range at 3.4.16 or above, so a move to a DOMPurify 4 range needs that test updated too.
+- **Licenses.** `vendor/toast-ui/LICENSE` (it ships in the tarball) and `THIRD_PARTY_NOTICES.md` carry Toast UI's MIT notice and the licenses of the components bundled in its build. Keep both when you regenerate.
+- The sanitizer tests are `packages/cells/test/article-cell-sanitizer.test.tsx`. They use the real DOMPurify in jsdom; don't stub it.
 
 ## Running Storybook
 
@@ -365,7 +403,7 @@ With no argument it copies the current root version to the packages. It is also 
 ### License and attribution
 
 - Never change the MIT text or the line `Copyright (c) 2021 typeguard, Inc.` in any `LICENSE` file (root, `packages/core`, `packages/cells`, `packages/source`). The line `Copyright (c) 2026 ai-data-grid contributors` sits directly below it and adds to it.
-- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`.
+- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`. Vendored code keeps its own `LICENSE` next to it (`packages/cells/vendor/toast-ui/LICENSE`).
 - Every publishable package must ship its `LICENSE`. Check with `npm pack --dry-run` in the package directory.
 - Don't use Glide trademarks (the Glide product name, logos, the `@glideapps` scope, `glideapps.com` URLs) except in attribution text, the 6.x → 7.0.0 migration mapping, and historical CHANGELOG entries.
 
@@ -395,7 +433,7 @@ Each package has a `test/public-api-exports.test.ts`. It reads the package's `sr
 npm ci → npm run build → npm test -- --run → npm run test-cells -- --run → npm run test-source -- --run
 ```
 
-CI only tests. There are no publish, release, Pages or Dependabot workflows. Storybook build, the smoke test, `npm run test-projects` and the two check scripts are not in CI; run them locally when you touch what they cover. Vercel builds Storybook separately on every push (see [Hosted Storybook](#hosted-storybook-vercel)), but it doesn't run the smoke test. CI doesn't install or check `docs/` either; its Vercel build is the only automated check (see [Working on the docs site](#working-on-the-docs-site)).
+CI only tests. There are no publish, release, Pages or Dependabot workflows. Storybook build, the smoke test, `npm run test-projects` and the three check scripts are not in CI; run them locally when you touch what they cover. Vercel builds Storybook separately on every push (see [Hosted Storybook](#hosted-storybook-vercel)), but it doesn't run the smoke test. CI doesn't install or check `docs/` either; its Vercel build is the only automated check (see [Working on the docs site](#working-on-the-docs-site)).
 
 ## Keeping the docs current
 
