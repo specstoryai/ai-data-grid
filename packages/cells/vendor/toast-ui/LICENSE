@@ -1,94 +1,3 @@
-# Third-Party Notices
-
-AI Data Grid is a fork of Glide Data Grid and incorporates third-party
-software under the licenses below.
-
-## Glide Data Grid
-
-AI Data Grid is forked from [Glide Data Grid](https://github.com/glideapps/glide-data-grid)
-by Glide (typeguard, Inc.), MIT licensed. The original copyright and license
-text are retained in every `LICENSE` file in this repository.
-
-```
-MIT License
-
-Copyright (c) 2021 typeguard, Inc.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-## dequal
-
-The `isObject` / `dequal` deep-equality helpers in
-`packages/core/src/common/support.ts` are ported from
-[dequal](https://github.com/lukeed/dequal) by Luke Edwards, MIT licensed
-(original license and code: https://github.com/lukeed/dequal/blob/master/license).
-The in-code attribution comment is retained at the port site.
-
-```
-MIT License
-
-Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-## use-callback-ref
-
-`packages/core/src/data-editor/use-initial-scroll-offset.ts` adapts the
-callback-ref pattern from [use-callback-ref](https://github.com/theKashey/use-callback-ref)
-by Anton Korzunov, MIT licensed
-(https://github.com/theKashey/use-callback-ref/tree/master?tab=MIT-1-ov-file#readme).
-The in-code attribution comment is retained at the use site.
-
-## Toast UI Editor
-
-The ArticleCell editor and viewer in `@specstory/ai-data-grid-cells` use a patched,
-vendored copy of [Toast UI Editor](https://github.com/nhn/tui.editor) 3.2.2 by
-NHN Cloud Corp., MIT licensed. It is generated from the npm package's
-`dist/esm/index.js` into `packages/cells/vendor/toast-ui/editor.js` and ships as
-`dist/vendor/toast-ui/editor.js`, with the stylesheet as `dist/toastui-editor.css`.
-The patches are listed in `packages/cells/vendor/toast-ui/README.md`. The license
-texts below also ship in the package as `dist/vendor/toast-ui/LICENSE`.
-
-DOMPurify (Apache-2.0 OR MPL-2.0, Cure53 and other contributors) is no longer
-embedded: Toast UI's bundled DOMPurify 2.3.3 was removed, and the vendored editor
-imports the separately installed `dompurify` npm package, an ordinary dependency
-of `@specstory/ai-data-grid-cells`.
-
-```
 MIT License
 
 Copyright (c) 2020 NHN Cloud Corp.
@@ -110,22 +19,27 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-```
 
-### Components bundled in Toast UI Editor's `dist/esm/index.js`
+================================================================================
 
-Toast UI Editor's build bundles the following third-party code, which therefore
-ships inside the vendored `editor.js`.
+Third-party components bundled in editor.js
 
-#### ToastMark
+Toast UI Editor's dist/esm/index.js (from which editor.js is generated) bundles the
+components below. Their license texts follow. DOMPurify is no longer bundled: editor.js
+imports the separately installed `dompurify` npm package (Apache-2.0 OR MPL-2.0).
 
-Toast UI's Markdown parser (`libs/toastmark` in `nhn/tui.editor` at tag
-`editor@3.2.2`), MIT licensed, Copyright (c) 2020 NHN Corp. Parts of it are
-derived from [commonmark.js](https://github.com/commonmark/commonmark.js) by
-John MacFarlane (BSD-2-Clause) and from a `String.fromCodePoint` polyfill by
-Mathias Bynens (MIT). Its license file:
+- ToastMark (Toast UI's Markdown parser), MIT, Copyright (c) 2020 NHN Corp., including
+  code derived from commonmark.js (BSD-2-Clause, Copyright (c) 2014, John MacFarlane) and
+  a String.fromCodePoint polyfill by Mathias Bynens (MIT)
+- tui-code-snippet 2.3.3, MIT, Copyright (c) 2019 NHN Corp.
+- entities 2.2.0, BSD-2-Clause, Copyright (c) Felix Böhm
+- mdurl 1.0.1, MIT, Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin
+- tslib 2.3.1 helpers, 0BSD, Copyright (c) Microsoft Corporation
 
-```
+--------------------------------------------------------------------------------
+ToastMark (libs/toastmark/LICENSE in nhn/tui.editor at tag editor@3.2.2)
+--------------------------------------------------------------------------------
+
 MIT License
 
 Copyright (c) 2020 NHN Corp.
@@ -212,13 +126,11 @@ Copyright (C) 2014-15 John MacFarlane
 
 Released under the Creative Commons CC-BY-SA 4.0 license:
 <http://creativecommons.org/licenses/by-sa/4.0/>.
-```
 
-#### tui-code-snippet
+--------------------------------------------------------------------------------
+tui-code-snippet 2.3.3
+--------------------------------------------------------------------------------
 
-[tui-code-snippet](https://github.com/nhn/tui.code-snippet) 2.3.3 by NHN Corp., MIT licensed.
-
-```
 The MIT License
 
 Copyright (c) 2019 NHN Corp.
@@ -240,13 +152,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-```
 
-#### entities
+--------------------------------------------------------------------------------
+entities 2.2.0
+--------------------------------------------------------------------------------
 
-[entities](https://github.com/fb55/entities) 2.2.0 by Felix Böhm, BSD-2-Clause licensed.
-
-```
 Copyright (c) Felix Böhm
 All rights reserved.
 
@@ -258,13 +168,12 @@ Redistributions in binary form must reproduce the above copyright notice, this l
 
 THIS IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-```
 
-#### mdurl
 
-[mdurl](https://github.com/markdown-it/mdurl) 1.0.1 by Vitaly Puzrin and Alex Kocharin, MIT licensed.
+--------------------------------------------------------------------------------
+mdurl 1.0.1
+--------------------------------------------------------------------------------
 
-```
 Copyright (c) 2015 Vitaly Puzrin, Alex Kocharin.
 
 Permission is hereby granted, free of charge, to any person
@@ -310,13 +219,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
-```
 
-#### tslib
+--------------------------------------------------------------------------------
+tslib 2.3.1
+--------------------------------------------------------------------------------
 
-[tslib](https://github.com/microsoft/tslib) 2.3.1 helpers by Microsoft Corporation, 0BSD licensed.
-
-```
 Copyright (c) Microsoft Corporation.
 
 Permission to use, copy, modify, and/or distribute this software for any
@@ -329,4 +236,3 @@ INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
 LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
 OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
-```
