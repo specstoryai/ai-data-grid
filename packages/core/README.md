@@ -12,6 +12,8 @@ Companion packages:
 -   `@specstory/ai-data-grid-cells`: extra cell renderers.
 -   `@specstory/ai-data-grid-source`: data source hooks such as column sort and undo/redo.
 
+Links: [documentation](https://ai-data-grid-docs.vercel.app/docs) · [Storybook](https://ai-data-grid-storybook.vercel.app) · [npm](https://www.npmjs.com/package/@specstory/ai-data-grid) · [issues](https://github.com/specstoryai/ai-data-grid/issues)
+
 Source: https://github.com/specstoryai/ai-data-grid
 
 ## Features
@@ -19,7 +21,7 @@ Source: https://github.com/specstoryai/ai-data-grid
 -   **It scales to millions of rows**. Cells are rendered lazily on demand for memory efficiency.
 -   **Scrolling is extremely fast**. Native scrolling keeps everything buttery smooth.
 -   **Supports multiple types of cells**. Numbers, text, markdown, bubble, image, drilldown, uri
--   **Fully Free & Open Source**. [MIT licensed](LICENSE), so you can use the grid in commercial projects.
+-   **Fully Free & Open Source**. MIT licensed (see `LICENSE` in this package), so you can use the grid in commercial projects.
 -   **Editing is built in**.
 -   **Resizable and movable columns**.
 -   **Variable sized rows**.
@@ -35,10 +37,10 @@ The packages need React 19 (`react` and `react-dom` peer range `^19.0.0`). React
 npm i @specstory/ai-data-grid
 ```
 
-You may also need to install the peer dependencies if you don't have them already:
+You may also need to install the peer dependencies if you don't have them already. `marked` must be 16.x (the peer range is `^16.0.10`), so name the major version:
 
 ```shell
-npm i lodash marked react-responsive-carousel
+npm i lodash marked@^16 react-responsive-carousel
 ```
 
 Create a new `DataEditor` wherever you need to display lots and lots of data
@@ -116,11 +118,11 @@ const aiFill = React.useMemo<AIFillConfig>(
 ref.current?.aiFill?.fill("selection-empty");
 ```
 
-Start with the [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site: setup, connecting to Jev, the primitives, result policies, review, undo, limitations and complete examples. (The guide is on the hosted docs site once AI Fill reaches the repository's `main` branch; until then its source is `docs/content/docs/ai-fill/` in the repository.) The [AI Fill chapter of API.md](API.md#ai-fill) is the reference. It covers the quick start, the configuration, result policies, rows and staleness, committing and undo, the built-in UI, menus in apps that already have menus, the keyboard, connecting to Jev (`@specstory/ai-data-grid/server`) and testing with the mock (`@specstory/ai-data-grid/testing`).
+Start with the [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site: setup, connecting to Jev, the primitives, result policies, review, undo, limitations and complete examples. The "AI Fill" chapter of `API.md` is the reference. `API.md` ships in this package, and you can also read it at https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/API.md. It covers the quick start, the configuration, result policies, rows and staleness, committing and undo, the built-in UI, menus in apps that already have menus, the keyboard, connecting to Jev (`@specstory/ai-data-grid/server`) and testing with the mock (`@specstory/ai-data-grid/testing`).
 
 ## Full API documentation
 
-The API reference, including the HTML/CSS prerequisites, is in `API.md`, which ships in this package.
+The API reference, including the HTML/CSS prerequisites, is in `API.md`, which ships in this package. You can also read it at https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/API.md, and the same reference is on the [docs site](https://ai-data-grid-docs.vercel.app/docs/api/dataeditor).
 
 ## Migrating from 6.x
 
@@ -134,17 +136,19 @@ The API reference, including the HTML/CSS prerequisites, is in `API.md`, which s
 | `@glideapps/glide-data-grid-cells` | `@specstory/ai-data-grid-cells` |
 | `@glideapps/glide-data-grid-source` | `@specstory/ai-data-grid-source` |
 
-For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. See the 7.0.0 release notes in `CHANGELOG.md`, which ships in this package.
+If your app was built against 6.0.3, three upstream changes from the 6.0.4 prereleases that 7.0.0 includes can need a small code change: the trailing "add row" row now appears only when `trailingRowOptions` is set (`trailingRowOptions={{}}` is enough), not whenever `onRowAppended` is set; the type `CellActiviationBehavior` is now spelled `CellActivationBehavior` (the only 6.0.3 export that was renamed or removed); and `onKeyDown`'s `location` and `onColumnProposeMove`'s indices no longer count the row-marker column. See "Coming from 6.0.3" in the 7.0.0 release notes in `CHANGELOG.md`.
+
+For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. See the 7.0.0 release notes in `CHANGELOG.md`, which ships in this package (also at https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/CHANGELOG.md).
 
 # 📒 FAQ
 
 **Nothing shows up!**
 
-Please read the [Prerequisites section in the docs](API.md).
+Please read the [HTML/CSS prerequisites](https://ai-data-grid-docs.vercel.app/docs/api/dataeditor) in the docs.
 
 **It crashes when I try to edit a cell!**
 
-Please read the [Prerequisites section in the docs](API.md).
+Please read the [HTML/CSS prerequisites](https://ai-data-grid-docs.vercel.app/docs/api/dataeditor) in the docs.
 
 **Does it work with screen readers and other a11y tools?**
 
@@ -158,7 +162,7 @@ Data Grid is agnostic about the way you load/store/generate/mutate your data. Wh
 
 **Does it do sorting, searching, and filtering?**
 
-Search is included. You provide the trigger, we do the search. See the `showSearch` and `onSearchClose` props in [API.md](API.md).
+Search is included. You provide the trigger, we do the search. See the `showSearch` and `onSearchClose` props in `API.md`.
 
 Filtering and sorting are something you would have to implement with your data source. There are hooks for adding column header menus if you want that, and the companion package `@specstory/ai-data-grid-source` provides a `useColumnSort` hook.
 
@@ -170,7 +174,7 @@ Yes!
 
 **Can I render my own cells?**
 
-Yes, but the renderer has to use HTML Canvas. See `drawCell` and `customRenderers` in [API.md](API.md).
+Yes, but the renderer has to use HTML Canvas. See `drawCell` and `customRenderers` in `API.md`.
 
 **Why does Data Grid use HTML Canvas?**
 

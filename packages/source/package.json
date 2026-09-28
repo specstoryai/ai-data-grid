@@ -14,7 +14,12 @@
         "require": "./dist/cjs/index.js"
     },
     "files": [
-        "dist"
+        "dist",
+        "!**/*.tsbuildinfo",
+        "src",
+        "!src/**/stories",
+        "!src/**/*.stories.tsx",
+        "THIRD_PARTY_NOTICES.md"
     ],
     "scripts": {
         "build": "./build.sh",
@@ -26,7 +31,7 @@
         "url": "git+https://github.com/specstoryai/ai-data-grid.git",
         "directory": "packages/source"
     },
-    "homepage": "https://github.com/specstoryai/ai-data-grid/tree/main/packages/source",
+    "homepage": "https://ai-data-grid-docs.vercel.app/docs",
     "author": "SpecStory",
     "bugs": {
         "url": "https://github.com/specstoryai/ai-data-grid/issues"
@@ -44,6 +49,10 @@
         "cell",
         "canvas"
     ],
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
     "dependencies": {
         "@specstory/ai-data-grid": "7.0.0"
     },

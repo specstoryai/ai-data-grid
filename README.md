@@ -44,10 +44,10 @@ The packages need React 19 (`react` and `react-dom` peer range `^19.0.0`). React
 npm i @specstory/ai-data-grid
 ```
 
-You may also need to install the peer dependencies if you don't have them already:
+You may also need to install the peer dependencies if you don't have them already. `marked` must be 16.x (the peer range is `^16.0.10`), so name the major version:
 
 ```shell
-npm i lodash marked react-responsive-carousel
+npm i lodash marked@^16 react-responsive-carousel
 ```
 
 Create a new `DataEditor` wherever you need to display lots and lots of data
@@ -120,7 +120,7 @@ AI Fill fills grid columns with answers from TypeSafe's [Jev](https://docs.types
 - **Keep your TypeSafe key on a server.** Never put it in browser code. A browser grid uses endpoint mode: it calls your own route, which adds the key. `@specstory/ai-data-grid/server` (`createJevHandler`) builds that route. Direct mode (the key in the config) is for Node only: in a browser it refuses to run unless you set `dangerouslyAllowBrowser`, and even then the call fails, because TypeSafe's API rejects browser CORS requests. `@specstory/ai-data-grid/testing` (`createMockJev`) is a mock Jev for tests and demos.
 - **Where to read more:** the AI Fill guide on the docs site, https://ai-data-grid-docs.vercel.app/docs/ai-fill (setup, connecting to Jev, the primitives, result policies, review, undo, examples and limitations), and the "AI Fill" chapter of [API.md](packages/core/API.md#ai-fill), the full reference. The guide's source is in [`docs/content/docs/ai-fill/`](docs/content/docs/ai-fill/index.mdx).
 - **Demos:** 13 Storybook stories under **AI-Data-Grid / AI Fill**, running against the mock with seeded answers, so they never call Jev unless you point a story's endpoint URL control at your own endpoint.
-- **Not published yet.** The hosted docs site and Storybook are built from `main`, so the guide and the AI Fill stories appear there once AI Fill is merged; until then, read the guide's source in this repository and run Storybook locally. Like the rest of 7.0.0, AI Fill isn't on npm yet.
+- **Not on npm yet.** The guide and the AI Fill stories are on the hosted docs site and Storybook, but like the rest of 7.0.0, AI Fill isn't on npm yet.
 
 ## Migrating from 6.x
 
@@ -133,6 +133,8 @@ AI Fill fills grid columns with answers from TypeSafe's [Jev](https://docs.types
 | `@glideapps/glide-data-grid` | `@specstory/ai-data-grid` |
 | `@glideapps/glide-data-grid-cells` | `@specstory/ai-data-grid-cells` |
 | `@glideapps/glide-data-grid-source` | `@specstory/ai-data-grid-source` |
+
+If your app was built against 6.0.3, three upstream changes from the 6.0.4 prereleases that 7.0.0 includes can need a small code change: the trailing "add row" row now appears only when `trailingRowOptions` is set (`trailingRowOptions={{}}` is enough), not whenever `onRowAppended` is set; the type `CellActiviationBehavior` is now spelled `CellActivationBehavior` (the only 6.0.3 export that was renamed or removed); and `onKeyDown`'s `location` and `onColumnProposeMove`'s indices no longer count the row-marker column. See "Coming from 6.0.3" in the [7.0.0 release notes](packages/core/CHANGELOG.md#coming-from-603).
 
 For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. If you use the cells package's ArticleCell, remove your Toast UI Editor CSS import: the article editor's styles are now part of `@specstory/ai-data-grid-cells/dist/index.css`. Raw HTML inside articles is now shown as its source text instead of being rendered. See the [7.0.0 release notes](packages/core/CHANGELOG.md) for details.
 

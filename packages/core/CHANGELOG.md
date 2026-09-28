@@ -14,11 +14,43 @@ The packages moved to the `@specstory` npm scope:
 
 ## Porting guide
 
-The public API is unchanged. To migrate, change only your import paths to the new package names. The `DataEditor` component and every exported name and prop, the `--gdg-*` CSS variables, and the `gdg-*` class names are unchanged.
+The public API is unchanged. To migrate, change only your import paths to the new package names. The `DataEditor` component and every exported name and prop, the `--gdg-*` CSS variables, and the `gdg-*` class names are unchanged. If your app was built against 6.0.3, also read [Coming from 6.0.3](#coming-from-603): three upstream changes from the 6.0.4 prereleases can need a small code change.
+
+### Coming from 6.0.3
+
+7.0.0 includes the upstream changes that were only released as 6.0.4 prereleases (see [Based on upstream 6.0.4-alpha25](#based-on-upstream-604-alpha25)). These can need a code change in an app built against 6.0.3:
+
+- **The trailing "add row" row now needs `trailingRowOptions`.** In 6.0.3 the blank row at the bottom of the grid appeared whenever `onRowAppended` was set. It now appears only when `trailingRowOptions` is set, so an app that passes `onRowAppended` without `trailingRowOptions` loses the row. To keep it, also pass `trailingRowOptions`; an empty object (`trailingRowOptions={{}}`) is enough. Clicking the row still calls `onRowAppended`.
+- **The type `CellActiviationBehavior` is now spelled `CellActivationBehavior`.** It's the type of the `cellActivationBehavior` prop and of a column's `activationBehaviorOverride`. It's the only 6.0.3 export that was renamed or removed. If you import it, rename the import. It's a TypeScript type only, so JavaScript is unaffected.
+- **Two callbacks no longer count the row-marker column.** With `rowMarkers` on, the `location` in the event passed to `onKeyDown` and the two column indices passed to `onColumnProposeMove` used to include the row-marker column. They now don't, like the grid's other callbacks. If your app subtracted 1 to compensate, remove that.
 
 ## React support
 
 This release requires React 19 (`react` / `react-dom` `^19.0.0`). Support for React 16, 17 and 18 is dropped.
+
+## Other requirements
+
+- Core's other peer dependencies are `lodash`, `marked` `^16.0.10` and `react-responsive-carousel`. `marked`'s current major is newer, so install it in range: `npm i lodash marked@^16 react-responsive-carousel`. An unpinned `marked` gives an `ERESOLVE` peer conflict.
+- `@specstory/ai-data-grid/server` is ES modules, also under its `require` condition. `require("@specstory/ai-data-grid/server")` needs Node's `require(esm)` (Node 20.19+, 22.12+ or 24); on older Node versions use `import`.
+
+## New: AI Fill (optional, in core)
+
+AI Fill fills grid columns with answers from TypeSafe's Jev (the Choice, Score and Noul primitives). You configure each AI column's question and how an answer becomes a cell value. Your users ask for fills from the grid's AI menus, review suggestions on the canvas and accept them, and accepted values are written through your own `onCellEdited` / `onCellsEdited`, so `validateCell` and `useUndoRedo` keep working. It's part of `@specstory/ai-data-grid` itself; there is no separate AI package.
+
+- **Opt in with the `aiFill` prop** on `DataEditor`. Without it the grid is unchanged and no AI Fill code loads: the controller and its UI are a lazily loaded chunk. Apps can also drive it from code through `ref.current.aiFill`.
+- **Built-in UI:** AI menus on AI columns and cells that coexist with your own menus, a confirmation that states the scope before large or column-wide fills, a status bar, an inspector that explains each result, and configurable keyboard shortcuts.
+- **Two subpaths:** `@specstory/ai-data-grid/server` (`createJevHandler`, `toNodeListener`) builds the server route that holds your TypeSafe key, and `@specstory/ai-data-grid/testing` (`createMockJev`) is a mock Jev for tests and demos.
+- **Connecting:** browsers use endpoint mode, which calls your own route. Direct mode, with the key in the configuration, is for Node only: TypeSafe's API rejects browser CORS requests, and in a browser direct mode refuses to run unless you set `dangerouslyAllowBrowser`.
+- **No new runtime dependencies.** AI Fill uses `fetch` and platform APIs. Core's exports grow from 151 to 252 names under `.`, and every new name contains `AI`, `AIFill` or `Jev`, or starts with `Choice`, `Score` or `Noul`. No existing export or prop changed.
+- **Docs:** the [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) (setup, connecting to Jev, the primitives, result policies, review, undo, examples and limitations), and the "AI Fill" chapter of `API.md`, which ships in this package.
+
+### Known limitations of AI Fill
+
+- **A filtered-out row counts as deleted.** An answer that arrives while its row is filtered out is dropped as `row-missing`, `notifyRowsChanged()` while a filter is on drops the decided results of hidden rows, and `accept({ cells })` naming a hidden row drops that result.
+- **Suggestions aren't persisted.** Results, suggestions and commit records live in memory in the grid's AI Fill session, and aren't restored after a reload or unmount. Accepted values persist only through your own edit handlers.
+- **Undo:** `useUndoRedo` is position-based, so undo after a re-sort or filter writes to display positions. AI Fill's `revertCommit` is id-safe, but it works only within the session.
+
+See [Limitations](https://ai-data-grid-docs.vercel.app/docs/ai-fill/limitations) in the AI Fill guide for the full list.
 
 ## Cells: ArticleCell
 
@@ -31,7 +63,39 @@ The article cell's editor and read-only viewer are rebuilt on [Milkdown](https:/
 - **Save stores the edited Markdown.** In 6.x, Save stored the text `wysiwyg` instead of the article. Saving without a change now keeps the original Markdown byte for byte. Saving an edited article writes the whole article as GFM, which can normalize parts you didn't touch without changing their meaning (for example padded tables, `*` bullets and fenced code blocks).
 - **Other differences.** Reference links, bare URLs, single-tilde strikethrough and footnotes now render. `$$…$$` custom blocks are shown as ordinary text. Pasting a list from Microsoft Office keeps its text but doesn't make it a list. The toolbar, the link dialog and table editing look different: table rows and columns are added and deleted with toolbar buttons instead of a context menu. Every toolbar feature of 6.x is kept.
 
-See the [cells README](../cells/README.md#note-on-articlecell) for the full list of Save normalizations, and [Article content security](../cells/README.md#article-content-security) for what's allowed and the limitations.
+See "Note on ArticleCell" in the [cells package README](https://www.npmjs.com/package/@specstory/ai-data-grid-cells) for the full list of Save normalizations, and its "Article content security" section for what's allowed and the limitations.
+
+## Package contents
+
+Each package ships its build (`dist/`), the library source files (`src/`) that its source maps point at, `README.md`, `LICENSE` (the MIT license with both copyright lines) and `THIRD_PARTY_NOTICES.md`. Core also ships `API.md` and this `CHANGELOG.md`. Tests, stories, Storybook docs pages, fixtures, build and lint configuration and TypeScript build caches (`*.tsbuildinfo`) don't ship. Compared with the 6.x packages:
+
+- Core no longer ships `test/`, its stories or its build and lint configuration.
+- Cells and source now ship `src/`, so their source maps resolve.
+- Source no longer ships its two `tsconfig.*.tsbuildinfo` files.
+
+Entry points, `exports` and CSS paths are unchanged, apart from cells' ArticleCell CSS (above).
+
+## Based on upstream 6.0.4-alpha25
+
+7.0.0 is forked from upstream `main` at `0875d78c` (6.0.4-alpha25). The last stable upstream release was 6.0.3, so 7.0.0 also includes the upstream changes that were only released as 6.0.4 prereleases. The user-visible ones:
+
+- **Row grouping** with the `rowGrouping` prop, and `useColumnSort` in the source package sorting by several columns (`sort` also accepts an array).
+- **Selection:** an `"additive"` mode for `rangeSelectionBlending`, `columnSelectionBlending` and `rowSelectionBlending`, which keeps other selections without a modifier key; clicking a selected column again deselects it; `CompactSelection` can be built from an array.
+- **Appending rows and columns:** `onColumnAppended` and the ref's `appendColumn` add columns. When the user finishes editing a cell in the last row (with no trailing row shown) or the last column and moves down or right, for example with Enter or Tab, the grid calls `onRowAppended` (already in 6.0.3) or `onColumnAppended`, if set. The trailing row now depends on `trailingRowOptions` (see [Coming from 6.0.3](#coming-from-603)).
+- **New props and ref methods:** `portalElementRef` for a custom portal element, `renderers` for replacing the internal cell renderers, a configurable fill handle, `scrollToActiveCell`, a `behavior` option for `ref.scrollTo`, `getMouseArgsForPosition` on the ref, the cell location in `provideEditor`, and more information in `onCellActivated`.
+- **Headers:** indicator icons (for example to show sorting), a configurable resize indicator, header row marker options, hover styles for group headers, and `drawHeader` receiving the hover position.
+- **Theming:** the maximum checkbox size, bubble dimensions, edit hover indicators, the boolean cell's hover effect, and a `color` for the range cell.
+- **Input:** pointer events instead of separate mouse and touch handling, and events inside a shadow DOM.
+- **Fixes**, among others: deleting columns, autoscroll while reordering rows, search, a crash with large grids at browser zoom, `onCellActivated` when typing, pasting into dropdown cells, the bubble editor with long text, group header actions firing twice and the date picker's minimum and maximum across time zones. Copying a cell no longer escapes a `copyData` value the cell sets explicitly.
+
+The full list is `git log --no-merges v6.0.3..0875d78c` in the [repository](https://github.com/specstoryai/ai-data-grid).
+
+## Links
+
+- Documentation: https://ai-data-grid-docs.vercel.app/docs
+- AI Fill guide: https://ai-data-grid-docs.vercel.app/docs/ai-fill
+- Storybook (built from the repository's `main` branch): https://ai-data-grid-storybook.vercel.app
+- Source and issues: https://github.com/specstoryai/ai-data-grid
 
 ---
 
