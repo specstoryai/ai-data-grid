@@ -13,7 +13,7 @@ Upstream is archived: 3.2.2 (February 2023) is the last release, and `nhn/tui.ed
 | Source tag | `nhn/tui.editor` `editor@3.2.2` (`9b94c04231d4600b42347ff1b99d9813e9becf67`) |
 | Input `dist/esm/index.js` sha256 | `ff71315070f5151b638307fc66faa7e22c479a5e8e3fd566442475958401e524` |
 | Input `dist/toastui-editor.css` sha256 | `c0ceb967b8c97038dccaa2a35c2222ec35b53a0022febbb6a22715c23ead9211` |
-| Output `editor.js` sha256 | `821a4ede314ffb67260aec21f78f7f0fb1db7e85488328faafdbc543927ac55d` |
+| Output `editor.js` sha256 | `30e4b607927dd34c3814767959e47fcc15ae110a1c826bfc9150efe0f16ce5c4` |
 | Output `toastui-editor.css` | verbatim copy of the input CSS |
 
 ## Files
