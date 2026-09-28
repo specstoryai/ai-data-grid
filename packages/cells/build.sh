@@ -16,6 +16,18 @@ compile_cjs() {
     compile cjs false
 }
 
+# The vendored, patched Toast UI editor (SPST-48) ships as-is. dist/esm/cells and dist/cjs/cells
+# both import it as ../../vendor/toast-ui/editor.js. Its CSS stays outside dist/esm so that
+# generate_index_css doesn't fold Toast UI's global rules into dist/index.css.
+copy_vendor() {
+    rm -rf dist/vendor
+    mkdir -p dist/vendor/toast-ui
+    cp vendor/toast-ui/editor.js vendor/toast-ui/LICENSE vendor/toast-ui/README.md dist/vendor/toast-ui/
+    cp vendor/toast-ui/toastui-editor.css dist/toastui-editor.css
+}
+
+copy_vendor
+
 run_in_parallel compile_esm compile_cjs
 
 generate_index_css

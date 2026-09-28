@@ -134,7 +134,7 @@ AI Fill fills grid columns with answers from TypeSafe's [Jev](https://docs.types
 | `@glideapps/glide-data-grid-cells` | `@specstory/ai-data-grid-cells` |
 | `@glideapps/glide-data-grid-source` | `@specstory/ai-data-grid-source` |
 
-For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. See the [7.0.0 release notes](packages/core/CHANGELOG.md) for details.
+For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. If you use the cells package's ArticleCell, its editor CSS moved too: import `@specstory/ai-data-grid-cells/dist/toastui-editor.css` instead of `@toast-ui/editor/dist/toastui-editor.css`. See the [7.0.0 release notes](packages/core/CHANGELOG.md) for details.
 
 ## Installing before the npm release
 
@@ -166,9 +166,9 @@ Please read the [Prerequisites section in the docs](packages/core/API.md).
 
 Please read the [Prerequisites section in the docs](packages/core/API.md).
 
-**npm warns `ERESOLVE overriding peer dependency` for `@toast-ui/react-editor` when I install the cells package**
+**The article cell's editor has no styling**
 
-The article cell's editor declares a `react ^17.0.1` peer. npm installs anyway with React 19, and the editor works. See the [cells README](packages/cells/README.md#react-19-and-the-toast-uireact-editor-peer-warning) to silence the warning or to install with `--strict-peer-deps`.
+Import `@specstory/ai-data-grid-cells/dist/toastui-editor.css` once in your app. The editor ships inside the cells package, so there's nothing to install from `@toast-ui/*`. See the [cells README](packages/cells/README.md#note-on-articlecell), which also describes how article content is sanitized and its limitations.
 
 **Does it work with screen readers and other a11y tools?**
 

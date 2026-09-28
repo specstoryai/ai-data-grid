@@ -1,8 +1,10 @@
 import type { ProvideEditorComponent } from "@specstory/ai-data-grid";
 import * as React from "react";
-import { Editor, Viewer } from "@toast-ui/react-editor";
 import { styled } from "@linaria/react";
 import type { ArticleCell } from "./article-cell-types.js";
+// Patched, vendored Toast UI Editor 3.2.2 that sanitizes through the external `dompurify`
+// package (SPST-48). This path resolves the same way from src/, dist/esm/ and dist/cjs/.
+import { Editor, type ToolbarItemName } from "../../vendor/toast-ui/editor.js";
 
 const Wrapper = styled.div`
     .gdg-footer {
@@ -32,53 +34,86 @@ const Wrapper = styled.div`
     }
 `;
 
+const toolbarItems: ToolbarItemName[][] = [
+    ["heading", "bold", "italic", "strike"],
+    ["hr", "quote"],
+    ["ul", "ol", "task", "indent", "outdent"],
+    ["table", "link"],
+    ["code", "codeblock"],
+];
+
 const ArticleCellEditor: ProvideEditorComponent<ArticleCell> = p => {
-    const [tempValue, setTempValue] = React.useState(p.value.data.markdown);
+    // Toast UI owns its content once created, so it's initialized from the value the
+    // editor opened with, and Save reads the Markdown back from the instance.
+    const [initialMarkdown] = React.useState(p.value.data.markdown);
+    const readonly = p.value.readonly === true;
+    const hostRef = React.useRef<HTMLDivElement>(null);
+    const editorRef = React.useRef<{ readonly editor: Editor; readonly baseline: string }>(undefined);
+
+    React.useEffect(() => {
+        const host = hostRef.current;
+        if (host === null) return;
+        // A fresh element per mount keeps StrictMode's mount/unmount/mount cycle clean.
+        const el = document.createElement("div");
+        host.append(el);
+        if (readonly) {
+            const viewer = Editor.factory({ el, viewer: true, initialValue: initialMarkdown, usageStatistics: false });
+            return () => {
+                viewer.destroy();
+                el.remove();
+            };
+        }
+        const editor = new Editor({
+            el,
+            initialEditType: "wysiwyg",
+            hideModeSwitch: true,
+            autofocus: true,
+            height: "75vh",
+            usageStatistics: false,
+            initialValue: initialMarkdown,
+            toolbarItems,
+        });
+        // Toast UI normalizes Markdown on load, so remember what it reports before any edit.
+        editorRef.current = { editor, baseline: editor.getMarkdown() };
+        return () => {
+            editorRef.current = undefined;
+            editor.destroy();
+            el.remove();
+        };
+    }, [initialMarkdown, readonly]);
 
     const onKeyDown = React.useCallback((e: React.KeyboardEvent) => {
         e.stopPropagation();
     }, []);
 
     const onSave = React.useCallback(() => {
+        const current = editorRef.current;
+        const markdown = current?.editor.getMarkdown();
         p.onFinishedEditing({
             ...p.value,
             data: {
                 ...p.value.data,
-                markdown: tempValue,
+                // Unchanged content saves the original Markdown byte for byte.
+                markdown: markdown === undefined || markdown === current?.baseline ? p.value.data.markdown : markdown,
             },
         });
-    }, [p, tempValue]);
+    }, [p]);
 
     const onClose = React.useCallback(() => {
         p.onFinishedEditing(undefined);
     }, [p]);
 
-    if (p.value.readonly) {
+    if (readonly) {
         return (
             <Wrapper id="gdg-markdown-readonly" onKeyDown={onKeyDown} style={{ height: "75vh", padding: "35px" }}>
-                <Viewer initialValue={p.value.data.markdown} usageStatistics={false} />
+                <div ref={hostRef} />
             </Wrapper>
         );
     }
 
     return (
         <Wrapper id="gdg-markdown-wysiwyg" onKeyDown={onKeyDown}>
-            <Editor
-                initialEditType="wysiwyg"
-                autofocus={true}
-                initialValue={p.value.data.markdown}
-                hideModeSwitch={true}
-                onChange={setTempValue}
-                height="75vh"
-                usageStatistics={false}
-                toolbarItems={[
-                    ["heading", "bold", "italic", "strike"],
-                    ["hr", "quote"],
-                    ["ul", "ol", "task", "indent", "outdent"],
-                    ["table", "link"],
-                    ["code", "codeblock"],
-                ]}
-            />
+            <div ref={hostRef} />
             <div className="gdg-footer">
                 <button className="gdg-close-button" onClick={onClose}>
                     Close
