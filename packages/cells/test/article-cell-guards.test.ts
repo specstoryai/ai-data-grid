@@ -6,6 +6,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { DOMParser as ProseDOMParser, type Node as ProseNode } from "@milkdown/prose/model";
 import type { EditorView } from "@milkdown/prose/view";
 import { createArticleEditor } from "../src/cells/article-editor/create-article-editor.js";
 import { safeArticleURL } from "../src/cells/article-editor/url-policy.js";
@@ -86,7 +87,25 @@ const packageName = (specifier: string) =>
 
 describe("L: guards", () => {
     it("L01 the schema: nodes, marks, attributes and parse rules (snapshot)", async () => {
-        const schema = await withView(view => {
+        const { schema, parsed } = await withView(view => {
+            // D2's parse rules, run directly on HTML that hasn't been through D3, as the DOM
+            // observer does with a native mutation. Each unsafe value is removed by the parse
+            // rule itself; each safe value is kept.
+            const parse = (html: string) => {
+                const dom = document.createElement("div");
+                dom.innerHTML = html;
+                const found: Record<string, unknown>[] = [];
+                ProseDOMParser.fromSchema(view.state.schema)
+                    .parse(dom)
+                    .descendants((node: ProseNode) => {
+                        if (node.type.name === "image") found.push({ image: node.attrs.src });
+                        if (node.type.name === "code_block") found.push({ language: node.attrs.language });
+                        for (const mark of node.marks) {
+                            if (mark.type.name === "link") found.push({ link: mark.attrs.href });
+                        }
+                    });
+                return found;
+            };
             const rules = (spec: { parseDOM?: readonly { tag?: string; style?: string }[] }) =>
                 (spec.parseDOM ?? []).map(rule => rule.tag ?? `style=${rule.style}`);
             const describeType = (type: { spec: any }) => ({
@@ -96,12 +115,31 @@ describe("L: guards", () => {
             });
             const { nodes, marks } = view.state.schema;
             return {
-                nodes: Object.fromEntries(Object.entries(nodes).map(([name, type]) => [name, describeType(type)])),
-                marks: Object.fromEntries(Object.entries(marks).map(([name, type]) => [name, describeType(type)])),
+                schema: {
+                    nodes: Object.fromEntries(Object.entries(nodes).map(([name, type]) => [name, describeType(type)])),
+                    marks: Object.fromEntries(Object.entries(marks).map(([name, type]) => [name, describeType(type)])),
+                },
+                parsed: {
+                    unsafe: parse(
+                        '<p><img src="javascript:void(0)" alt="i"><a href="javascript:void(0)">l</a></p>' +
+                            '<pre data-language="x&quot; onmouseover=&quot;y"><code>c</code></pre>'
+                    ),
+                    safe: parse(
+                        '<p><img src="https://example.com/i.png" alt="i"><a href="https://example.com/">l</a></p>' +
+                            '<pre data-language="c++"><code>c</code></pre>'
+                    ),
+                },
             };
         });
         // Raw HTML from the Markdown can never be created from HTML (D2).
         expect(schema.nodes.html.parseDOM).toEqual([]);
+        // The image and link parse rules apply D1, and the code-block rule filters the language.
+        expect(parsed.unsafe).toEqual([{ image: "" }, { link: "" }, { language: "" }]);
+        expect(parsed.safe).toEqual([
+            { image: "https://example.com/i.png" },
+            { link: "https://example.com/" },
+            { language: "c++" },
+        ]);
         expect(schema).toMatchSnapshot();
     });
 

@@ -138,6 +138,8 @@ describe("P: paste into the editor", () => {
             const saved = await editor.save();
             expect(saved).not.toMatch(UNSAFE_SAVED);
             if (id === "P11") expect(saved).not.toMatch(/<img/i);
+            // D2's code-block rule drops a pasted language that isn't a language name.
+            if (id === "P13") expect(saved).toContain("\n```\ncode-P13");
             expect((window as any).__xss).toBeUndefined();
         }
     );
