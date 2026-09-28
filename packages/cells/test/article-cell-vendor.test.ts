@@ -35,13 +35,13 @@ describe("V: vendored Toast UI editor", () => {
         expect(result.stdout).toContain("ok packages/cells/vendor/toast-ui/toastui-editor.css");
     });
 
-    it("V02 editor.js has no embedded DOMPurify, imports dompurify once and carries P1-P4", () => {
+    it("V02 editor.js has no embedded DOMPurify, imports dompurify once and carries P1-P5", () => {
         expect(editorJs).not.toContain("createDOMPurify");
         expect(editorJs).not.toContain("DOMPurify.version = '2.3.3'");
         expect(editorJs).not.toContain("@license DOMPurify");
         expect(editorJs.match(/^import .* from 'dompurify';$/gm)).toEqual(["import DOMPurify from 'dompurify';"]);
         expect(editorJs).toContain("var purify = DOMPurify();");
-        for (const marker of ["P1", "P2", "P3", "P4"]) expect(editorJs).toContain(`ai-data-grid patch ${marker}`);
+        for (const marker of ["P1", "P2", "P3", "P4", "P5"]) expect(editorJs).toContain(`ai-data-grid patch ${marker}`);
         expect(editorJs.match(/safeRawHTMLTag\(\w+\) \/\* ai-data-grid patch P3 \*\//g)).toHaveLength(14);
         expect(editorJs.match(/safeURL\('(a|img)', '(href|src)', /g)).toHaveLength(3);
     });

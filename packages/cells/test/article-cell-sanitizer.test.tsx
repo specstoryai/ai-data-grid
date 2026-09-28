@@ -2,7 +2,7 @@
 // Toast UI editor and the real external DOMPurify through ArticleCell's public
 // provideEditor API. jsdom doesn't execute scripts or event handlers, so the evidence here
 // is the rendered DOM (plus an innerHTML-sink spy); scripts/check-article-cell-sanitizer.mjs
-// runs the same fixtures in Chromium, where execution is observable.
+// runs the same fixtures in Chromium, Firefox and WebKit, where execution is observable.
 import * as React from "react";
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -105,10 +105,10 @@ async function mount(markdown: string, { readonly = false, strict = false } = {}
     };
 }
 
-function clipboard(html: string | undefined, text = "") {
+function clipboard(html: string | undefined, text = "", files: File[] = []) {
     const data: Record<string, string> = { "text/plain": text };
     if (html !== undefined) data["text/html"] = html;
-    return { getData: (type: string) => data[type] ?? "", types: Object.keys(data), items: [], files: [] };
+    return { getData: (type: string) => data[type] ?? "", types: Object.keys(data), items: [], files };
 }
 
 async function paste(target: HTMLElement, html: string | undefined, text = "") {
@@ -120,24 +120,19 @@ async function paste(target: HTMLElement, html: string | undefined, text = "") {
     });
 }
 
-// Toast UI's dropImage plugin reports every drop as handled, so ProseMirror doesn't process
-// it and the browser performs its native contenteditable drop. jsdom has no native drop, so
-// the insertion is modelled here; ProseMirror then parses the DOM change with its parse
-// rules. scripts/check-article-cell-sanitizer.mjs does a real drag and drop in Chromium.
-async function drop(target: HTMLElement, html: string) {
+// A drop on the editor. It must never be left to the browser's native insertion (P5), which
+// runs the dropped markup's event handlers in Firefox: ProseMirror parses it through
+// transformPastedHTML (P2), or it's prevented. scripts/check-article-cell-sanitizer.mjs does
+// real drags and drops in Chromium, Firefox and WebKit.
+async function drop(target: HTMLElement, html: string | undefined, text = "dropped", files: File[] = []) {
     const event = new Event("drop", { bubbles: true, cancelable: true });
-    Object.defineProperty(event, "dataTransfer", { value: clipboard(html, "dropped") });
+    Object.defineProperty(event, "dataTransfer", { value: clipboard(html, text, files) });
     Object.defineProperty(event, "clientX", { value: 1 });
     Object.defineProperty(event, "clientY", { value: 1 });
     await act(async () => {
         target.dispatchEvent(event);
     });
-    expect(event.defaultPrevented).toBe(false);
-    await act(async () => {
-        target.insertAdjacentHTML("beforeend", html);
-        // Let ProseMirror's MutationObserver read the change.
-        await new Promise(resolve => setTimeout(resolve, 50));
-    });
+    expect(event.defaultPrevented).toBe(true);
 }
 
 // Records every innerHTML assignment to an element of the live document. In a browser,
@@ -222,6 +217,72 @@ describe("P: paste and drop into the WYSIWYG editor", () => {
             expect((window as any).__xss).toBeUndefined();
         }
     );
+});
+
+describe("D: drops onto the WYSIWYG editor (P5)", () => {
+    it.each(pastePayloads.filter(p => p.drop !== true).map(p => [p.id, p.name, p.html]))(
+        "D01 %s dropped: %s",
+        async (id, _name, html) => {
+            const editor = await mount("start");
+            const instance = toastInstance();
+            const sanitize = vi.spyOn(instance, "sanitize");
+            const spy = spyOnLiveInnerHTML();
+            try {
+                await drop(editor.wysiwyg(), html);
+                expect(spy.unsafeWrites()).toEqual([]);
+                // ProseMirror parsed the drop through transformPastedHTML, so P2 sanitized it.
+                expect(sanitize.mock.calls.some(([, cfg]: any[]) => cfg?.FORBID_ATTR?.includes("data-raw-html"))).toBe(
+                    true
+                );
+            } finally {
+                spy.restore();
+                sanitize.mockRestore();
+            }
+            expect(editor.wysiwyg().textContent).toContain(`paste-${id}`);
+            expect(findDangerousDOM(editor.container)).toEqual([]);
+            expect(await editor.save()).not.toMatch(/<\s*(script|iframe)|\son[a-z]+\s*=|javascript:/i);
+            expect((window as any).__xss).toBeUndefined();
+        }
+    );
+
+    it("D02 an image file drop goes to the image hook and is prevented", async () => {
+        const editor = await mount("start");
+        // Toast UI's default hook reads the file as a data: URL and inserts the image.
+        const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        await drop(editor.wysiwyg(), undefined, "", [new File([png], "dot.png", { type: "image/png" })]);
+        await waitFor(() =>
+            expect(editor.wysiwyg().querySelector('img[src^="data:image/png;base64,"]')).not.toBeNull()
+        );
+        expect(await editor.save()).toMatch(/!\[dot\.png\]\(data:image\/png;base64,/);
+    });
+
+    it("D03 a text/plain drop is applied", async () => {
+        const editor = await mount("start");
+        await drop(editor.wysiwyg(), undefined, "plain dropped text");
+        expect(editor.wysiwyg().textContent).toContain("plain dropped text");
+    });
+
+    it("D04 a drop inside a code block, whose node view stops events, is prevented and changes nothing", async () => {
+        const editor = await mount("```\ncode\n```");
+        const code = editor.wysiwyg().querySelector("pre code") as HTMLElement;
+        expect(code).not.toBeNull();
+        const before = editor.wysiwyg().innerHTML;
+        await drop(code, pastePayloads.find(p => p.id === "P06")!.html);
+        expect(editor.wysiwyg().innerHTML).toBe(before);
+        expect(await editor.save()).toBe("```\ncode\n```");
+    });
+
+    it("D05 markup inserted outside ProseMirror, as a native drop would, is parsed with P3", async () => {
+        const editor = await mount("start");
+        await act(async () => {
+            editor.wysiwyg().insertAdjacentHTML("beforeend", pastePayloads.find(p => p.id === "P10")!.html);
+            // Let ProseMirror's MutationObserver read the change.
+            await new Promise(resolve => setTimeout(resolve, 50));
+        });
+        expect(editor.wysiwyg().textContent).toContain("paste-P10");
+        expect(findDangerousDOM(editor.container)).toEqual([]);
+        expect(await editor.save()).not.toMatch(/<\s*(script|iframe)|\son[a-z]+\s*=|javascript:/i);
+    });
 });
 
 describe("S: safe content and editor behavior", () => {

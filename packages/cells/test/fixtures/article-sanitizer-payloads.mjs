@@ -1,6 +1,6 @@
 // Synthetic XSS payloads for the ArticleCell sanitizer tests (SPST-48). Shared by
 // test/article-cell-sanitizer.test.tsx (Vitest, jsdom) and
-// scripts/check-article-cell-sanitizer.mjs (Chromium). Every payload sets
+// scripts/check-article-cell-sanitizer.mjs (Chromium, Firefox and WebKit). Every payload sets
 // `window.__xss = "<id>"` if it ever runs. Cells' npm package ships only `dist/`, so these
 // fixtures never ship.
 //
@@ -108,8 +108,8 @@ export const pastePayloads = [
     },
     { id: "P09", name: "svg onload", html: pasted("P09", `<p>x<svg onload="${x("P09")}"></svg></p>`) },
     {
-        // Toast UI's dropImage plugin tells ProseMirror every drop is handled, so the browser's
-        // native contenteditable drop inserts the markup and ProseMirror parses the DOM change.
+        // The drop case: ProseMirror parses a drop through transformPastedHTML (P2, P5), and the
+        // unit tests also insert it as a native drop would, for ProseMirror's DOM observer (P3).
         id: "P10",
         name: "data-raw-html=script on strong, dropped (T1)",
         html: pasted("P10", `<p>a <strong data-raw-html="script">${x("P10")}</strong> b</p>`),
