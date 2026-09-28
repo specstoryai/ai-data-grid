@@ -61,7 +61,7 @@ Run these from the root. CI runs the first five.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 129 (65 plus 64 for the article sanitizer and the vendored editor) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 142 (65 plus 77 for the article sanitizer and the vendored editor) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -278,18 +278,19 @@ Or pass another URL as the only argument. It finds the cells by canvas coordinat
 
 ### Article sanitizer check
 
-`scripts/check-article-cell-sanitizer.mjs [consumer-node_modules]` checks the article sanitizer in headless Chromium, where script execution is observable (the cells unit tests run in jsdom, which doesn't run scripts). It bundles a small page with esbuild that uses only the public `ArticleCell` API, with every package resolved from the given `node_modules` (default `test-projects/vite-app/node_modules`), so it tests what that consumer installed. It runs the synthetic payloads in `packages/cells/test/fixtures/article-sanitizer-payloads.mjs` through the viewer, the editor's initial Markdown, paste and drop, and fails if a payload's script ran or left dangerous DOM, or if Save after typing doesn't return the typed Markdown. It also prints the sanitizer inputs of the bundle and the `dompurify` version the cells package resolves.
+`scripts/check-article-cell-sanitizer.mjs [--browser chromium|firefox|webkit|all] [consumer-node_modules]` checks the article sanitizer in headless Chromium, Firefox and WebKit (default `all`), where script execution is observable (the cells unit tests run in jsdom, which doesn't run scripts). It bundles a small page with esbuild that uses only the public `ArticleCell` API, with every package resolved from the given `node_modules` (default `test-projects/vite-app/node_modules`), so it tests what that consumer installed. It runs the synthetic payloads in `packages/cells/test/fixtures/article-sanitizer-payloads.mjs` through the viewer, the editor's initial Markdown, a real keyboard paste, drag and drop onto a paragraph and onto a code block, a paste into a code block and, in Chromium only, a native drop. It fails if a payload's script ran or left dangerous DOM, if a paste or paragraph drop wasn't applied or a code-block drop inserted anything, if Save after typing doesn't return the typed Markdown, or if dragging a selection within the editor doesn't move it. It prints a result table per browser, and also the sanitizer inputs of the bundle and the `dompurify` version the cells package resolves.
 
 ```bash
 npm run build && npm run test-projects             # the check reads the installed tarballs
-node scripts/check-article-cell-sanitizer.mjs
+node scripts/check-article-cell-sanitizer.mjs                       # all three browsers
+node scripts/check-article-cell-sanitizer.mjs --browser firefox     # one browser
 ```
 
-It needs Playwright's Chromium, and exits 2 if the consumer has no `@specstory/ai-data-grid-cells`. Run it when you touch the article cell, the vendored editor, its patches or the `dompurify` range. The payloads are synthetic test fixtures: keep them in `packages/cells/test/` (cells' tarball ships only `dist`) and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
+It needs Playwright's browsers for every browser it runs (`npx playwright install chromium firefox webkit`), and exits 2 if the consumer has no `@specstory/ai-data-grid-cells` or `--browser` isn't one of the four values. It isn't part of CI. Run it when you touch the article cell, the vendored editor, its patches or the `dompurify` range. The payloads are synthetic test fixtures: keep them in `packages/cells/test/` (cells' tarball ships only `dist`) and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
 
 ## Vendored Toast UI editor
 
-ArticleCell's editor and read-only viewer run `packages/cells/vendor/toast-ui/editor.js`, Toast UI Editor 3.2.2's ESM build with four patches (P1–P4) that replace its embedded DOMPurify with the `dompurify` dependency and harden paste, drop and URL rendering. The directory's `README.md` has the provenance, the pinned hashes and the patch list, and [AS-BUILT.md](AS-BUILT.md#vendored-toast-ui-editor-and-article-sanitizer) explains the design.
+ArticleCell's editor and read-only viewer run `packages/cells/vendor/toast-ui/editor.js`, Toast UI Editor 3.2.2's ESM build with five patches (P1–P5) that replace its embedded DOMPurify with the `dompurify` dependency and harden paste, drop and URL rendering. The directory's `README.md` has the provenance, the pinned hashes and the patch list, and [AS-BUILT.md](AS-BUILT.md#vendored-toast-ui-editor-and-article-sanitizer) explains the design.
 
 - **Never edit `editor.js` or `toastui-editor.css` by hand.** `scripts/vendor-toast-ui.mjs` generates them from the exact devDependency `"@toast-ui/editor": "3.2.2"` of `packages/cells`. It checks both input sha256s and applies every patch at an exact anchor with an expected match count, so any drift fails the run.
 

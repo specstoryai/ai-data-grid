@@ -88,7 +88,7 @@ Article Markdown, and anything pasted into the editor, is treated as untrusted:
 
 - Everything the viewer and the editor render from Markdown, including raw HTML inside it, is sanitized with [DOMPurify](https://github.com/cure53/DOMPurify). DOMPurify is a regular dependency of this package (`dompurify` `^3.4.16`), so `npm audit` sees it, and you get its patch releases through your own lockfile (for example `npm update dompurify`) without a new release of this package.
 - The editor sanitizes with its own private DOMPurify instance. Calls to `DOMPurify.setConfig` or `DOMPurify.addHook` in your app don't change how articles are sanitized.
-- Pasted HTML, including content pasted from Microsoft Office, is sanitized before the editor processes it. Pasted or dropped HTML can't make the editor create elements other than the formatting elements Toast UI itself uses.
+- Pasted HTML, including content pasted from Microsoft Office, is sanitized before the editor processes it. Dropped HTML is sanitized the same way, or the drop is ignored; it's never left to the browser to insert. Pasted or dropped HTML can't make the editor create elements other than the formatting elements Toast UI itself uses.
 - In the editor, link and image URLs that DOMPurify rejects, such as `javascript:` URLs, are rendered empty.
 
 Limitations:
@@ -97,6 +97,7 @@ Limitations:
 - The stored Markdown isn't rewritten. A `javascript:` link that is already in an article's Markdown stays there; only its rendering is blocked. If you render stored articles somewhere else, sanitize them there too.
 - If DOMPurify reports that it can't run in the current environment, the editor throws an error instead of rendering unsanitized HTML. ArticleCell has no error boundary of its own, so the error reaches your app's nearest error boundary. This isn't expected in current browsers.
 - Forcing an older `dompurify` for this package, for example with an `overrides` entry in your app's `package.json`, isn't supported. If your app itself depends on `dompurify` 2.x or an older 3.x, npm installs a separate copy that matches `^3.4.16` for this package, and the editor uses that one.
+- A paste inside a code block, or inside a custom block while you edit it, isn't sanitized by DOMPurify. These blocks hold text only, so a paste there can't add formatting or HTML to the article, and in a code block the browser applies its own paste sanitization.
 - Toast UI Editor's upstream project is archived and gets no fixes. Security fixes for the article editor come from this package.
 
 ## Migrating from 6.x
