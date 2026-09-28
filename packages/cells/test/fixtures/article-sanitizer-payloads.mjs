@@ -1,4 +1,5 @@
-// Synthetic XSS payloads for the ArticleCell sanitizer tests (SPST-48). Shared by
+// Synthetic XSS payloads for the ArticleCell sanitizer tests (SPST-48, extended for the
+// Milkdown editor in SPST-61: R19–R25 and P11–P13). Shared by
 // test/article-cell-sanitizer.test.tsx (Vitest, jsdom) and
 // scripts/check-article-cell-sanitizer.mjs (Chromium, Firefox and WebKit). Every payload sets
 // `window.__xss = "<id>"` if it ever runs. Cells' npm package ships only `dist/`, so these
@@ -66,6 +67,31 @@ export const renderPayloads = [
             "R18"
         )}>">`,
     },
+    // SPST-61: hazards of the Milkdown engine (plan §1.3's targeted probes).
+    { id: "R19", name: "Markdown image javascript: with a title", markdown: `![i](javascript:${x("R19")} "t")` },
+    {
+        id: "R20",
+        name: "reference definition javascript:",
+        markdown: `[x][1]\n\n[1]: javascript:${x("R20")}`,
+    },
+    { id: "R21", name: "autolink javascript:", markdown: `<javascript:${x("R21")}>` },
+    { id: "R22", name: "scheme obfuscated with a tab entity", markdown: `[x](jav&#x09;ascript:${x("R22")})` },
+    {
+        id: "R23",
+        name: "Markdown image data:text/html with a title",
+        // base64 of <script>window.__xss='R23'</script>
+        markdown: '![i](data:text/html;base64,PHNjcmlwdD53aW5kb3cuX194c3M9J1IyMyc8L3NjcmlwdD4= "t")',
+    },
+    {
+        id: "R24",
+        name: "footnote label with quotes and onmouseover",
+        markdown: `Note[^a"onmouseover="${x("R24")}]\n\n[^a"onmouseover="${x("R24")}]: text`,
+    },
+    {
+        id: "R25",
+        name: "code fence info string with quotes and onmouseover",
+        markdown: `\`\`\`js" onmouseover="${x("R25")}\ncode\n\`\`\``,
+    },
 ];
 
 /**
@@ -115,7 +141,37 @@ export const pastePayloads = [
         html: pasted("P10", `<p>a <strong data-raw-html="script">${x("P10")}</strong> b</p>`),
         drop: true,
     },
+    // SPST-61: hazards of the Milkdown schema.
+    {
+        id: "P11",
+        name: "forged raw-HTML node (span data-type=html)",
+        html: pasted(
+            "P11",
+            `<p>a <span data-type="html" data-value="&lt;img src=x onerror=&quot;${x("P11")}&quot;&gt;">raw</span> b</p>`
+        ),
+    },
+    {
+        id: "P12",
+        name: "img javascript: with a title",
+        html: pasted("P12", `<p><img src="javascript:${x("P12")}" title="t"></p>`),
+    },
+    {
+        id: "P13",
+        name: "pre data-language with quotes and a handler",
+        html: pasted("P13", `<pre data-language="x&quot; onmouseover=&quot;${x("P13")}"><code>code-P13</code></pre>`),
+    },
 ];
+
+/**
+ * An HTML-only clipboard or drop (no text/plain flavor) for a code block (SPST-61 A1). It has
+ * block structure, marks and a dangerous image, so a code block that parsed it as HTML would
+ * split, gain marks or show the image.
+ */
+export const htmlOnlyCodePayload = {
+    id: "A1",
+    name: "HTML-only paste or drop into a code block",
+    html: `<p>html-only-A1</p><h2>heading</h2><p><strong>bold</strong><img src=x onerror="${x("A1")}"></p>`,
+};
 
 /** Every supported formatting feature, for the safe-content cases (S01, S02). */
 export const safeMarkdown = [
@@ -213,12 +269,13 @@ const DANGEROUS_ELEMENTS = "script, iframe, frame, object, embed, form, input, b
 const URL_ATTRIBUTES = ["href", "src", "action", "formaction", "xlink:href"];
 
 /**
- * The rendered article content inside an editor or viewer container: the Viewer's and the
- * hidden Markdown preview's `.toastui-editor-contents`, and the WYSIWYG ProseMirror element
- * (which has the same class). The editor's own toolbar and dialogs are outside these roots.
+ * The rendered article content inside an editor or viewer container: the ProseMirror element,
+ * `.gdg-article-content`, in the editor and the viewer. `.toastui-editor-contents` is the
+ * Toast UI equivalent, so scripts/check-article-cell-sanitizer.mjs can also run against a
+ * consumer of `main` before SPST-61. The editor's own toolbar and dialogs are outside these roots.
  */
 export function contentRoots(container) {
-    return Array.from(container.querySelectorAll(".toastui-editor-contents"));
+    return Array.from(container.querySelectorAll(".gdg-article-content, .toastui-editor-contents"));
 }
 
 /**
