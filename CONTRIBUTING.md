@@ -428,7 +428,7 @@ With no argument it copies the current root version to the packages. It is also 
 ### License and attribution
 
 - Never change the MIT text or the line `Copyright (c) 2021 typeguard, Inc.` in any `LICENSE` file (root, `packages/core`, `packages/cells`, `packages/source`). The line `Copyright (c) 2026 ai-data-grid contributors` sits directly below it and adds to it.
-- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`. Vendored code keeps its own `LICENSE` next to it (`packages/cells/vendor/toast-ui/LICENSE`).
+- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`. If you vendor third-party code, keep its `LICENSE` next to it and make sure it ships in the tarball.
 - Every publishable package must ship its `LICENSE`. Check with `npm pack --dry-run` in the package directory.
 - Don't use Glide trademarks (the Glide product name, logos, the `@glideapps` scope, `glideapps.com` URLs) except in attribution text, the 6.x → 7.0.0 migration mapping, and historical CHANGELOG entries.
 
