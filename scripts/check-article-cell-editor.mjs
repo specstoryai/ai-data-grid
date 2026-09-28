@@ -1,7 +1,8 @@
-// Article cell editor acceptance check (SPST-4 plan step 5, extended in SPST-48): open the
-// custom-cells story in headless Chromium, open the article cell editor (the vendored
-// Toast UI editor), type, save and check the saved Markdown, reopen, cancel, and open a
-// read-only article cell in the viewer — asserting no console errors throughout.
+// Article cell editor acceptance check (SPST-4 plan step 5, extended in SPST-48 and for the
+// Milkdown editor in SPST-61): open the custom-cells story in headless Chromium, open the
+// article cell editor, type, make text bold with the toolbar, save and check the saved
+// Markdown, reopen, cancel, and open a read-only article cell in the viewer — asserting no
+// console errors throughout.
 import { chromium } from "playwright";
 
 const url = process.argv[2] ?? "http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells";
@@ -55,10 +56,18 @@ const openArticleEditor = () => openArticleCell(1, editor);
 await openArticleEditor();
 console.log("editor opened");
 
-// Edit: type into the toast-ui WYSIWYG area
-const editable = editor.locator(".ProseMirror:visible").first();
+// Edit: type at the end of the article, then type bold text with the toolbar's Bold button.
+const editable = editor.locator(".gdg-article-content");
 await editable.click();
-await page.keyboard.type("Edited in React 19");
+// Chromium can apply a key press to a stale selection right after a click, so let it settle.
+await page.waitForTimeout(150);
+await page.keyboard.press("Control+End");
+await page.keyboard.press("Enter");
+await page.keyboard.type("Edited in React 19 ");
+const bold = editor.locator('.gdg-article-toolbar [aria-label="Bold"]');
+await bold.click();
+await page.keyboard.type("Bold text");
+await bold.click();
 await page.waitForTimeout(300);
 
 // Save
@@ -68,7 +77,11 @@ console.log("save closed the editor");
 for (let i = 0; i < 20 && edits.length === 0; i++) await page.waitForTimeout(100);
 const savedMarkdown = edits[0]?.data?.markdown;
 console.log(`saved markdown: ${JSON.stringify(savedMarkdown)}`);
-if (typeof savedMarkdown !== "string" || !savedMarkdown.includes("Edited in React 19")) {
+if (
+    typeof savedMarkdown !== "string" ||
+    !savedMarkdown.includes("Edited in React 19") ||
+    !savedMarkdown.includes("**Bold text**")
+) {
     throw new Error("Save did not report the edited Markdown through onCellEdited");
 }
 
@@ -83,9 +96,11 @@ if (edits.length !== 1) throw new Error(`expected 1 onCellEdited call, got ${edi
 // Read-only: row 0 opens the viewer only.
 const readonlyViewer = page.locator("#gdg-markdown-readonly");
 await openArticleCell(0, readonlyViewer);
-const viewerText = await readonlyViewer.locator(".toastui-editor-contents").innerText();
+const viewerText = await readonlyViewer.locator(".gdg-article-content").innerText();
 if (!viewerText.includes("This is a test")) throw new Error(`read-only viewer shows ${JSON.stringify(viewerText)}`);
-const editorParts = await readonlyViewer.locator(".toastui-editor-toolbar, .ProseMirror, .gdg-save-button").count();
+const editorParts = await readonlyViewer
+    .locator('.gdg-article-toolbar, [contenteditable="true"], .gdg-save-button, .gdg-close-button')
+    .count();
 if (editorParts !== 0) throw new Error("read-only cell rendered editor UI");
 console.log("read-only cell opened the viewer only");
 await page.keyboard.press("Escape");

@@ -1,29 +1,33 @@
-// Article cell sanitizer check (SPST-48): runs the shared synthetic XSS fixtures through the
-// ArticleCell editor and viewer of an installed @specstory/ai-data-grid-cells, in headless
-// Chromium, Firefox and WebKit, where script execution is observable (jsdom's unit tests can
-// only inspect DOM).
+// Article cell sanitizer check (SPST-48, updated for the Milkdown editor in SPST-61): runs the
+// shared synthetic XSS fixtures through the ArticleCell editor and viewer of an installed
+// @specstory/ai-data-grid-cells, in headless Chromium, Firefox and WebKit, where script
+// execution is observable (jsdom's unit tests can only inspect DOM).
 //
 // It bundles an in-memory entry with esbuild that uses public API only
 // (ArticleCell.provideEditor(cell).editor) and resolves every package from the consumer's
-// node_modules, so it tests exactly what that consumer installed. For each payload it checks
-// that no `window.__xss` sentinel ran and that the dangerous-DOM predicate is empty, through
-// the Viewer, the editor's initial Markdown, a real clipboard paste and a real drag and drop
-// onto a paragraph and onto a code block, and (Chromium only) a native drop. The page's copy
-// handler puts the payload on the clipboard, and the browser hands it to the paste handlers
-// unsanitized (a synthetic ClipboardEvent carries no data in Firefox). It also checks that Save after typing returns the typed Markdown, and
-// that dragging a selection within the editor moves it.
+// node_modules, so it tests exactly what that consumer installed. It loads cells' CSS the way a
+// consumer does: dist/index.css with its @imports inlined. For each payload it checks that no
+// `window.__xss` sentinel ran and that the dangerous-DOM predicate is empty, through the
+// viewer, the editor's initial Markdown, a real clipboard paste and a real drag and drop onto a
+// paragraph and onto a code block, a paste into a code block, and (Chromium only) a native
+// drop. The page's copy handler puts the payload on the clipboard, and the browser hands it to
+// the paste handlers unsanitized (a synthetic ClipboardEvent carries no data in Firefox).
 //
-// About drops: ProseMirror parses a drop through transformPastedHTML (patch P2), and patch P5
-// prevents every drop ProseMirror declines or never sees, such as one on a code block, whose
-// node view stops events. Without P5, Toast UI's dropImage plugin left every drop to the
-// browser's native insertion, which runs the dropped markup's event handlers in Firefox.
-// Code blocks also leave paste to the browser: it inserts its own sanitized copy of the
-// markup, which ProseMirror then discards, so there "Applied" means the paste reached the
-// code block.
-// The "native drop" path is defense in depth for ProseMirror's DOM observer and parse rules
-// (P3): it really drops the payload on a plain contenteditable, where Chromium applies its
-// own drop sanitization, and inserts the resulting markup into the editor's DOM. Other
-// browsers don't sanitize that staging drop, so it only runs in Chromium.
+// The "Native" column records whether a paste or drop on the editor reached `document` without
+// `defaultPrevented`, which means the browser's native insertion ran (P6). With the Milkdown
+// editor every paste and drop row must say "no", a code block must receive only the plain
+// text, and an HTML-only paste or drop onto a code block (A1) must change nothing. It also
+// checks that Save after typing returns the typed Markdown, that dragging a selection within
+// the editor moves it, and that the link dialog's URL field accepts a paste (A2).
+//
+// The "native drop" path is defense in depth for ProseMirror's DOM observer and parse rules: it
+// really drops the payload on a plain contenteditable, where Chromium applies its own drop
+// sanitization, and inserts the resulting markup into the editor's DOM. Other browsers don't
+// sanitize that staging drop, so it only runs in Chromium.
+//
+// It also runs against a consumer of `main` before SPST-61 (the vendored Toast UI editor),
+// which it detects from the rendered DOM, for a before-and-after record. There the Toast UI
+// selectors are used and the code-block checks only record what happened.
 //
 // Usage: node scripts/check-article-cell-sanitizer.mjs [--browser chromium|firefox|webkit|all] [consumer-node_modules]
 //        (defaults: all, test-projects/vite-app/node_modules; run `npm run test-projects` first)
@@ -73,10 +77,21 @@ function packageVersion(file) {
     return "unknown";
 }
 
-// The editor CSS: this PR's subpath, or the old @toast-ui path for a consumer of `main`.
-const cssFile =
+// The article CSS, as a consumer loads it: before SPST-61 it was dist/toastui-editor.css (or
+// Toast UI's own file before SPST-48); from SPST-61 on it's part of dist/index.css.
+const legacyCss =
     tryResolve(consumerRequire, "@specstory/ai-data-grid-cells/dist/toastui-editor.css") ??
     tryResolve(cellsRequire, "@toast-ui/editor/dist/toastui-editor.css");
+const indexCss = tryResolve(consumerRequire, "@specstory/ai-data-grid-cells/dist/index.css");
+const cssFile = legacyCss ?? indexCss;
+let css = "";
+if (legacyCss !== undefined) {
+    css = readFileSync(legacyCss, "utf8");
+} else if (indexCss !== undefined) {
+    // Inline dist/index.css's @imports, as a bundler would.
+    const cssBundle = await build({ entryPoints: [indexCss], bundle: true, write: false, logLevel: "warning" });
+    css = cssBundle.outputFiles[0].text;
+}
 
 const entry = `
 import * as React from "react";
@@ -113,6 +128,7 @@ const bundle = await build({
     write: false,
     metafile: true,
     logLevel: "warning",
+    loader: { ".css": "empty" },
     define: { "process.env.NODE_ENV": '"production"' },
 });
 const code = bundle.outputFiles[0].text;
@@ -128,13 +144,15 @@ console.log(
         tryResolve(cellsRequire, "dompurify") === undefined ? "none" : packageVersion(cellsRequire.resolve("dompurify"))
     }; bundled: ${dompurifyInput === undefined ? "none" : packageVersion(resolve(dompurifyInput))}`
 );
+const purifyVersions = [...code.matchAll(/DOMPurify\.version = ['"]([\d.]+)['"]/g)].map(m => m[1]);
 console.log(
-    `embedded DOMPurify 2.3.3 copies in the bundle: ${(code.match(/DOMPurify\.version = ['"]2\.3\.3['"]/g) ?? []).length}`
+    `DOMPurify version literals in the bundle: ${purifyVersions.length === 0 ? "none" : purifyVersions.join(", ")}`
 );
-console.log(`editor CSS: ${cssFile === undefined ? "not found" : relative(consumerDir, cssFile)}`);
+// Module inputs, not the bundle's text: the bundled fixtures name Toast UI's legacy selector.
+const toastInputs = Object.keys(bundle.metafile.inputs).filter(f => /toast-?ui/i.test(f));
+console.log(`Toast UI modules in the bundle: ${toastInputs.length === 0 ? "none" : toastInputs.length}`);
+console.log(`article CSS: ${cssFile === undefined ? "not found" : relative(consumerDir, cssFile)}`);
 
-const css = cssFile === undefined ? "" : readFileSync(cssFile, "utf8");
-const WYSIWYG = ".toastui-editor-ww-container .ProseMirror";
 const COPY_KEY = process.platform === "darwin" ? "Meta" : "Control";
 
 async function runBrowser(name) {
@@ -158,44 +176,101 @@ async function runBrowser(name) {
     );
     await page.addScriptTag({ content: code, type: "module" });
     await page.waitForFunction(() => typeof window.mountArticle === "function");
-    await page.evaluate(() =>
+    await page.evaluate(() => {
         document.addEventListener("copy", e => {
             if (window.__copyPayload === undefined) return;
-            e.clipboardData.setData("text/html", window.__copyPayload);
-            e.clipboardData.setData("text/plain", "copied");
+            const { html, text } = window.__copyPayload;
+            if (html !== undefined) e.clipboardData.setData("text/html", html);
+            if (text !== undefined) e.clipboardData.setData("text/plain", text);
             e.preventDefault();
             window.__copyPayload = undefined;
-        })
-    );
+        });
+        // The "Native" column: a paste or drop on the editor that reaches the document without
+        // defaultPrevented is left to the browser's native insertion.
+        window.__native = [];
+        for (const type of ["paste", "drop"]) {
+            document.addEventListener(type, e => {
+                if (document.getElementById("root").contains(e.target) && !e.defaultPrevented) {
+                    window.__native.push(type);
+                }
+            });
+        }
+    });
+
+    // Which editor this consumer ships: the Milkdown editor (.gdg-article-content), or the
+    // vendored Toast UI editor of `main` before SPST-61 (legacy mode).
+    await page.evaluate(() => window.mountArticle("probe", false));
+    await page.waitForSelector("#root .gdg-article-content, #root .toastui-editor-contents", {
+        state: "attached",
+        timeout: 10000,
+    });
+    const legacy = await page.evaluate(() => document.querySelector("#root .gdg-article-content") === null);
+    const EDITOR = legacy ? "#root .toastui-editor-ww-container .ProseMirror" : "#root .gdg-article-content";
+    const VIEWER = legacy ? "#root .toastui-editor-contents" : "#root .gdg-article-content";
+    const CODE_BLOCK = `${EDITOR} pre code`;
 
     async function mount(markdown, readonly) {
-        await page.evaluate(() => (window.__xss = undefined));
-        await page.evaluate(([md, ro]) => window.mountArticle(md, ro), [markdown, readonly]);
-        await page.waitForSelector(readonly ? "#root .toastui-editor-contents" : `#root ${WYSIWYG}`, {
-            timeout: 10000,
+        await page.evaluate(() => {
+            window.__xss = undefined;
+            window.__native = [];
         });
+        await page.evaluate(([md, ro]) => window.mountArticle(md, ro), [markdown, readonly]);
+        await page.waitForSelector(readonly ? VIEWER : EDITOR, { timeout: 10000 });
         await page.waitForTimeout(250);
     }
 
     async function observe() {
         await page.waitForTimeout(400);
-        return page.evaluate(() => ({
-            executed: window.__xss ?? null,
-            dangerous: window.fixtures.findDangerousDOM(document.getElementById("root")),
-            text: document.getElementById("root").textContent,
-        }));
+        return page.evaluate(
+            ([editorSelector, codeSelector]) => {
+                const content = document.querySelector(editorSelector);
+                const codeEl = document.querySelector(codeSelector);
+                let structure;
+                if (content !== null) {
+                    // The content without the code block's text, to tell what else changed.
+                    const clone = content.cloneNode(true);
+                    for (const c of clone.querySelectorAll("pre code")) c.textContent = "";
+                    structure = clone.innerHTML;
+                }
+                return {
+                    executed: window.__xss ?? null,
+                    dangerous: window.fixtures.findDangerousDOM(document.getElementById("root")),
+                    text: document.getElementById("root").textContent,
+                    native: window.__native.length > 0,
+                    codeText: codeEl?.textContent ?? null,
+                    structure,
+                    html: content?.innerHTML,
+                };
+            },
+            [EDITOR, CODE_BLOCK]
+        );
     }
+
+    const snapshot = () =>
+        page.evaluate(
+            ([editorSelector]) => {
+                const content = document.querySelector(editorSelector);
+                const clone = content.cloneNode(true);
+                for (const c of clone.querySelectorAll("pre code")) c.textContent = "";
+                return { structure: clone.innerHTML, html: content.innerHTML };
+            },
+            [EDITOR]
+        );
 
     const rows = [];
-    function record(id, caseName, path, result, applied, mustApply = false) {
-        const extraFailure = mustApply && applied === false ? `${path} not applied` : undefined;
-        const ok = result.executed === null && result.dangerous.length === 0 && extraFailure === undefined;
-        rows.push({ id, name: caseName, path, ...result, applied, extraFailure, ok });
+    function record(id, caseName, path, result, applied, { mustApply = false, eventPath = false, failure } = {}) {
+        const failures = [];
+        if (mustApply && applied === false) failures.push(`${path} not applied`);
+        if (!legacy && eventPath && result.native) failures.push("native insertion");
+        if (!legacy && failure !== undefined) failures.push(failure);
+        const ok = result.executed === null && result.dangerous.length === 0 && failures.length === 0;
+        rows.push({ id, name: caseName, path, ...result, applied, eventPath, failures, ok });
     }
 
-    const { renderPayloads, pastePayloads } = await page.evaluate(() => ({
+    const { renderPayloads, pastePayloads, htmlOnlyCodePayload } = await page.evaluate(() => ({
         renderPayloads: window.fixtures.renderPayloads,
         pastePayloads: window.fixtures.pastePayloads,
+        htmlOnlyCodePayload: window.fixtures.htmlOnlyCodePayload,
     }));
 
     for (const p of renderPayloads) {
@@ -205,35 +280,36 @@ async function runBrowser(name) {
         }
     }
 
-    // A trusted paste with the keyboard, so the browser's own paste runs where ProseMirror
-    // doesn't handle it.
-    // Returns the tag name of the element the paste event targeted.
-    async function pasteHTML(html, target) {
-        await page.evaluate(h => {
-            window.__copyPayload = h;
+    // A trusted paste with the keyboard, so the browser's own paste runs where the editor
+    // doesn't handle it. Returns the tag name of the element the paste event targeted.
+    async function pasteData(data, target) {
+        await page.evaluate(d => {
+            window.__copyPayload = d;
             window.__pasteTarget = undefined;
             window.addEventListener("paste", e => (window.__pasteTarget = e.target.nodeName), {
                 capture: true,
                 once: true,
             });
-        }, html);
+        }, data);
         await page.locator("#copy-src").focus();
         await page.keyboard.press(`${COPY_KEY}+a`);
         await page.keyboard.press(`${COPY_KEY}+c`);
         await page.locator(target).click();
         await page.keyboard.press("End");
+        // Chromium can paste at a stale selection right after a click, so let it settle.
+        await page.waitForTimeout(150);
         await page.keyboard.press(`${COPY_KEY}+v`);
         return page.evaluate(() => window.__pasteTarget);
     }
 
-    async function dragAndDropHTML(html, target = `#root ${WYSIWYG} p`) {
-        await page.evaluate(h => {
+    async function dragAndDropData(data, target) {
+        await page.evaluate(d => {
             const src = document.getElementById("drag-src");
             src.ondragstart = e => {
-                e.dataTransfer.setData("text/html", h);
-                e.dataTransfer.setData("text/plain", "dropped");
+                if (d.html !== undefined) e.dataTransfer.setData("text/html", d.html);
+                if (d.text !== undefined) e.dataTransfer.setData("text/plain", d.text);
             };
-        }, html);
+        }, data);
         await page.dragAndDrop("#drag-src", target);
     }
 
@@ -241,14 +317,21 @@ async function runBrowser(name) {
     // the editor's DOM, where ProseMirror's DOM observer parses it with the schema's parse rules.
     async function nativeDropHTML(html) {
         await page.evaluate(() => (document.getElementById("native-drop").innerHTML = "<p>drop here</p>"));
-        await dragAndDropHTML(html, "#native-drop p");
+        await dragAndDropData({ html, text: "dropped" }, "#native-drop p");
         const dropped = await page.evaluate(() => document.getElementById("native-drop").innerHTML);
-        await page.locator(`#root ${WYSIWYG}`).click();
+        await page.locator(EDITOR).click();
         await page.keyboard.press("End");
         await page.evaluate(h => document.execCommand("insertHTML", false, h), dropped);
     }
 
-    const CODE_BLOCK = `#root ${WYSIWYG} pre code`;
+    // A code block may only gain the plain-text flavor (P6), and nothing else may change.
+    function codeBlockCheck(before, result, inserted) {
+        if (result.codeText === null) return "code block gone";
+        if (result.structure !== before.structure) return "more than plain text inserted";
+        if (result.codeText.replace(inserted, "") !== "code") return "code text changed";
+        return undefined;
+    }
+
     for (const p of pastePayloads) {
         const marker = `paste-${p.id}`;
         // Every payload goes through each path; P10 is the drop case, so it isn't pasted.
@@ -261,26 +344,51 @@ async function runBrowser(name) {
         if (name === "chromium") paths.push("native drop");
         for (const path of paths) {
             await mount(path.startsWith("code block") ? "start\n\n```\ncode\n```" : "start", false);
+            const before = path.startsWith("code block") ? await snapshot() : undefined;
             let pasteTarget;
-            if (path === "paste") pasteTarget = await pasteHTML(p.html, `#root ${WYSIWYG} p`);
-            else if (path === "drop") await dragAndDropHTML(p.html);
-            else if (path === "code block drop") await dragAndDropHTML(p.html, CODE_BLOCK);
-            else if (path === "code block paste") pasteTarget = await pasteHTML(p.html, CODE_BLOCK);
+            if (path === "paste") pasteTarget = await pasteData({ html: p.html, text: "copied" }, `${EDITOR} p`);
+            else if (path === "drop") await dragAndDropData({ html: p.html, text: "dropped" }, `${EDITOR} p`);
+            else if (path === "code block drop") await dragAndDropData({ html: p.html, text: "dropped" }, CODE_BLOCK);
+            else if (path === "code block paste")
+                pasteTarget = await pasteData({ html: p.html, text: "copied" }, CODE_BLOCK);
             else await nativeDropHTML(p.html);
             const result = await observe();
-            // A drop on a code block is prevented (P5), so it inserts nothing. Chromium may
-            // reject natively dropped markup and fall back to the text/plain flavour.
-            const applied =
-                path === "code block paste"
-                    ? pasteTarget === "CODE"
-                    : result.text.includes(marker) || (path === "native drop" && result.text.includes("dropped"));
-            record(p.id, p.name, path, result, applied, path !== "code block drop");
+            if (path === "code block paste") {
+                // Toast UI (legacy): the paste reached the code block; Milkdown: only "copied" went in.
+                const failure = legacy ? undefined : codeBlockCheck(before, result, "copied");
+                const applied = legacy ? pasteTarget === "CODE" : failure === undefined;
+                record(p.id, p.name, path, result, applied, { mustApply: true, eventPath: true, failure });
+            } else if (path === "code block drop") {
+                // Toast UI (legacy) prevents a code-block drop; Milkdown inserts only "dropped".
+                const failure = legacy ? undefined : codeBlockCheck(before, result, "dropped");
+                const applied = legacy ? result.codeText !== "code" : failure === undefined;
+                record(p.id, p.name, path, result, applied, { mustApply: !legacy, eventPath: true, failure });
+            } else {
+                // Chromium may reject natively dropped markup and fall back to the text/plain flavour.
+                const applied =
+                    result.text.includes(marker) || (path === "native drop" && result.text.includes("dropped"));
+                record(p.id, p.name, path, result, applied, { mustApply: true, eventPath: path !== "native drop" });
+            }
         }
     }
 
-    // Save after typing returns the edited Markdown (B1).
+    // A1: an HTML-only paste or drop onto a code block changes nothing.
+    for (const path of ["code block paste, HTML only", "code block drop, HTML only"]) {
+        await mount("start\n\n```\ncode\n```", false);
+        const before = await snapshot();
+        if (path.includes("paste")) await pasteData({ html: htmlOnlyCodePayload.html }, CODE_BLOCK);
+        else await dragAndDropData({ html: htmlOnlyCodePayload.html }, CODE_BLOCK);
+        const result = await observe();
+        const unchanged = result.html === before.html;
+        record(htmlOnlyCodePayload.id, htmlOnlyCodePayload.name, path, result, !unchanged, {
+            eventPath: true,
+            failure: unchanged ? undefined : "the code block or document changed",
+        });
+    }
+
+    // Save after typing returns the edited Markdown.
     await mount("hello", false);
-    await page.locator(`#root ${WYSIWYG}`).click();
+    await page.locator(EDITOR).click();
     await page.keyboard.press("End");
     await page.keyboard.type(" world");
     await page.locator("#root .gdg-save-button").click();
@@ -302,7 +410,7 @@ async function runBrowser(name) {
             from: { x: from.x + from.width / 2, y: from.y + from.height / 2 },
             to: { x: to.x + 2, y: to.y + to.height / 2 },
         };
-    }, `#root ${WYSIWYG}`);
+    }, EDITOR);
     await page.mouse.dblclick(boxes.from.x, boxes.from.y);
     // Wait out the double-click interval, so the next press isn't a triple click.
     await page.waitForTimeout(1000);
@@ -312,28 +420,46 @@ async function runBrowser(name) {
     await page.mouse.move(boxes.to.x, boxes.to.y, { steps: 10 });
     await page.mouse.up();
     await page.waitForTimeout(300);
-    const moved = await page.evaluate(selector => document.querySelector(selector).textContent, `#root ${WYSIWYG}`);
+    const moved = await page.evaluate(selector => document.querySelector(selector).textContent, EDITOR);
     const moveOk = /^\s*beta gamma\s*alpha\s*$/.test(moved);
 
+    // A2: the link dialog's URL field accepts an ordinary paste (Milkdown editor only).
+    let linkPaste;
+    if (!legacy) {
+        await mount("link text", false);
+        await page.locator(EDITOR).click();
+        await page.keyboard.press(`${COPY_KEY}+a`);
+        await page.locator('#root [aria-label="Insert link"]').click();
+        await page.evaluate(() => (window.__copyPayload = { text: "https://example.com/pasted" }));
+        await page.locator("#copy-src").focus();
+        await page.keyboard.press(`${COPY_KEY}+a`);
+        await page.keyboard.press(`${COPY_KEY}+c`);
+        await page.locator("#root .gdg-article-link-url").click();
+        await page.keyboard.press(`${COPY_KEY}+v`);
+        const value = await page.locator("#root .gdg-article-link-url").inputValue();
+        linkPaste = { value, ok: value === "https://example.com/pasted" };
+    }
+
     await browser.close();
-    return { name, version: browser.version(), rows, saved, saveOk, moved, moveOk, pageErrors };
+    return { name, version: browser.version(), legacy, rows, saved, saveOk, moved, moveOk, linkPaste, pageErrors };
 }
 
 let failures = 0;
 for (const name of browserNames) {
     const r = await runBrowser(name);
     console.log("");
-    console.log(`## ${r.name} ${r.version}`);
+    console.log(`## ${r.name} ${r.version}${r.legacy ? " (legacy mode: Toast UI editor)" : ""}`);
     console.log("");
-    console.log("| ID | Case | Path | Applied | Executed | Dangerous DOM | Result |");
-    console.log("| --- | --- | --- | --- | --- | --- | --- |");
+    console.log("| ID | Case | Path | Applied | Executed | Dangerous DOM | Native | Result |");
+    console.log("| --- | --- | --- | --- | --- | --- | --- | --- |");
     for (const row of r.rows) {
         const dangerous =
             row.dangerous.length === 0 ? "none" : [...new Set(row.dangerous)].join(", ").replace(/\|/g, "\\|");
-        const result = row.ok ? "pass" : `**FAIL**${row.extraFailure === undefined ? "" : ` (${row.extraFailure})`}`;
+        const result = row.ok ? "pass" : `**FAIL**${row.failures.length === 0 ? "" : ` (${row.failures.join("; ")})`}`;
         const applied = row.applied === undefined ? "n/a" : row.applied ? "yes" : "no";
+        const native = row.eventPath ? (row.native ? "**yes**" : "no") : "n/a";
         console.log(
-            `| ${row.id} | ${row.name} | ${row.path} | ${applied} | ${row.executed === null ? "no" : "**yes**"} | ${dangerous} | ${result} |`
+            `| ${row.id} | ${row.name} | ${row.path} | ${applied} | ${row.executed === null ? "no" : "**yes**"} | ${dangerous} | ${native} | ${result} |`
         );
     }
     console.log("");
@@ -341,19 +467,30 @@ for (const name of browserNames) {
     console.log(
         `drag "alpha" to the end of "alpha beta gamma": ${JSON.stringify(r.moved)} -> ${r.moveOk ? "pass" : "FAIL"}`
     );
+    if (r.linkPaste !== undefined) {
+        console.log(
+            `paste a URL into the link dialog: ${JSON.stringify(r.linkPaste.value)} -> ${r.linkPaste.ok ? "pass" : "FAIL"}`
+        );
+    }
     console.log(`page errors: ${r.pageErrors.length}`);
     for (const e of r.pageErrors) console.log(`  PAGE ERROR: ${e.slice(0, 200)}`);
 
     const failed = r.rows.filter(row => !row.ok).length;
-    if (failed > 0 || !r.saveOk || !r.moveOk || r.pageErrors.length > 0) {
+    const nativeRows = r.rows.filter(row => row.eventPath && row.native).length;
+    const linkOk = r.linkPaste === undefined || r.linkPaste.ok;
+    if (failed > 0 || !r.saveOk || !r.moveOk || !linkOk || r.pageErrors.length > 0) {
         failures++;
         console.error(
-            `${r.name} FAILED: ${failed} case(s)${r.saveOk ? "" : ", save"}${r.moveOk ? "" : ", drag move"}${
-                r.pageErrors.length > 0 ? ", page errors" : ""
-            }`
+            `${r.name} FAILED: ${failed} of ${r.rows.length} case(s)${r.saveOk ? "" : ", save"}${
+                r.moveOk ? "" : ", drag move"
+            }${linkOk ? "" : ", link dialog paste"}${r.pageErrors.length > 0 ? ", page errors" : ""}; native: ${nativeRows}`
         );
     } else {
-        console.log(`${r.name} PASSED: ${r.rows.length} cases, save, drag move, no page errors`);
+        console.log(
+            `${r.name} PASSED: ${r.rows.length} cases, native: ${nativeRows}, save, drag move${
+                r.linkPaste === undefined ? "" : ", link dialog paste"
+            }, no page errors`
+        );
     }
 }
 if (failures > 0) process.exit(1);
