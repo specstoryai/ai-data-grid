@@ -416,7 +416,7 @@ Add `-p <port>` to the dev command to use another port. In the dev sandbox, run 
 - Pages are MDX in `docs/content/docs/`. `meta.json` files set the sidebar order.
 - `docs/content/docs/index.mdx` (the welcome page, served at `/docs`) and `docs/content/docs/about.mdx` (About & License) are hand-maintained.
 - The **AI Fill guide**, `docs/content/docs/ai-fill/` (10 pages, ordered by its `meta.json`), is a hand-maintained section with no GitBook source. See [The AI Fill guide (hand-maintained)](#the-ai-fill-guide-hand-maintained).
-- Every other page is generated from the Glide Data Grid GitBook docs by the importer, then hand-edited: the product name is replaced, the Extended QuickStart Guide's peer install command names `marked@^16`, and the FAQ links two Storybook stories. Images are in `docs/public/images/`.
+- Every other page is generated from the Glide Data Grid GitBook docs by the importer, then hand-edited: the product name is replaced, the Extended QuickStart Guide's peer install command names `marked@^16`, the DataEditor editing page's `onRowAppended` paragraph says that the trailing row needs `trailingRowOptions`, and the FAQ links two Storybook stories. Images are in `docs/public/images/`.
 - Keep the attribution "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed." on the welcome page, on the About & License page and in the site footer (`docs/lib/theme-config.ts`).
 
 ### Re-running the GitBook importer
@@ -425,7 +425,7 @@ Add `-p <port>` to the dev command to use another port. In the dev sandbox, run 
 cd docs && node scripts/import-gitbook.mjs
 ```
 
-This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, downloads the 17 images again and rewrites every `meta.json`. It skips `index.mdx`, `about.mdx` and the hand-maintained `ai-fill/` section (`HAND_MAINTAINED` and `HAND_MAINTAINED_SECTIONS` in the script), and the root `meta.json` it writes lists `ai-fill` before `about`. It **overwrites every other page**. That undoes the hand edits to those pages: "Glide Data Grid" replaced with "AI Data Grid" (in five pages at the time of writing), `marked@^16` in `extended-quickstart-guide/index.mdx`'s peer install command, and the Storybook links in `faq.mdx`. After a re-import, review `git diff docs/content` and re-apply those edits before committing.
+This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, downloads the 17 images again and rewrites every `meta.json`. It skips `index.mdx`, `about.mdx` and the hand-maintained `ai-fill/` section (`HAND_MAINTAINED` and `HAND_MAINTAINED_SECTIONS` in the script), and the root `meta.json` it writes lists `ai-fill` before `about`. It **overwrites every other page**. That undoes the hand edits to those pages: "Glide Data Grid" replaced with "AI Data Grid" (in five pages at the time of writing), `marked@^16` in `extended-quickstart-guide/index.mdx`'s peer install command, the `onRowAppended` paragraph in `api/dataeditor/editing.mdx`, and the Storybook links in `faq.mdx`. After a re-import, review `git diff docs/content` and re-apply those edits before committing.
 
 ### The AI Fill guide (hand-maintained)
 
