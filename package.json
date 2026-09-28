@@ -13,6 +13,7 @@
         "storybook": "concurrently \"npm run storybook:run\" \"npm run watch:core\"",
         "build-storybook": "npm run build --workspaces && storybook build -o storybook-build/",
         "smoke-storybook": "node scripts/smoke-storybook.mjs",
+        "check-pack": "node scripts/check-pack.mjs",
         "prod-storybook": "npm run build-storybook && npx http-server storybook-build -p 9009",
         "test": "cd packages/core && npm run test --",
         "test-source": "cd packages/source && npm run test",

@@ -16,6 +16,7 @@ jobs:
                   node-version-file: .nvmrc
             - run: npm ci
             - run: npm run build
+            - run: npm run check-pack
             - run: npm test -- --run
             - run: npm run test-cells -- --run
             - run: npm run test-source -- --run
