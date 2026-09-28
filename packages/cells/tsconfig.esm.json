@@ -13,6 +13,8 @@
     "compilerOptions": {
         "rootDir": "./src",
         "outDir": "./dist/esm",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
         "declarationDir": "./dist/dts",
         "sourceMap": true,
         "declaration": true,

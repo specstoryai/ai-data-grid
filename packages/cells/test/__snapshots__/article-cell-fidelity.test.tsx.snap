@@ -1,0 +1,266 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`F: Markdown fidelity > F25 the edited-save output of the corpus (snapshot) 1`] = `
+{
+  "F01 ATX headings": "# H1
+
+## H2
+
+### H3
+
+#### H4
+
+##### H5
+
+###### H6
+",
+  "F02 setext headings": "# Title
+
+## Subtitle
+
+text
+",
+  "F03 emphasis, strong, strike and inline code with both markers": "Some **bold**, __bold__, *italic*, _italic_, ***both***, ~~strike~~, ~~single~~ and \`code\`.
+
+In words: a*b*c, 2*3*4 and snake_case_name.
+",
+  "F04 links: inline, titled, reference, autolink and bare": "A [link](https://example.com/page), a [titled](https://example.com \\"Title\\") one, a [ref](https://example.com/ref) and <https://example.com/auto>, then <https://example.org/bare_url> today.
+
+Parens: [x](https://example.com/a_\\\\(b\\\\)) and [rel](docs/page.html) and [anchor](#section).
+",
+  "F05 images with and without a title, and data:image/png": "![alt text](https://example.com/image.png) ![titled](https://example.com/t.png \\"T\\")
+
+![dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==)
+",
+  "F06 bullets with *, - and +": "* star one
+* star two
+
+- dash one
+- dash two
+
+* plus one
+* plus two
+",
+  "F07 ordered lists starting at 1, at 3, and 10 or more": "1. first
+2. second
+
+***
+
+3. three
+4. four
+
+***
+
+10. ten
+11. eleven
+",
+  "F08 nested mixed lists": "* a
+  * a1
+    * a11
+* b
+  1. b1
+  2. b2
+
+1. x
+   * x1
+2. y
+",
+  "F09 nested task lists": "* [ ] open task
+* [x] done task
+  * [ ] nested open
+  * [x] nested done
+
+- [ ] dash task
+",
+  "F10 plain table": "| Name | Value |
+| ---- | ----- |
+| a    | 1     |
+| b    | 2     |
+",
+  "F11 aligned table": "| L  |  C  |  R | N |
+| :- | :-: | -: | - |
+| a  |  b  |  c | d |
+",
+  "F12 table with inline formatting, an escaped pipe and a code span": "| A                  | B      |
+| ------------------ | ------ |
+| **bold**           | \`code\` |
+| [l](https://e.com) | x \\\\| y |
+| *em*               | \`a\\\\|b\` |
+",
+  "F13 nested blockquotes with lists": "> outer
+> second line
+>
+> > inner
+> >
+> > * item one
+> > * item two
+>
+> 1. numbered
+",
+  "F14 code: fenced with a language, tilde, indented, containing backticks": "\`\`\`js
+const code = 1;
+\`\`\`
+
+\`\`\`
+tilde fence
+\`\`\`
+
+\`\`\`
+indented code
+\`\`\`
+
+\`\`\`\`
+has \`\`\` inside? no: \`ticks\`
+\`\`\`\`
+
+and \`\`a\`b\`\` inline
+",
+  "F15 all three rule styles": "above
+
+***
+
+middle
+
+***
+
+lower
+
+***
+
+below
+",
+  "F16 hard and soft breaks": "line one\\\\
+line two
+
+line one\\\\
+line two
+
+soft one
+soft two
+",
+  "F17 line-start escapes": "\\\\# not heading
+
+1\\\\. not a list
+
+\\\\- not bullet
+
+\\\\+ not bullet
+
+\\\\> not quote
+
+\\\\* not bullet
+
+\\\\\`not code\\\\\` and \\\\[not link]\\\\(x) and snake_case
+",
+  "F18 entities, and <, > and & in text": "AT\\\\&T ©   … © ' \\\\<tag>
+
+a < b > c & d
+",
+  "F19 inline HTML, with an unmatched tag": "Some <b>bold html</b>, <kbd>Ctrl</kbd>, <span style=\\"color:red\\">red</span> and a<br>b.
+
+use <b> tags unmatched
+",
+  "F20 block HTML: div, details, an HTML table, img width": "<div>block html</div>
+
+after
+
+<details><summary>sum</summary>
+
+body
+
+</details>
+
+<table><tr><td>cell</td></tr></table>
+
+<img src=\\"https://example.com/i.png\\" alt=\\"i\\" width=\\"20\\">
+",
+  "F21 HTML comments": "before <!-- inline comment --> after
+
+<!--
+block comment
+-->
+
+tail
+",
+  "F22 $$ custom blocks": "$$widget0 [x](https://e.com)$$
+
+$$custom
+content
+$$
+",
+  "F23 footnotes": "Text with a note[^1] and another[^two].
+
+[^1]: The first note.
+
+[^two]: The second note.
+",
+  "F24 a long mixed article": "# Release notes
+
+Some **bold**, *italic*, ~~strike~~ and \`inline code\` with a [link](https://example.com/page).
+
+## Tasks
+
+* [ ] open task
+* [x] done task
+
+## Numbers
+
+| Name | Value |
+| ---- | ----- |
+| a    | 1     |
+| b    | 2     |
+
+> a quote with a list:
+>
+> 1. one
+> 2. two
+
+\`\`\`ts
+const code: number = 1;
+\`\`\`
+
+***
+
+* bullet one
+  * nested
+* bullet two
+
+![alt](https://example.com/image.png)
+
+last line
+",
+}
+`;
+
+exports[`F: Markdown fidelity > F26 the viewer's DOM for the corpus (snapshot) 1`] = `
+{
+  "F01 ATX headings": "<h1>H1</h1><h2>H2</h2><h3>H3</h3><h4>H4</h4><h5>H5</h5><h6>H6</h6>",
+  "F02 setext headings": "<h1>Title</h1><h2>Subtitle</h2><p>text</p>",
+  "F03 emphasis, strong, strike and inline code with both markers": "<p>Some <strong>bold</strong>, <strong>bold</strong>, <em>italic</em>, <em>italic</em>, <em><strong>both</strong></em>, <del>strike</del>, <del>single</del> and <code>code</code>.</p><p>In words: a<em>b</em>c, 2<em>3</em>4 and snake_case_name.</p>",
+  "F04 links: inline, titled, reference, autolink and bare": "<p>A <a href=\\"https://example.com/page\\">link</a>, a <a href=\\"https://example.com\\" title=\\"Title\\">titled</a> one, a <a href=\\"https://example.com/ref\\">ref</a> and <a href=\\"https://example.com/auto\\">https://example.com/auto</a>, then <a href=\\"https://example.org/bare_url\\">https://example.org/bare_url</a> today.</p><p>Parens: <a href=\\"https://example.com/a_(b)\\">x</a> and <a href=\\"docs/page.html\\">rel</a> and <a href=\\"#section\\">anchor</a>.</p>",
+  "F05 images with and without a title, and data:image/png": "<p><img src=\\"https://example.com/image.png\\" alt=\\"alt text\\" title=\\"\\" draggable=\\"true\\"> <img src=\\"https://example.com/t.png\\" alt=\\"titled\\" title=\\"T\\" draggable=\\"true\\"><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p><p><img src=\\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\\" alt=\\"dot\\" title=\\"\\" draggable=\\"true\\"><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p>",
+  "F06 bullets with *, - and +": "<ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>star one</p></li><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>star two</p></li></ul><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>dash one</p></li><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>dash two</p></li></ul><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>plus one</p></li><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>plus two</p></li></ul>",
+  "F07 ordered lists starting at 1, at 3, and 10 or more": "<ol data-spread=\\"false\\"><li data-label=\\"1.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>first</p></li><li data-label=\\"2.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>second</p></li></ol><hr><ol start=\\"3\\" data-spread=\\"false\\"><li data-label=\\"3.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>three</p></li><li data-label=\\"4.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>four</p></li></ol><hr><ol start=\\"10\\" data-spread=\\"false\\"><li data-label=\\"10.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>ten</p></li><li data-label=\\"11.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>eleven</p></li></ol>",
+  "F08 nested mixed lists": "<ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>a</p><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>a1</p><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>a11</p></li></ul></li></ul></li><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>b</p><ol data-spread=\\"false\\"><li data-label=\\"1.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>b1</p></li><li data-label=\\"2.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>b2</p></li></ol></li></ul><ol data-spread=\\"false\\"><li data-label=\\"1.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>x</p><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>x1</p></li></ul></li><li data-label=\\"2.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>y</p></li></ol>",
+  "F09 nested task lists": "<ul data-spread=\\"false\\"><li data-item-type=\\"task\\" data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\" data-checked=\\"false\\"><p>open task</p></li><li data-item-type=\\"task\\" data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\" data-checked=\\"true\\"><p>done task</p><ul data-spread=\\"false\\"><li data-item-type=\\"task\\" data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\" data-checked=\\"false\\"><p>nested open</p></li><li data-item-type=\\"task\\" data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\" data-checked=\\"true\\"><p>nested done</p></li></ul></li></ul><ul data-spread=\\"false\\"><li data-item-type=\\"task\\" data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\" data-checked=\\"false\\"><p>dash task</p></li></ul>",
+  "F10 plain table": "<table><tbody><tr data-is-header=\\"true\\"><th style=\\"text-align: left;\\"><p>Name</p></th><th style=\\"text-align: left;\\"><p>Value</p></th></tr><tr><td style=\\"text-align: left;\\"><p>a</p></td><td style=\\"text-align: left;\\"><p>1</p></td></tr><tr><td style=\\"text-align: left;\\"><p>b</p></td><td style=\\"text-align: left;\\"><p>2</p></td></tr></tbody></table>",
+  "F11 aligned table": "<table><tbody><tr data-is-header=\\"true\\"><th style=\\"text-align: left;\\"><p>L</p></th><th style=\\"text-align: center;\\"><p>C</p></th><th style=\\"text-align: right;\\"><p>R</p></th><th style=\\"text-align: left;\\"><p>N</p></th></tr><tr><td style=\\"text-align: left;\\"><p>a</p></td><td style=\\"text-align: center;\\"><p>b</p></td><td style=\\"text-align: right;\\"><p>c</p></td><td style=\\"text-align: left;\\"><p>d</p></td></tr></tbody></table>",
+  "F12 table with inline formatting, an escaped pipe and a code span": "<table><tbody><tr data-is-header=\\"true\\"><th style=\\"text-align: left;\\"><p>A</p></th><th style=\\"text-align: left;\\"><p>B</p></th></tr><tr><td style=\\"text-align: left;\\"><p><strong>bold</strong></p></td><td style=\\"text-align: left;\\"><p><code>code</code></p></td></tr><tr><td style=\\"text-align: left;\\"><p><a href=\\"https://e.com\\">l</a></p></td><td style=\\"text-align: left;\\"><p>x | y</p></td></tr><tr><td style=\\"text-align: left;\\"><p><em>em</em></p></td><td style=\\"text-align: left;\\"><p><code>a|b</code></p></td></tr></tbody></table>",
+  "F13 nested blockquotes with lists": "<blockquote><p>outer<span data-type=\\"hardbreak\\" data-is-inline=\\"true\\"> </span>second line</p><blockquote><p>inner</p><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>item one</p></li><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>item two</p></li></ul></blockquote><ol data-spread=\\"false\\"><li data-label=\\"1.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>numbered</p></li></ol></blockquote>",
+  "F14 code: fenced with a language, tilde, indented, containing backticks": "<pre data-language=\\"js\\"><code>const code = 1;</code></pre><pre><code>tilde fence</code></pre><pre><code>indented code</code></pre><pre><code>has \`\`\` inside? no: \`ticks\`</code></pre><p>and <code>a\`b</code> inline</p>",
+  "F15 all three rule styles": "<p>above</p><hr><p>middle</p><hr><p>lower</p><hr><p>below</p>",
+  "F16 hard and soft breaks": "<p>line one<br data-type=\\"hardbreak\\" data-is-inline=\\"false\\">line two</p><p>line one<br data-type=\\"hardbreak\\" data-is-inline=\\"false\\">line two</p><p>soft one<span data-type=\\"hardbreak\\" data-is-inline=\\"true\\"> </span>soft two</p>",
+  "F17 line-start escapes": "<p># not heading</p><p>1. not a list</p><p>- not bullet</p><p>+ not bullet</p><p>&gt; not quote</p><p>* not bullet</p><p>\`not code\` and [not link](x) and snake_case</p>",
+  "F18 entities, and <, > and & in text": "<p>AT&amp;T © &nbsp; … © ' &lt;tag&gt;</p><p>a &lt; b &gt; c &amp; d</p>",
+  "F19 inline HTML, with an unmatched tag": "<p>Some <span data-value=\\"<b>\\" data-type=\\"html\\">&lt;b&gt;</span>bold html<span data-value=\\"</b>\\" data-type=\\"html\\">&lt;/b&gt;</span>, <span data-value=\\"<kbd>\\" data-type=\\"html\\">&lt;kbd&gt;</span>Ctrl<span data-value=\\"</kbd>\\" data-type=\\"html\\">&lt;/kbd&gt;</span>, <span data-value=\\"<span style=&quot;color:red&quot;>\\" data-type=\\"html\\">&lt;span style=\\"color:red\\"&gt;</span>red<span data-value=\\"</span>\\" data-type=\\"html\\">&lt;/span&gt;</span> and a<span data-value=\\"<br>\\" data-type=\\"html\\">&lt;br&gt;</span>b.</p><p>use <span data-value=\\"<b>\\" data-type=\\"html\\">&lt;b&gt;</span> tags unmatched</p>",
+  "F20 block HTML: div, details, an HTML table, img width": "<p><span data-value=\\"<div>block html</div>\\" data-type=\\"html\\">&lt;div&gt;block html&lt;/div&gt;</span><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p><p>after</p><p><span data-value=\\"<details><summary>sum</summary>\\" data-type=\\"html\\">&lt;details&gt;&lt;summary&gt;sum&lt;/summary&gt;</span><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p><p>body</p><p><span data-value=\\"</details>\\" data-type=\\"html\\">&lt;/details&gt;</span><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p><p><span data-value=\\"<table><tr><td>cell</td></tr></table>\\" data-type=\\"html\\">&lt;table&gt;&lt;tr&gt;&lt;td&gt;cell&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;</span><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p><p><span data-value=\\"<img src=&quot;https://example.com/i.png&quot; alt=&quot;i&quot; width=&quot;20&quot;>\\" data-type=\\"html\\">&lt;img src=\\"https://example.com/i.png\\" alt=\\"i\\" width=\\"20\\"&gt;</span><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p>",
+  "F21 HTML comments": "<p>before <span data-value=\\"<!-- inline comment -->\\" data-type=\\"html\\">&lt;!-- inline comment --&gt;</span> after</p><p><span data-value=\\"<!--
+block comment
+-->\\" data-type=\\"html\\">&lt;!--
+block comment
+--&gt;</span><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p><p>tail</p>",
+  "F22 $$ custom blocks": "<p>$$widget0 <a href=\\"https://e.com\\">x</a>$$</p><p>$$custom<span data-type=\\"hardbreak\\" data-is-inline=\\"true\\"> </span>content<span data-type=\\"hardbreak\\" data-is-inline=\\"true\\"> </span>$$</p>",
+  "F23 footnotes": "<p>Text with a note<sup data-label=\\"1\\" data-type=\\"footnote_reference\\">1</sup> and another<sup data-label=\\"two\\" data-type=\\"footnote_reference\\">two</sup>.</p><dl data-label=\\"1\\" data-type=\\"footnote_definition\\"><dt>1</dt><dd><p>The first note.</p></dd></dl><dl data-label=\\"two\\" data-type=\\"footnote_definition\\"><dt>two</dt><dd><p>The second note.</p></dd></dl>",
+  "F24 a long mixed article": "<h1>Release notes</h1><p>Some <strong>bold</strong>, <em>italic</em>, <del>strike</del> and <code>inline code</code> with a <a href=\\"https://example.com/page\\">link</a>.</p><h2>Tasks</h2><ul data-spread=\\"false\\"><li data-item-type=\\"task\\" data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\" data-checked=\\"false\\"><p>open task</p></li><li data-item-type=\\"task\\" data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\" data-checked=\\"true\\"><p>done task</p></li></ul><h2>Numbers</h2><table><tbody><tr data-is-header=\\"true\\"><th style=\\"text-align: left;\\"><p>Name</p></th><th style=\\"text-align: left;\\"><p>Value</p></th></tr><tr><td style=\\"text-align: left;\\"><p>a</p></td><td style=\\"text-align: left;\\"><p>1</p></td></tr><tr><td style=\\"text-align: left;\\"><p>b</p></td><td style=\\"text-align: left;\\"><p>2</p></td></tr></tbody></table><blockquote><p>a quote with a list:</p><ol data-spread=\\"false\\"><li data-label=\\"1.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>one</p></li><li data-label=\\"2.\\" data-list-type=\\"ordered\\" data-spread=\\"false\\"><p>two</p></li></ol></blockquote><pre data-language=\\"ts\\"><code>const code: number = 1;</code></pre><hr><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>bullet one</p><ul data-spread=\\"false\\"><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>nested</p></li></ul></li><li data-label=\\"•\\" data-list-type=\\"bullet\\" data-spread=\\"false\\"><p>bullet two</p></li></ul><p><img src=\\"https://example.com/image.png\\" alt=\\"alt\\" title=\\"\\" draggable=\\"true\\"><img class=\\"ProseMirror-separator\\" alt=\\"\\"><br class=\\"ProseMirror-trailingBreak\\"></p><p>last line</p>",
+}
+`;

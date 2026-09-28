@@ -35,13 +35,12 @@ The root `package.json` `overrides` only affect this repository's install, not t
 | `packages/core` | `@specstory/ai-data-grid`, the grid. Source in `src/`, tests in `test/`, stories in `src/docs/` and `src/**/*.stories.tsx`. `API.md` is the API reference and `CHANGELOG.md` the release notes. |
 | `packages/core/src/ai-fill/` | AI Fill, part of core (not a separate package). See [Working on AI Fill](#working-on-ai-fill). Its tests are in `packages/core/test/ai-fill/`. |
 | `packages/cells` | `@specstory/ai-data-grid-cells`, extra cell renderers (`src/cells/`). |
-| `packages/cells/vendor/toast-ui/` | The patched Toast UI Editor 3.2.2 that ArticleCell's editor and viewer run. `editor.js` and `toastui-editor.css` are generated; never edit them by hand. See [Vendored Toast UI editor](#vendored-toast-ui-editor). |
+| `packages/cells/src/cells/article-editor/` | ArticleCell's Milkdown editor and viewer, their defenses and toolbar. See [Article editor](#article-editor). |
 | `packages/source` | `@specstory/ai-data-grid-source`, data source hooks. |
 | `config/build-util.sh` | Shared build steps used by each package's `build.sh`. |
 | `.storybook/` | Storybook config (branded "AI Data Grid"). |
 | `scripts/smoke-storybook.mjs` | Headless smoke test of the built Storybook. |
 | `scripts/check-test-project.mjs`, `scripts/check-article-cell-editor.mjs`, `scripts/check-article-cell-sanitizer.mjs` | Headless checks for a running sample app, for the cells article editor and for the article sanitizer. See [Sample apps](#sample-apps-test-projects). |
-| `scripts/vendor-toast-ui.mjs` | Generates or checks `packages/cells/vendor/toast-ui/`. See [Vendored Toast UI editor](#vendored-toast-ui-editor). |
 | `scripts/jev-dev-proxy.mjs`, `scripts/jev-live-check.mjs` | Manual-only AI Fill tools that make live Jev calls. See [Live Jev scripts](#live-jev-scripts-manual-only). |
 | `.github/workflows/ci.yml` | The only CI workflow. |
 | `test-projects/` | Sample apps (`vite-app`, `next-app`) that install the packed tarballs. See [Sample apps](#sample-apps-test-projects). |
@@ -61,7 +60,7 @@ Run these from the root. CI runs the first five.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 142 (65 plus 77 for the article sanitizer and the vendored editor) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 225 (65 plus 160 for the article editor: 129 security and behavior tests, 26 Markdown fidelity tests and 5 guards) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -263,9 +262,9 @@ Run the servers in another terminal (or detached) and stop them afterwards.
 
 `scripts/check-article-cell-editor.mjs [url]` opens the cells "Custom cells" story in headless Chromium and checks the article cell end to end:
 
-1. It double-clicks an editable article cell (row 1), types, and saves. The story logs `onCellEdited` as `Edit Cell`, and the check fails unless the logged `data.markdown` contains the typed text.
+1. It double-clicks an editable article cell (row 1), types a line at the end, types bold text with the toolbar's Bold button, and saves. The story logs `onCellEdited` as `Edit Cell`, and the check fails unless the logged `data.markdown` contains the typed text and the bold text as `**…**`.
 2. It reopens the editor and cancels, and fails unless that made no second edit.
-3. It double-clicks a read-only article cell (row 0) and fails unless the viewer shows the article's text with no toolbar, editor or Save button.
+3. It double-clicks a read-only article cell (row 0) and fails unless the viewer (`.gdg-article-content`) shows the article's text with no toolbar, editable element, Save or Close button.
 
 It fails on any console error except a `Failed to load resource` 404. The default URL is `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`, so serve a Storybook on port 9009 first, for example:
 
@@ -274,11 +273,13 @@ npm run prod-storybook                             # builds, then serves storybo
 node scripts/check-article-cell-editor.mjs
 ```
 
-Or pass another URL as the only argument. It finds the cells by canvas coordinates (the widths of the columns before it), so if you change that story's columns or rows, update the coordinates in the script. Run it when you touch the article cell, the vendored editor or React.
+Or pass another URL as the only argument. It finds the cells by canvas coordinates (the widths of the columns before it), so if you change that story's columns or rows, update the coordinates in the script. If you change the toolbar's labels or the `gdg-article-*` classes, update its selectors too. Run it when you touch the article cell, the article editor or React.
 
 ### Article sanitizer check
 
-`scripts/check-article-cell-sanitizer.mjs [--browser chromium|firefox|webkit|all] [consumer-node_modules]` checks the article sanitizer in headless Chromium, Firefox and WebKit (default `all`), where script execution is observable (the cells unit tests run in jsdom, which doesn't run scripts). It bundles a small page with esbuild that uses only the public `ArticleCell` API, with every package resolved from the given `node_modules` (default `test-projects/vite-app/node_modules`), so it tests what that consumer installed. It runs the synthetic payloads in `packages/cells/test/fixtures/article-sanitizer-payloads.mjs` through the viewer, the editor's initial Markdown, a real keyboard paste, drag and drop onto a paragraph and onto a code block, a paste into a code block and, in Chromium only, a native drop. It fails if a payload's script ran or left dangerous DOM, if a paste or paragraph drop wasn't applied or a code-block drop inserted anything, if Save after typing doesn't return the typed Markdown, or if dragging a selection within the editor doesn't move it. It prints a result table per browser, and also the sanitizer inputs of the bundle and the `dompurify` version the cells package resolves.
+`scripts/check-article-cell-sanitizer.mjs [--browser chromium|firefox|webkit|all] [consumer-node_modules]` checks the article editor's defenses in headless Chromium, Firefox and WebKit (default `all`), where script execution is observable (the cells unit tests run in jsdom, which doesn't run scripts). It bundles a small page with esbuild that uses only the public `ArticleCell` API, with every package resolved from the given `node_modules` (default `test-projects/vite-app/node_modules`), so it tests what that consumer installed, and it loads cells' CSS the way an app does (`dist/index.css` with its `@import`s inlined). It runs the synthetic payloads in `packages/cells/test/fixtures/article-sanitizer-payloads.mjs` through the viewer, the editor's initial Markdown, a real keyboard paste, drag and drop onto a paragraph and onto a code block, a paste into a code block, an HTML-only paste and drop onto a code block and, in Chromium only, a native drop. That's 115 rows in Chromium and 102 each in Firefox and WebKit.
+
+Each row has a **Native** column: `yes` means the paste or drop reached `document` without being prevented, so the browser's own insertion ran. A row fails if a payload's script ran or left dangerous DOM, if a paste or paragraph drop wasn't applied, if a code-block paste or drop inserted anything but its plain text (an HTML-only one must change nothing), or if Native is `yes`. The run also fails if Save after typing doesn't return the typed Markdown, if dragging a selection within the editor doesn't move it, if pasting a URL into the link dialog's URL field doesn't fill it in, or on any page error. It prints a result table per browser, the bundle's sanitizer-related inputs, the `dompurify` version the cells package resolves and the DOMPurify versions bundled, and whether any Toast UI module was bundled.
 
 ```bash
 npm run build && npm run test-projects             # the check reads the installed tarballs
@@ -286,26 +287,49 @@ node scripts/check-article-cell-sanitizer.mjs                       # all three 
 node scripts/check-article-cell-sanitizer.mjs --browser firefox     # one browser
 ```
 
-It needs Playwright's browsers for every browser it runs (`npx playwright install chromium firefox webkit`), and exits 2 if the consumer has no `@specstory/ai-data-grid-cells` or `--browser` isn't one of the four values. It isn't part of CI. Run it when you touch the article cell, the vendored editor, its patches or the `dompurify` range. The payloads are synthetic test fixtures: keep them in `packages/cells/test/` (cells' tarball ships only `dist`) and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
+Pointed at a consumer of a cells build from before SPST-61 (the Toast UI editor), it detects that from the page and runs in **legacy mode**: it uses Toast UI's selectors and CSS, and records the code-block and Native results without failing on them, for a before-and-after comparison. For example, from a `git worktree` of an older commit that has run `npm ci`, `npm run build` and `npm run test-projects`:
 
-## Vendored Toast UI editor
+```bash
+node scripts/check-article-cell-sanitizer.mjs --browser all /path/to/old-worktree/test-projects/vite-app/node_modules
+```
 
-ArticleCell's editor and read-only viewer run `packages/cells/vendor/toast-ui/editor.js`, Toast UI Editor 3.2.2's ESM build with five patches (P1–P5) that replace its embedded DOMPurify with the `dompurify` dependency and harden paste, drop and URL rendering. The directory's `README.md` has the provenance, the pinned hashes and the patch list, and [AS-BUILT.md](AS-BUILT.md#vendored-toast-ui-editor-and-article-sanitizer) explains the design.
+It needs Playwright's browsers for every browser it runs (`npx playwright install chromium firefox webkit`), and exits 2 if the consumer has no `@specstory/ai-data-grid-cells` or `--browser` isn't one of the four values. It isn't part of CI. Run it when you touch the article cell, the article editor, the Milkdown or `dompurify` versions, or the fixtures. The payloads are synthetic test fixtures: keep them in `packages/cells/test/` (cells' tarball ships only `dist`) and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
 
-- **Never edit `editor.js` or `toastui-editor.css` by hand.** `scripts/vendor-toast-ui.mjs` generates them from the exact devDependency `"@toast-ui/editor": "3.2.2"` of `packages/cells`. It checks both input sha256s and applies every patch at an exact anchor with an expected match count, so any drift fails the run.
+## Article editor
 
-    ```bash
-    node scripts/vendor-toast-ui.mjs          # regenerate editor.js and toastui-editor.css
-    node scripts/vendor-toast-ui.mjs --check  # exit non-zero if the committed files differ
-    ```
+ArticleCell's editor and read-only viewer are one Milkdown editor (the viewer has `editable: false`), created by `packages/cells/src/cells/article-editor/create-article-editor.ts` and wrapped by `src/cells/article-cell-editor.tsx`. [AS-BUILT.md](AS-BUILT.md#article-editor-and-sanitizer) explains the design, the defenses D1–D5 and the entry points.
 
-    To change a patch, change the generator, regenerate, and update the output sha256 in `vendor/toast-ui/README.md`. `packages/cells/test/article-cell-vendor.test.ts` runs the check in every cells test run (so in CI), and also fails if `editor.js` contains an embedded DOMPurify or lacks a patch marker, if `src/` imports `@toast-ui/`, if a `@toast-ui/*` package is a cells dependency, or if a bare import of `editor.js` isn't one.
-- **`@toast-ui/editor` is only the generator's input.** Source never imports it and it never ships. Don't add it, or `@toast-ui/react-editor`, back to `dependencies`.
-- **`editor.d.ts`** is hand-written and covers only what `src/cells/article-cell-editor.tsx` uses. Extend it when the wrapper needs more.
-- **`build.sh`** copies `editor.js`, `LICENSE` and `README.md` to `dist/vendor/toast-ui/`, and the CSS to `dist/toastui-editor.css` (the export `./dist/toastui-editor.css`). The CSS stays out of `dist/esm`, so `dist/index.css` doesn't pick up Toast UI's global rules.
-- **Raising the DOMPurify floor.** When a DOMPurify advisory affects the range, raise `dompurify` in `packages/cells/package.json`, run `npm install` and then `npm ci`, and run the cells tests and the [article sanitizer check](#article-sanitizer-check). The vendor test (V03) accepts only a `^3.x` range at 3.4.16 or above, so a move to a DOMPurify 4 range needs that test updated too.
-- **Licenses.** `vendor/toast-ui/LICENSE` (it ships in the tarball) and `THIRD_PARTY_NOTICES.md` carry Toast UI's MIT notice and the licenses of the components bundled in its build. Keep both when you regenerate.
-- The sanitizer tests are `packages/cells/test/article-cell-sanitizer.test.tsx`. They use the real DOMPurify in jsdom; don't stub it.
+| File in `src/cells/article-editor/` | What it holds |
+| --- | --- |
+| `create-article-editor.ts` | Creates the editor: the CommonMark and GFM presets, the history plugin, the schema overrides, the task-list plugin, the paste and drop props, and the backstop on the editor's frame. |
+| `url-policy.ts` | The private DOMPurify instance, `safeArticleURL` (D1) and `sanitizePastedHTML` (D3). |
+| `schema.ts` | The schema overrides (D2). |
+| `clipboard.ts` | The paste and drop handlers (D4) and the backstop listeners (D5). |
+| `task-list.ts` | The task-list toggle and the checkbox click. |
+| `toolbar.tsx` | The toolbar, the heading menu, the link dialog and the table buttons. |
+| `styles.ts` | Linaria styles, all scoped under the wrapper. |
+
+Rules:
+
+- **The defenses stay in our code.** D1–D5 use Milkdown's and ProseMirror's public APIs only. Don't rely on a Milkdown default for security, and don't patch or vendor Milkdown.
+- **Keep the editor minimal.** Use only the presets and `@milkdown/plugin-history`. Don't add Milkdown's clipboard, upload, slash, block, tooltip or listener plugins, `@milkdown/kit` or Crepe. Don't add node views: the task checkbox is a CSS box with a `mousedown` prop. Never use `innerHTML`, `dangerouslySetInnerHTML` or `insertAdjacentHTML`.
+- **Import ProseMirror only through `@milkdown/prose/*`,** never `prosemirror-*` directly, so there's exactly one ProseMirror.
+- **Cells' tsconfigs use `module: "ESNext"` with `moduleResolution: "Bundler"`.** Milkdown's type declarations use extensionless relative re-exports that `Node16` resolution can't follow. Don't switch them back.
+- **The guards will fail on purpose.** `packages/cells/test/article-cell-guards.test.ts` snapshots the schema and parse rules and runs D2's image, link and code-block parse rules on unsanitized HTML (L01) and the node views and event-handling plugins (L02), spies on every HTML sink across the security corpus (L03), checks the manifest (L04) and tests the URL policy (L05). `article-cell-fidelity.test.tsx` snapshots the edited-save output (F25) and the viewer's DOM (F26). When one of them changes, review the diff as a security and data-format change before you update the snapshot.
+- **Don't stub DOMPurify or Milkdown in the tests.** The article tests run the real libraries in jsdom. A pass-through `vi.mock("dompurify", importOriginal)` that only records instances is the one allowed mock.
+- **The payloads are test fixtures.** Keep them in `packages/cells/test/fixtures/` and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
+
+### Updating the article editor
+
+All `@milkdown/*` dependencies of cells move in lockstep on `~7.22.x` (today `~7.22.2`). Milkdown releases them together, and L04 fails unless they all share one `~7.x.y` range. A `~` range lets patch releases reach apps; a new minor version needs this procedure and a cells release.
+
+1. Change every `@milkdown/*` range in `packages/cells/package.json` together, then run `npm install` and `npm ci`.
+2. Run the cells tests. If an L or F snapshot fails, read the diff: a new node, attribute, parse rule, node view or event handler needs a security review, and a serializer change changes how edited articles are saved. Update the snapshots only after that review (`cd packages/cells && npx vitest run -u`).
+3. Run the [article editor check](#article-cell-editor-check) and the [article sanitizer check](#article-sanitizer-check) in all three browsers.
+
+**Adding or removing a Milkdown package.** L04 requires every bare import in cells' `src/` to be a declared dependency, and every declared `@milkdown/*` package to be imported. So when you import a new `@milkdown/*` package, add it to `dependencies` with the same `~` range; when you stop importing one, remove it. `@milkdown/ctx` and `@milkdown/transformer` arrive through `@milkdown/core` and aren't declared, because `src/` doesn't import them. L04 also fails if `@toast-ui` appears in cells' manifest, `src/` or the lockfile.
+
+**Raising the DOMPurify floor.** When a DOMPurify advisory affects the range, raise `dompurify` in `packages/cells/package.json`, run `npm install` and then `npm ci`, and run the cells tests and the article sanitizer check. L04 accepts only a `^3.x` range at 3.4.16 or above, so a move to a DOMPurify 4 range needs that test updated too.
 
 ## Running Storybook
 
@@ -404,7 +428,7 @@ With no argument it copies the current root version to the packages. It is also 
 ### License and attribution
 
 - Never change the MIT text or the line `Copyright (c) 2021 typeguard, Inc.` in any `LICENSE` file (root, `packages/core`, `packages/cells`, `packages/source`). The line `Copyright (c) 2026 ai-data-grid contributors` sits directly below it and adds to it.
-- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`. Vendored code keeps its own `LICENSE` next to it (`packages/cells/vendor/toast-ui/LICENSE`).
+- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`. If you vendor third-party code, keep its `LICENSE` next to it and make sure it ships in the tarball.
 - Every publishable package must ship its `LICENSE`. Check with `npm pack --dry-run` in the package directory.
 - Don't use Glide trademarks (the Glide product name, logos, the `@glideapps` scope, `glideapps.com` URLs) except in attribution text, the 6.x → 7.0.0 migration mapping, and historical CHANGELOG entries.
 

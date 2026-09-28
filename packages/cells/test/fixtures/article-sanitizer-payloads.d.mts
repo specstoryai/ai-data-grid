@@ -12,6 +12,7 @@ export interface PastePayload {
 }
 export declare const renderPayloads: readonly RenderPayload[];
 export declare const pastePayloads: readonly PastePayload[];
+export declare const htmlOnlyCodePayload: PastePayload;
 export declare const safeMarkdown: string;
 export declare const safeSelectors: readonly string[];
 export declare const safeURLMarkdown: string;
