@@ -136,6 +136,8 @@ The API reference, including the HTML/CSS prerequisites, is in `API.md`, which s
 | `@glideapps/glide-data-grid-cells` | `@specstory/ai-data-grid-cells` |
 | `@glideapps/glide-data-grid-source` | `@specstory/ai-data-grid-source` |
 
+If your app was built against 6.0.3, three upstream changes from the 6.0.4 prereleases that 7.0.0 includes can need a small code change: the trailing "add row" row now appears only when `trailingRowOptions` is set (`trailingRowOptions={{}}` is enough), not whenever `onRowAppended` is set; the type `CellActiviationBehavior` is now spelled `CellActivationBehavior` (the only 6.0.3 export that was renamed or removed); and `onKeyDown`'s `location` and `onColumnProposeMove`'s indices no longer count the row-marker column. See "Coming from 6.0.3" in the 7.0.0 release notes in `CHANGELOG.md`.
+
 For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. See the 7.0.0 release notes in `CHANGELOG.md`, which ships in this package (also at https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/CHANGELOG.md).
 
 # 📒 FAQ
