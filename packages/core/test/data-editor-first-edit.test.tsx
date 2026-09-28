@@ -8,11 +8,13 @@ import { basicProps, prep, sendClick, Context, standardBeforeEach, standardAfter
 // run in their own file because the editors' load state is module-level: an earlier
 // test that opened an editor would hide the bug.
 
-const loads = vi.hoisted(() => ({ numberEditor: 0 }));
+const loads = vi.hoisted(() => ({ numberEditor: 0, numberEditorDone: false }));
 
 vi.mock("../src/internal/data-grid-overlay-editor/private/number-overlay-editor.js", async importOriginal => {
     loads.numberEditor++;
-    return await importOriginal();
+    const module = await importOriginal();
+    loads.numberEditorDone = true;
+    return module;
 });
 
 vi.mock("../src/common/resize-detector", () => {
@@ -84,10 +86,8 @@ describe("first type-to-edit after load", () => {
         vi.useFakeTimers();
         render(<DataEditor {...basicProps} />, { wrapper: Context });
         prep();
-        await vi.waitFor(() => expect(loads.numberEditor).toBe(1));
-        await act(async () => {
-            await import("../src/internal/data-grid-overlay-editor/private/number-overlay-editor.js");
-        });
+        // Don't import the number editor here: an import racing the preload's can load it twice.
+        await vi.waitFor(() => expect(loads.numberEditorDone).toBe(true));
         await settleOverlayEditor();
 
         const canvas = screen.getByTestId("data-grid-canvas");
