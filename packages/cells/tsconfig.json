@@ -1,5 +1,11 @@
 {
     "extends": "../../tsconfig.json",
     "include": ["./src/**/*.ts", "./src/**/*.tsx", "./test/**/*.ts", "./test/**/*.tsx"],
-    "references": [{ "path": "../core" }]
+    "references": [{ "path": "../core" }],
+    "compilerOptions": {
+        // Milkdown's type declarations use extensionless relative re-exports, which Node16
+        // resolution can't follow (SPST-61). The emitted JavaScript is the same ES modules.
+        "module": "ESNext",
+        "moduleResolution": "Bundler"
+    }
 }
