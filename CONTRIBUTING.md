@@ -565,6 +565,16 @@ Each package has a `test/public-api-exports.test.ts`. It reads the package's `sr
 - Once a PR is open, never rebase or force-push it. Bring base changes in with `git merge`.
 - Stacked PRs are based on the branch below them. GitHub retargets them to `main` when that branch merges.
 
+### Expediter delivery
+
+A ticket assigned directly to Expediter by the user follows a single-agent workflow. Expediter owns scoping, implementation, all affected docs, checks, fixes and approved merge on that same ticket. It creates no parent wrapper, child tickets or specialist handoffs, and uses no provider sub-agents or nested coding agents. This is an exception to the normal Planner/Implementor/Documenter/Verifier sequence and separate Documenter ownership. The Orchestrator does not add stages or take over closeout. Multiple runs for approvals or fixes stay on the original ticket. The current Multica project standing rules and Expediter instructions hold the full routing and delivery policy.
+
+Expedited work still meets its acceptance criteria, API/license invariants and required checks. Record the assessed head and evidence; owner self-review does not count as independent verification. Changes affecting access control, credentials, personal data, destructive operations or comparable high-impact behavior require independent verification. Expediter requests Jake's independent human review of the final head/evidence on the same ticket, or an explicit switch to the normal workflow. Merge approval alone does not satisfy that review, and missing required review blocks completion and merge.
+
+Expediter may merge its own PR only after Jake explicitly approves that PR and its assessed head is covered by the approval and all required checks/review. Use a merge commit with an expected-head guard; reassess later changes and get renewed approval for material changes. Never push directly to `main`, bypass protections or enable auto-merge. npm publishing remains outside Expediter's role and with the authorized release workflow; expedited assignment does not grant release credentials or publication approval. Public-repository data rules and live-provider call limits still apply.
+
+Keep one delivery summary on the ticket, distinguish a checked PR awaiting approval from merged/deployed delivery, and update only that ticket's project-state entry. Existing pipelines change ownership only on the user's explicit instruction, after active work and obsolete wakeups have been accounted for.
+
 ## CI
 
 `.github/workflows/ci.yml` (job `test`) runs on every pull request and on pushes to `main`, with Node from `.nvmrc`:
