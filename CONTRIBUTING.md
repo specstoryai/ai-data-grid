@@ -40,7 +40,7 @@ The root `package.json` `overrides` only affect this repository's install, not t
 | `config/build-util.sh` | Shared build steps used by each package's `build.sh`. |
 | `.storybook/` | Storybook config (branded "AI Data Grid"). |
 | `scripts/smoke-storybook.mjs` | Headless smoke test of the built Storybook. |
-| `scripts/check-test-project.mjs`, `scripts/check-article-cell-editor.mjs`, `scripts/check-article-cell-sanitizer.mjs` | Headless checks for a running sample app, for the cells article editor and for the article sanitizer. See [Sample apps](#sample-apps-test-projects). |
+| `scripts/check-test-project.mjs`, `scripts/check-first-edit.mjs`, `scripts/check-article-cell-editor.mjs`, `scripts/check-article-cell-sanitizer.mjs` | Headless checks for a running sample app, for the first type-to-edit in the `vite-app` sample, for the cells article editor and for the article sanitizer. See [Sample apps](#sample-apps-test-projects). |
 | `scripts/check-pack.mjs` | `npm run check-pack`: checks what the three npm tarballs contain. See [Releasing](#releasing). |
 | `scripts/release-consumers.sh`, `scripts/check-ai-fill-consumer.mjs` | Release checks: clean consumer installs of the tarballs or of a published version, and the AI Fill check on the `vite-app` sample. See [Sample apps](#sample-apps-test-projects). |
 | `packages/*/THIRD_PARTY_NOTICES.md` | Byte-identical copies of the root `THIRD_PARTY_NOTICES.md`, so each tarball ships it. Edit only the root file (see [License and attribution](#license-and-attribution)). |
@@ -64,7 +64,7 @@ Run these from the root. CI runs the first six.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 863 (473 of them in `test/ai-fill/`), cells 225 (65 plus 160 for the article editor: 129 security and behavior tests, 26 Markdown fidelity tests and 5 guards) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 873 (473 of them in `test/ai-fill/`, and 10 for the overlay editors' preload in `test/preloadable-lazy.test.tsx` and `test/data-editor-first-edit.test.tsx`), cells 225 (65 plus 160 for the article editor: 129 security and behavior tests, 26 Markdown fidelity tests and 5 guards) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
 
@@ -282,6 +282,23 @@ node scripts/check-test-project.mjs http://localhost:3000/ test-projects/next-ap
 ```
 
 Run the servers in another terminal (or detached) and stop them afterwards.
+
+### First-edit check
+
+`scripts/check-first-edit.mjs` checks that the first type-to-edit after a page load opens the overlay editor at once and keeps every key (GitHub #58: with a lazy editor that suspends, React 19 held it back for about 300 ms and the first letters were lost). It runs against the built `vite-app` sample, on its Name (Text) and Age (Number) columns. Each trial loads a fresh page, selects a cell, presses one key and measures the time from that `keydown` to an `<input>` or `<textarea>` getting focus. It then loads another fresh page, types a word (`edited` or `12345`) at `--delay` ms per key, presses Enter and reads the saved value from the grid's accessibility table, then does the same on another row (the second edit). At the end it opens a Text editor by double-click and a Number editor by Enter.
+
+It fails if a saved value isn't exactly the typed word, a first-edit gap is over `--max-gap`, an editor doesn't open, or the page logs a console or page error. It prints a table per browser (gap and saved value for each trial) and a summary of the first-edit gaps.
+
+```bash
+npm run build && npm run test-projects             # the check serves test-projects/vite-app/dist
+node scripts/check-first-edit.mjs                  # all three browsers, 5 trials, 50 ms per key
+node scripts/check-first-edit.mjs --browser chromium --trials 10
+node scripts/check-first-edit.mjs http://localhost:4173/   # an app that's already being served
+```
+
+Options: `--browser chromium|firefox|webkit|all` (default `all`), `--trials N` (default 5), `--delay ms-per-key` (default 50) and `--max-gap ms` (default 150). The optional last argument is a directory to serve (default `test-projects/vite-app/dist`) or an `http(s)://` URL; with a directory it starts its own static server on a free port. Bad arguments, or a directory without `index.html`, exit 2. The cell positions are fixed coordinates for `vite-app`'s layout, so update them in the script if you change that sample's columns or row sizes. The samples have no `<div id="portal">`, which the overlay editor needs, so the check adds one to the page itself.
+
+It needs Playwright's browsers (`npx playwright install chromium firefox webkit`) and isn't in CI. Run it when you touch how core loads or opens its overlay editors, or when you change React. Core's lazily loaded editors that open on a keypress (the overlay editor and the number editor) use the internal `preloadableLazy` helper (`packages/core/src/common/preloadable-lazy.tsx`) and are preloaded before they can be opened; a bare `React.lazy` there brings the delay back. See [AS-BUILT.md](AS-BUILT.md#overlay-editors-and-suspense).
 
 ### Article cell editor check
 
