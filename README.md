@@ -15,13 +15,11 @@ AI Data Grid is SpecStory's maintained hard fork of a canvas-based React data gr
 
 ## Packages
 
-| Package | What it is |
-| --- | --- |
-| [`@specstory/ai-data-grid`](packages/core/README.md) | The grid itself (`DataEditor`, cell types, theming). |
-| [`@specstory/ai-data-grid-cells`](packages/cells/README.md) | Extra cell renderers (star, sparkline, dropdown, tags, date picker and more). |
-| [`@specstory/ai-data-grid-source`](packages/source/README.md) | Data source hooks: column sort, movable columns, collapsing groups, async loading, undo/redo. |
-
-> **Not on npm yet.** 7.0.0 hasn't been published. Until it is, build the packages from this repository and install the tarballs (see [Installing before the npm release](#installing-before-the-npm-release)).
+| Package | What it is | npm |
+| --- | --- | --- |
+| [`@specstory/ai-data-grid`](packages/core/README.md) | The grid itself (`DataEditor`, cell types, theming). | [npm](https://www.npmjs.com/package/@specstory/ai-data-grid) |
+| [`@specstory/ai-data-grid-cells`](packages/cells/README.md) | Extra cell renderers (star, sparkline, dropdown, tags, date picker and more). | [npm](https://www.npmjs.com/package/@specstory/ai-data-grid-cells) |
+| [`@specstory/ai-data-grid-source`](packages/source/README.md) | Data source hooks: column sort, movable columns, collapsing groups, async loading, undo/redo. | [npm](https://www.npmjs.com/package/@specstory/ai-data-grid-source) |
 
 ## Features
 
@@ -120,7 +118,6 @@ AI Fill fills grid columns with answers from TypeSafe's [Jev](https://docs.types
 - **Keep your TypeSafe key on a server.** Never put it in browser code. A browser grid uses endpoint mode: it calls your own route, which adds the key. `@specstory/ai-data-grid/server` (`createJevHandler`) builds that route. Direct mode (the key in the config) is for Node only: in a browser it refuses to run unless you set `dangerouslyAllowBrowser`, and even then the call fails, because TypeSafe's API rejects browser CORS requests. `@specstory/ai-data-grid/testing` (`createMockJev`) is a mock Jev for tests and demos.
 - **Where to read more:** the AI Fill guide on the docs site, https://ai-data-grid-docs.vercel.app/docs/ai-fill (setup, connecting to Jev, the primitives, result policies, review, undo, examples and limitations), and the "AI Fill" chapter of [API.md](packages/core/API.md#ai-fill), the full reference. The guide's source is in [`docs/content/docs/ai-fill/`](docs/content/docs/ai-fill/index.mdx).
 - **Demos:** 13 Storybook stories under **AI-Data-Grid / AI Fill**, running against the mock with seeded answers, so they never call Jev unless you point a story's endpoint URL control at your own endpoint.
-- **Not on npm yet.** The guide and the AI Fill stories are on the hosted docs site and Storybook, but like the rest of 7.0.0, AI Fill isn't on npm yet.
 
 ## Migrating from 6.x
 
@@ -137,26 +134,6 @@ AI Fill fills grid columns with answers from TypeSafe's [Jev](https://docs.types
 If your app was built against 6.0.3, three upstream changes from the 6.0.4 prereleases that 7.0.0 includes can need a small code change: the trailing "add row" row now appears only when `trailingRowOptions` is set (`trailingRowOptions={{}}` is enough), not whenever `onRowAppended` is set; the type `CellActiviationBehavior` is now spelled `CellActivationBehavior` (the only 6.0.3 export that was renamed or removed); and `onKeyDown`'s `location` and `onColumnProposeMove`'s indices no longer count the row-marker column. See "Coming from 6.0.3" in the [7.0.0 release notes](packages/core/CHANGELOG.md#coming-from-603).
 
 For example, the CSS import becomes `import "@specstory/ai-data-grid/dist/index.css";`. If you use the cells package's ArticleCell, remove your Toast UI Editor CSS import: the article editor's styles are now part of `@specstory/ai-data-grid-cells/dist/index.css`. Raw HTML inside articles is now shown as its source text instead of being rendered. See the [7.0.0 release notes](packages/core/CHANGELOG.md) for details.
-
-## Installing before the npm release
-
-Build the packages from a clone of this repository (Node 24 and npm), then install the packed tarballs into your app:
-
-```shell
-git clone https://github.com/specstoryai/ai-data-grid.git
-cd ai-data-grid
-npm ci
-npm run build
-for p in core cells source; do (cd packages/$p && npm pack --pack-destination ../..); done
-```
-
-This writes `specstory-ai-data-grid-7.0.0.tgz`, `specstory-ai-data-grid-cells-7.0.0.tgz` and `specstory-ai-data-grid-source-7.0.0.tgz` to the repository root. In your app, install the core tarball, plus the others if you use them, in one command:
-
-```shell
-npm i /path/to/ai-data-grid/specstory-ai-data-grid-7.0.0.tgz /path/to/ai-data-grid/specstory-ai-data-grid-cells-7.0.0.tgz
-```
-
-`cells` and `source` depend on `@specstory/ai-data-grid` `7.0.0`, so install the core tarball in the same command.
 
 # 📒 FAQ
 

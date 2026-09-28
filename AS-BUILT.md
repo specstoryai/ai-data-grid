@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-28 (SPST-55: the docs for SPST-50's release prep, PR #21 at `1314c551` plus the docs commits, including the changes since upstream 6.0.3)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), AI Fill in core (WP-AI1 to WP-AI5, SPST-19, 23, 26, 29 and 32 / PRs #16 to #20, merged 2026-09-27), the article sanitizer fix in cells (SPST-48 / PR #22, merged 2026-09-28), and ArticleCell's Milkdown editor, which replaces SPST-48's vendored Toast UI editor (SPST-61 / PR #23, merged 2026-09-28), and the 7.0.0 release preparation: package contents, manifests, `check-pack` and the release consumers (SPST-50 / PR #21, not merged).
+**Last updated:** 2026-09-28 (SPST-55: SPST-50's docs switch to installing from npm, `spst-50-npm-docs`, with PR #21's docs commits merged in, including the changes since upstream 6.0.3)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), AI Fill in core (WP-AI1 to WP-AI5, SPST-19, 23, 26, 29 and 32 / PRs #16 to #20, merged 2026-09-27), the article sanitizer fix in cells (SPST-48 / PR #22, merged 2026-09-28), and ArticleCell's Milkdown editor, which replaces SPST-48's vendored Toast UI editor (SPST-61 / PR #23, merged 2026-09-28), the 7.0.0 release preparation: package contents, manifests, `check-pack` and the release consumers (SPST-50 / PR #21), and the docs switch to installing from npm after publication (SPST-50, `spst-50-npm-docs`).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -17,7 +17,7 @@ The root `package.json` (name `root`, version `7.0.0`) declares three npm worksp
 | `packages/cells` | `@specstory/ai-data-grid-cells` | `@specstory/ai-data-grid` `7.0.0` (exact), `@linaria/react`, `dompurify` `^3.4.16`, six `@milkdown/*` packages at `~7.22.2` (`core`, `plugin-history`, `preset-commonmark`, `preset-gfm`, `prose`, `utils`), `react-select`. No `prosemirror-*` or `@toast-ui/*` package (see [Article editor and sanitizer](#article-editor-and-sanitizer)). | `react`, `react-dom` (same range) |
 | `packages/source` | `@specstory/ai-data-grid-source` | `@specstory/ai-data-grid` `7.0.0` (exact) | `react`, `react-dom` (same range), `lodash` |
 
-None of them is published to npm yet.
+Published to npm at 7.0.0 (SPST-50). The `v7.0.0` GitHub release records the source commit and tarball integrities.
 
 ### Build outputs
 
@@ -367,11 +367,10 @@ Vercel project ai-data-grid-docs (team spec-story)
   - rewrites absolute GitBook links to `/docs/...` and `@glideapps/*` imports to `@specstory/*`, and escapes `{`, `}` and `<` in prose;
   - downloads the 17 GitBook-hosted images to `docs/public/images/`;
   - rewrites every `meta.json` in llms.txt order, then lists the hand-maintained sections (`HAND_MAINTAINED_SECTIONS`, currently `ai-fill`) and About last.
-- Pre-7.0.0-release content:
-  - An unmint `<Note title="Not on npm yet">` follows the `npm i @specstory/ai-data-grid` command on the welcome page's Quick Start (`index.mdx`) and in step 1 of `extended-quickstart-guide/index.mdx`. It says 7.0.0 isn't on npm yet and links to the root README's [Installing before the npm release](README.md#installing-before-the-npm-release) section on GitHub instead of repeating the tarball steps.
-  - The welcome page's intro says to migrate by upgrading to React 19 first, then changing the package names and imports, matching the README's "Migrating from 6.x".
+- Install commands: the welcome page's Quick Start (`index.mdx`) and steps 1 and 2 of `extended-quickstart-guide/index.mdx` install `@specstory/ai-data-grid` and the peers from npm, with `marked@^16` (core's `marked` peer is `^16.0.10`). SPST-50's docs switch removed the pre-release notes that pointed to the README's tarball install steps.
+- The welcome page's intro says to migrate by upgrading to React 19 first, then changing the package names and imports, matching the README's "Migrating from 6.x".
 - Links to the hosted Storybook (https://ai-data-grid-storybook.vercel.app): the welcome page ("Lots of fun examples are in our Storybook"), and two FAQ answers in `faq.mdx`: search (story `ai-data-grid-docs--search`) and custom rendering (story `ai-data-grid-dataeditor-demos--custom-drawing`).
-- The importer never writes `index.mdx`, `about.mdx` or anything under `ai-fill/` (`HAND_MAINTAINED` in the script, which includes `HAND_MAINTAINED_SECTIONS`; a page is skipped when its path or its first path segment is listed). It overwrites all other pages. The rebrand edits that replace "Glide Data Grid" in generated prose are manual. A re-import on 2026-09-25 reverted them in five pages (`api/cells/index`, `extended-quickstart-guide/index`, `extended-quickstart-guide/copy-and-paste-support`, `extended-quickstart-guide/working-with-selections`, `faq`). The "Not on npm yet" note in `extended-quickstart-guide/index.mdx` and the two Storybook links in `faq.mdx` are hand edits to generated pages too, and a re-import removes them the same way.
+- The importer never writes `index.mdx`, `about.mdx` or anything under `ai-fill/` (`HAND_MAINTAINED` in the script, which includes `HAND_MAINTAINED_SECTIONS`; a page is skipped when its path or its first path segment is listed). It overwrites all other pages. The rebrand edits that replace "Glide Data Grid" in generated prose are manual. A re-import on 2026-09-25 reverted them in five pages (`api/cells/index`, `extended-quickstart-guide/index`, `extended-quickstart-guide/copy-and-paste-support`, `extended-quickstart-guide/working-with-selections`, `faq`). `marked@^16` in `extended-quickstart-guide/index.mdx`'s peer install command, the `onRowAppended` / trailing-row paragraph in `api/dataeditor/editing.mdx` (corrected for upstream `382a20e`) and the two Storybook links in `faq.mdx` are hand edits to generated pages too, and a re-import removes them the same way.
 
 ### Build and deploy
 
@@ -696,14 +695,14 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - **`@glideapps/ts-helper` is still a core devDependency** (with its dependencies `@glideapps/graphs` and `@glideapps/ts-necessities` in the lockfile). It's the external tool behind `cycle-check`, not shipped code.
 - **Emitted `.d.ts` files aren't byte-for-byte reproducible, in all three packages.** The parallel esm and cjs `tsc` runs write the same declaration directory: `dist/dts-tmp` in core and cells, `dist/dts` in source. Whichever run finishes last wins, so the `//# sourceMappingURL` trailer is present in some builds and missing in others. In repeated builds on 2026-09-25 the number of `.d.ts` files with the trailer varied: core 40, 87 and 0 of 87; cells 0, 17, 17, 5 and 0 of 17; source's `index.d.ts` had it in 1 of 4 builds. Pre-existing.
 - **Failing `Vercel` status on branches without `docs/`.** The docs project's Root Directory is `docs`, so every push to a branch that doesn't contain `docs/` (for example old Dependabot branches) creates an ERROR deployment and a failing `Vercel – ai-data-grid-docs` status on its PR. It stops once `docs/` is on `main` and those branches have merged `main`. Accepted as non-blocking.
-- **Re-importing the docs loses the hand edits** to generated pages: the rebrand edits, the "Not on npm yet" note in the Extended QuickStart Guide and the FAQ's Storybook links (see [Content and importer](#content-and-importer)). The importer doesn't apply any of them itself.
+- **Re-importing the docs loses the hand edits** to generated pages: the rebrand edits, `marked@^16` in the Extended QuickStart Guide, the `onRowAppended` paragraph in the DataEditor editing page and the FAQ's Storybook links (see [Content and importer](#content-and-importer)). The importer doesn't apply any of them itself.
 - **Apps built against 6.0.3 can need small changes.** Compatibility is measured against 6.0.4-alpha25, and three upstream changes since 6.0.3 (the last stable upstream release) reach 7.0.0: the trailing blank row shows only when `trailingRowOptions` is set, no longer whenever `onRowAppended` is set (`showTrailingBlankRow` in `packages/core/src/data-editor/data-editor.tsx`, upstream `382a20e`); the exported type `CellActiviationBehavior` is renamed `CellActivationBehavior` (upstream `f16418d`); and `onKeyDown`'s `location` and `onColumnProposeMove`'s indices no longer count the row-marker column (upstream `c7e654e`, `bbb6809`). The CHANGELOG's "Coming from 6.0.3" section and the READMEs' "Migrating from 6.x" sections tell apps what to change.
 - **The docs content describes Glide Data Grid 6.x behaviour**, with package names rewritten to `@specstory/*`. It is only as accurate as the upstream GitBook docs.
 - **The Storybook ignore step compares only `HEAD^` and `HEAD`.** A branch push of several commits whose last commit touches only `docs/` skips the preview, even if earlier commits changed code. Push another commit or redeploy by hand. Production isn't affected: `main` moves only by merge commits, whose `HEAD^` is the previous `main`.
 - **Storybook project settings aren't in the repository.** Changes to them don't show up in PRs or git history; this file is the record.
 - **The tarballs ship the library `src/`** for the source maps, so core's is larger than `dist/` alone (938 files, about 0.88 MB packed, instead of about 808 files and 0.65 MB). Tests, stories and config don't ship (see [What ships in each tarball](#what-ships-in-each-tarball)).
 - **Core's `marked` peer is `^16.0.10`, and `marked`'s latest major is newer** (18.x on 2026-09-28). An unpinned `npm i marked` installs the newer major and npm reports an `ERESOLVE` peer conflict, so the READMEs' install commands name `marked@^16`. Widening the peer is a later change, not part of 7.0.0 (SPST-51 Amendment 3).
-- **The shipped READMEs link `API.md` and the CHANGELOG through jsDelivr at `@7.0.0`** (`https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/…`). Those links return 404 until 7.0.0 is published. jsDelivr serves raw text, so the READMEs name chapters instead of linking anchors.
+- **The shipped READMEs and the AI Fill guide link `API.md` and the CHANGELOG through jsDelivr at `@7.0.0`** (`https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/…`). jsDelivr serves raw text, so they name chapters instead of linking anchors.
 - **`.devcontainer/` is stale.** It pins a Node 14 image and runs a `.devcontainer/run.sh` that doesn't exist. It isn't documented as a way to work on the repo.
 - `packages/cells/test/date-picker-cell.test.tsx` was fixed in WP1: it rendered the wrong cell and left a `findByDisplayValue` promise unawaited, which failed CI intermittently.
 - Open `npm audit` findings remain in the root install; run `npm audit` for the current list.
@@ -851,14 +850,12 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - Optionally let `scripts/smoke-storybook.mjs` target a deployed URL (with the bypass header read from the environment), so previews can be smoke-tested without an ad-hoc script.
 - Add the docs build, test and lint to CI, if wanted. Today, Vercel builds are the only automated check on `docs/`.
 - Move the product-name replacement into the docs importer, so re-imports don't lose the rebrand edits.
-- After 7.0.0 is published, merge SPST-50's docs switch (PR-2, `spst-50-npm-docs`), which removes the docs site's "Not on npm yet" notes (`docs/content/docs/index.mdx`, `extended-quickstart-guide/index.mdx` and `ai-fill/index.mdx`) together with the README's "Installing before the npm release" section and its "Not on npm yet" notes.
 - Custom domains for Storybook and the docs site (not planned for Phase 1).
 - Rename the `glide-*` runtime identifiers in 8.0.
 - Fix the open `npm audit` findings.
 - Make `ci.yml` a required check on `main`.
 - Replace `@glideapps/ts-helper` for `cycle-check`.
 - Fix or delete `.devcontainer/`.
-- First npm publish under `@specstory`: SPST-50, 7.0.0, approved by Jake on 2026-09-28 once its gates are met (in progress).
 - Widen core's `marked` peer beyond `^16.0.10` (SPST-51 Amendment 3).
 - Article editor: support pasting Office lists as lists (SPST-66, backlog).
 - Article editor, optional (SPST-62 §11): remove the root `@types/prosemirror-*` devDependencies, unused since SPST-61, once SPST-50's release-prep PR has merged (it owns the root `package.json` until then); a Storybook story that shows the benign fidelity corpus in read-only cells, for visual review (it changes the smoke count); match Toast UI's unpadded tables through remark-stringify's table options if table diffs after a first edited save prove noisy; and Trusted Types support for apps with a Trusted Types CSP.
