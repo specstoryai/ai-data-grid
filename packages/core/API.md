@@ -1479,7 +1479,7 @@ Behavior not defined or officially supported. Feel free to check out what this d
 
 # AI Fill
 
-> **Guide and examples.** The [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site walks through setup, connecting to Jev, the primitives, result policies, review, undo and the limitations, with complete examples. The Storybook has 13 AI Fill stories under **AI-Data-Grid / AI Fill** (sources in `src/ai-fill/stories/`, and `ai-fill-undo.stories.tsx` in the source package); 12 run against the mock with seeded answers, and the 13th shows a grid without `aiFill`. The guide and the stories are on the hosted sites once AI Fill reaches `main`. This chapter is the reference.
+> **Guide and examples.** The [AI Fill guide](https://ai-data-grid-docs.vercel.app/docs/ai-fill) on the docs site walks through setup, connecting to Jev, the primitives, result policies, review, undo and the limitations, with complete examples. The Storybook has 13 AI Fill stories under **AI-Data-Grid / AI Fill** (their sources are in the [repository](https://github.com/specstoryai/ai-data-grid), in `packages/core/src/ai-fill/stories/` and `packages/source/src/stories/ai-fill-undo.stories.tsx`; stories don't ship in the npm packages); 12 run against the mock with seeded answers, and the 13th shows a grid without `aiFill`. This chapter is the reference.
 
 AI Fill is powered by [Jev](https://docs.typesafe.ai), TypeSafe's Choice, Score and Noul primitives.
 
@@ -1534,7 +1534,7 @@ function Contacts() {
 ref.current?.aiFill?.fill("column-empty", { columns: ["persona"] });
 ```
 
-- **Unset, nothing changes.** Without `aiFill`, `DataEditor` passes the same props to the grid, the ref is the grid's own handle, and no AI module loads. A golden test (`test/ai-fill/unconfigured-grid.test.tsx`) checks this.
+- **Unset, nothing changes.** Without `aiFill`, `DataEditor` passes the same props to the grid, the ref is the grid's own handle, and no AI module loads. A golden test in the repository (`packages/core/test/ai-fill/unconfigured-grid.test.tsx`) checks this.
 - **Loaded lazily.** AI Fill's controller loads in its own chunk the first time `aiFill` is set. Until it has loaded (normally a few milliseconds) the grid renders as if the prop were unset and `ref.current.aiFill` is `undefined`. Then `ref.current.aiFill` is set, and `aiFill.onReady(api)` is called once with the same API.
 - **Setting and clearing.** Setting or clearing `aiFill` never remounts the grid. Clearing it aborts every request in flight and drops every result; nothing is written.
 - **Keep the object stable,** for example with `useMemo`. A new object re-validates the configuration and applies it: a changed policy re-decides stored answers with no request, a changed question marks results stale, and a removed column drops its results.
@@ -2187,4 +2187,4 @@ The API types are `AIFillApi`, `AIFillTarget`, `AICellState`, `AIRunState` and `
 
 The types cover the Jev contract (`JevRequest`, `JevResponse`, `JevQuestion`, `JevAnswer` and the per-primitive `JevChoice*`, `JevScore*` and `JevNoul*` types), the endpoint contract's error body (`JevEndpointErrorBody`), the parsed answers (`ChoiceAnswer`, `ScoreAnswer`, `NoulAnswer`), the configuration (`AIFillConfig`, `AIColumnDefinition` and its per-primitive parts), and the results (`AIPolicyDecision`, `AIMappedOutput`, `AIFillError`, and the result, run, commit and reject events). Each has TSDoc.
 
-Tests never call Jev: they use `createMockJev` or a fake transport, and a guard installed by core's `vitest.setup.ts` fails any test that sends a request to `*.typesafe.ai`. They live in `packages/core/test/ai-fill/` and run with core's `npm test -- --run` (the bundle-budget and `/server` load tests need `npm run build` first).
+Tests never call Jev: they use `createMockJev` or a fake transport, and a guard installed by core's `vitest.setup.ts` fails any test that sends a request to `*.typesafe.ai`. They live in the repository, in `packages/core/test/ai-fill/` (tests don't ship in the npm package), and run with core's `npm test -- --run` (the bundle-budget and `/server` load tests need `npm run build` first).

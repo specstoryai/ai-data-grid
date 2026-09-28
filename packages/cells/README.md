@@ -7,6 +7,12 @@
 
 Needs React 19 (`react` and `react-dom` peer range `^19.0.0`). React 16, 17 and 18 are not supported.
 
+Links: [documentation](https://ai-data-grid-docs.vercel.app/docs) · [Storybook](https://ai-data-grid-storybook.vercel.app) · [npm](https://www.npmjs.com/package/@specstory/ai-data-grid-cells) · [issues](https://github.com/specstoryai/ai-data-grid/issues)
+
+Source: https://github.com/specstoryai/ai-data-grid
+
+Release notes: the 7.0.0 notes for all three packages are in the core package's `CHANGELOG.md` (https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@7.0.0/CHANGELOG.md).
+
 Current cells
 
 -   Star (rating)

@@ -41,6 +41,9 @@ The root `package.json` `overrides` only affect this repository's install, not t
 | `.storybook/` | Storybook config (branded "AI Data Grid"). |
 | `scripts/smoke-storybook.mjs` | Headless smoke test of the built Storybook. |
 | `scripts/check-test-project.mjs`, `scripts/check-article-cell-editor.mjs`, `scripts/check-article-cell-sanitizer.mjs` | Headless checks for a running sample app, for the cells article editor and for the article sanitizer. See [Sample apps](#sample-apps-test-projects). |
+| `scripts/check-pack.mjs` | `npm run check-pack`: checks what the three npm tarballs contain. See [Releasing](#releasing). |
+| `scripts/release-consumers.sh`, `scripts/check-ai-fill-consumer.mjs` | Release checks: clean consumer installs of the tarballs or of a published version, and the AI Fill check on the `vite-app` sample. See [Sample apps](#sample-apps-test-projects). |
+| `packages/*/THIRD_PARTY_NOTICES.md` | Byte-identical copies of the root `THIRD_PARTY_NOTICES.md`, so each tarball ships it. Edit only the root file (see [License and attribution](#license-and-attribution)). |
 | `scripts/jev-dev-proxy.mjs`, `scripts/jev-live-check.mjs` | Manual-only AI Fill tools that make live Jev calls. See [Live Jev scripts](#live-jev-scripts-manual-only). |
 | `.github/workflows/ci.yml` | The only CI workflow. |
 | `test-projects/` | Sample apps (`vite-app`, `next-app`) that install the packed tarballs. See [Sample apps](#sample-apps-test-projects). |
@@ -48,12 +51,13 @@ The root `package.json` `overrides` only affect this repository's install, not t
 
 ## Check commands
 
-Run these from the root. CI runs the first five.
+Run these from the root. CI runs the first six.
 
 | Command | What it does |
 | --- | --- |
 | `npm ci` | Clean install from the root lockfile. |
 | `npm run build` | Builds all three packages into `dist/esm`, `dist/cjs` and `dist/dts`, plus `dist/index.css` for core and cells (source has no CSS), then lints them (ESLint, plus a `cycle-check` for import cycles in core). Two existing `no-console` warnings are expected; errors fail. |
+| `npm run check-pack` | Checks the contents of the three npm tarballs with `npm pack --dry-run` (see [Releasing](#releasing)). Run `npm run build` first. |
 | `npm test -- --run` | Core unit tests (vitest), run once. Without `--run` vitest watches. Includes the AI Fill bundle-budget and `/server` load tests, which need `npm run build` first (see [Working on AI Fill](#working-on-ai-fill)). |
 | `npm run test-cells -- --run` | Cells unit tests. |
 | `npm run test-source -- --run` | Source unit tests. `ai-fill-undo.test.tsx` imports `@specstory/ai-data-grid` and its `/testing` subpath through the workspace link, which resolves to core's built `dist/`, so run `npm run build` first (CI does). |
@@ -74,7 +78,7 @@ It needs Playwright's Chromium. If it isn't installed yet, run `npx playwright i
 
 ## Working on AI Fill
 
-AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work packages (SPST-16). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. So far it has the pure foundation (contract, config, identity, policy), the execution layer (transport, engine, `/server`, `/testing`) the grid integration: the optional `aiFill` prop on `DataEditor` (`src/data-editor-all.tsx`), a static bridge and a lazily loaded controller (`react/`), the built-in UI: menus, confirm dialog, status bar, inspector and keyboard shortcuts (`react/ui/`), and, from WP-AI5, 13 Storybook stories, the docs site guide and a recorded live check. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, and the user guide is `docs/content/docs/ai-fill/` (see [The AI Fill guide](#the-ai-fill-guide-hand-maintained)); the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill-in-development).
+AI Fill is part of core, `@specstory/ai-data-grid` (SPST-16, merged 2026-09-27 in five stacked PRs, #16 to #20). There is no separate AI package, no `packages/ai` and no `test-ai` script: its tests run with core's `npm test -- --run`. It has the pure foundation (contract, config, identity, policy), the execution layer (transport, engine, `/server`, `/testing`), the grid integration: the optional `aiFill` prop on `DataEditor` (`src/data-editor-all.tsx`), a static bridge and a lazily loaded controller (`react/`), the built-in UI: menus, confirm dialog, status bar, inspector and keyboard shortcuts (`react/ui/`), 13 Storybook stories, the docs site guide and a recorded live check. The user-facing reference is the "AI Fill" chapter of `packages/core/API.md`, and the user guide is `docs/content/docs/ai-fill/` (see [The AI Fill guide](#the-ai-fill-guide-hand-maintained)); the architecture and decisions are in [AS-BUILT.md](AS-BUILT.md#ai-fill).
 
 ### Code map
 
@@ -86,7 +90,7 @@ AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work pac
 | `src/ai-fill/identity/` | Canonical JSON, `buildQuestion`, the question and input fingerprints, the cache key and the display-only `shortHash`. Internal. |
 | `src/ai-fill/policy/` | `mapAIOutput`, `evaluateAIPolicy`, `isAIDestinationEmpty` and the default `toCell` (`cells.ts`), and the commit-guard helpers (`commit-guards.ts`, internal). |
 | `src/ai-fill/transport/` | The Jev clients for the three connection modes (`client.ts`), error normalization and the HTTP status mapping (`errors.ts`), backoff and `Retry-After` parsing (`retry.ts`), and browser detection (`environment.ts`). Internal. |
-| `src/ai-fill/engine/` | The execution engine (`engine.ts`: plan, run, cancel, retry, re-evaluation, `recordCommit`), the per-cell result store (`store.ts`), the scheduler and its token bucket (`scheduler.ts`, `token-bucket.ts`), the answer cache (`lru-cache.ts`), request grouping (`requests.ts`), row-state building (`state.ts`) and the `execution` defaults (`defaults.ts`). Internal: WP-AI3 wires it into `DataEditor`. |
+| `src/ai-fill/engine/` | The execution engine (`engine.ts`: plan, run, cancel, retry, re-evaluation, `recordCommit`), the per-cell result store (`store.ts`), the scheduler and its token bucket (`scheduler.ts`, `token-bucket.ts`), the answer cache (`lru-cache.ts`), request grouping (`requests.ts`), row-state building (`state.ts`) and the `execution` defaults (`defaults.ts`). Internal: the session in `react/session.ts` drives it. |
 | `src/ai-fill/config/api.ts` | The public API types: `AIFillApi` (`ref.current.aiFill`), `AIFillTarget`, `AICellState`, `AIRunState`, `AIMenuItem`. `AIFillShortcuts` is with the other configuration types in `types.ts`. |
 | `src/ai-fill/react/bridge.ts` | The static half of the `aiFill` prop: the `AIFillBridge` and controller prop types and `linkAIFillRef`, which points the app's ref at the grid's handle plus `aiFill`. The only AI Fill module allowed in a grid's initial bundle, so keep it to types and tiny helpers. |
 | `src/ai-fill/react/controller.tsx` | The lazily loaded controller component (`React.lazy` in `data-editor-all.tsx`). It creates an `AIFillSession` and its `AIFillUI`, drives the session's lifecycle, and renders `AIFillUIView`. |
@@ -101,7 +105,7 @@ AI Fill is being built into core, `@specstory/ai-data-grid`, in stacked work pac
 | `src/ai-fill/react/ui/styles.ts` | The one Linaria `css` block (`aiStyles`) for all of the UI. See [Built-in UI rules](#built-in-ui-rules). |
 | `src/ai-fill/server/index.ts` | The `@specstory/ai-data-grid/server` entry: `createJevHandler` and `toNodeListener`. |
 | `src/ai-fill/testing/index.ts` | The `@specstory/ai-data-grid/testing` entry: `createMockJev`. |
-| `src/ai-fill/stories/` | Stories 1–10, 12 and 13 (`ai-fill-primitives`, `ai-fill-review` and `ai-fill-menus` `.stories.tsx`) and their shared `story-kit.tsx` (synthetic contacts, the editable table, seeded mock answers, the frame and the endpoint URL control). Core's build excludes the folder, but the tarball ships it with the rest of `src/`. See [AI Fill stories](#ai-fill-stories). |
+| `src/ai-fill/stories/` | Stories 1–10, 12 and 13 (`ai-fill-primitives`, `ai-fill-review` and `ai-fill-menus` `.stories.tsx`) and their shared `story-kit.tsx` (synthetic contacts, the editable table, seeded mock answers, the frame and the endpoint URL control). Core's build excludes the folder, and so does core's `files` list, so it doesn't ship. See [AI Fill stories](#ai-fill-stories). |
 | `test/ai-fill/*.test.ts` | Unit tests per module, plus the `boundaries`, `bundle-budget`, `server-load` and `no-live-jev` guards below. |
 | `test/ai-fill/*.test.tsx` | Grid-level tests that render a real `DataEditor` with `aiFill`: `grid-integration` (the prop, composition, rendering, no inference without a trigger), `grid-fill` (primitives end to end, scopes and skip reasons, accept, reject and commit guards, column targets), `grid-identity` (sorting, filtering, deleting and editing while pending, `getRowIndex`), `commit-undo-contract` (the commit batch and `revertCommit`), `unconfigured-grid` (the golden test), and the built-in UI tests `ui-menus`, `ui-confirm`, `ui-status`, `ui-inspector`, `ui-keyboard` and `ui-workflow` (a whole review workflow with no app code but the config). |
 | `test/ai-fill/fixtures/` | Shared fixtures: `jev-contract.ts` holds Jev request and response bodies copied from the TypeSafe docs examples (update them from the docs, never from a test run), `definitions.ts` holds synthetic column definitions, `grid.ts` is a synthetic in-memory grid for the engine tests, `harness.tsx` renders a `DataEditor` with `aiFill` for the grid-level tests, `contacts.ts` is the synthetic contacts grid they use, and `ui.ts` has the UI tests' helpers (clicking a header ▾, right-clicking a cell, grid keys, finding popups). |
@@ -179,7 +183,7 @@ Every new export name from `.` (`src/index.ts`) contains `AI`, `AIFill` or `Jev`
 - **Grid-level tests** render a real `DataEditor` in jsdom with core's `test/test-utils.tsx` (`prep`, `Context`, `sendClick`) and `vitest-canvas-mock`, through `renderAIGrid` in `test/ai-fill/fixtures/harness.tsx`. The harness keeps synthetic rows by id with a display order the test can sort and filter, logs every callback and edit, and can run with a controlled, listened-to or uncontrolled selection. Jev is `createMockJev` behind a `custom` connection; `gatedJev` holds each request until the test calls `release()`, so tests can sort, filter or edit while a request is pending. Tests use fake timers: call `settle()` after rendering so the lazily loaded controller has loaded (it waits for `vi.dynamicImportSettled()`).
 - **Source's `test/ai-fill-undo.test.tsx`** is the one AI Fill test outside core (approved as A-Q1). It wires the real `useUndoRedo` to a `DataEditor` with `aiFill` and `createMockJev`, and checks that a bulk accept is one undo step, that undo restores every cell and redo writes them again once, and that no suggestion comes back. It imports core by package name, so it tests core's built `dist/`: run `npm run build` before `npm run test-source`.
 - **Run `npm run test-projects`** in every AI Fill package from WP-AI2 on, as well as the check commands (see [Sample apps](#sample-apps-test-projects)).
-- **Core's tarball ships `src/` and `test/`** (core has no `files` field). Fixtures use synthetic row data only, with request ids removed. Never commit a key, token or `.env` file, and never put `JEV_API_KEY` in a test, story, fixture or CI.
+- **The repository is public.** Core's tarball ships the library `src/` but not `test/` or the stories (see [Releasing](#releasing)), and the tests, fixtures and stories are public on GitHub. Fixtures use synthetic row data only, with request ids removed. Never commit a key, token or `.env` file, and never put `JEV_API_KEY` in a test, story, fixture or CI.
 - Core gets no new runtime or peer dependencies for AI Fill. Use `fetch` and the platform's `AbortController`, `TextEncoder`, `Headers`, `Request` and `Response`, not the TypeSafe SDK.
 
 ### Live Jev scripts (manual only)
@@ -230,6 +234,8 @@ Two root scripts talk to the real Jev API. They aren't published (core's tarball
 
 Both render a `DataEditor` with text, number, boolean and star (from `-cells`) columns, and import `@specstory/ai-data-grid/dist/index.css`. `next-app` also has `app/api/jev/route.ts`, a `POST` route built with `createJevHandler` from `@specstory/ai-data-grid/server`. It only checks that `/server` resolves and type-checks from the tarball: its `authorize` rejects every request, so it never calls Jev.
 
+`vite-app` also has an AI Fill scenario, `src/AIFillSmoke.tsx`, which `src/main.tsx` renders instead of the normal app when the URL hash is `#ai-fill`. It's a `DataEditor` with `aiFill`, one Choice column and four synthetic rows, answered by `createMockJev` from `@specstory/ai-data-grid/testing` (no network), with `useMoveableColumns` from `@specstory/ai-data-grid-source` so the source package is imported, type-checked and bundled too. It exposes `window.__aiFillSmoke` for `scripts/check-ai-fill-consumer.mjs`.
+
 Build and check them from the root:
 
 ```bash
@@ -244,9 +250,28 @@ This runs `test-projects/bootstrap-projects.sh`, which:
 
 It ends with `All test projects built successfully.` and takes under a minute with a warm npm cache, but it installs about 500 MB of `node_modules` into the samples. It isn't in CI. Run it when you change what users install: package `exports`, `main`/`module`/`types`, `files`, the CSS entry, peer dependencies or dependencies, and in every AI Fill package from WP-AI2 on.
 
-Each sample has `.npmrc` with `legacy-peer-deps=true`. Their `package.json` files depend on `file:../.packs/…-7.0.0.tgz`, so update them if the version changes. `.packs/`, `node_modules/`, `dist/`, `.next/` and the samples' `package-lock.json` are gitignored and regenerated on every run.
+The samples have no `.npmrc`, so npm resolves peers the way it does for users (the root `.npmrc` isn't inherited). Their `package.json` files pin `marked` `^16.1.2`, inside core's `marked` peer range, and depend on `file:../.packs/…-7.0.0.tgz`, so update them if the version changes. `.packs/`, `node_modules/`, `dist/`, `.next/` and the samples' `package-lock.json` are gitignored and regenerated on every run.
 
 To check a built sample in a browser, serve it and run `scripts/check-test-project.mjs <base-url> <sample-node_modules-dir>`. It fails unless a `<canvas>` renders with no console or page errors and every `react` package under the given `node_modules` has the same version. It needs Playwright's Chromium (`npx playwright install chromium`).
+
+`scripts/check-ai-fill-consumer.mjs <base-url>` checks AI Fill in a built, served `vite-app`: it loads the plain page and records its scripts, then loads `#ai-fill`, fills the Persona column through `window.__aiFillSmoke` with the mock, checks that a script the plain page never loaded (AI Fill's lazy chunk) arrived, that every row is `suggested` with the mock's answer, and that `accept` writes the answers into the app's rows through `onCellEdited`. It fails on any console or page error, or any request to another origin. It needs Playwright's Chromium.
+
+```bash
+(cd test-projects/vite-app && npm run preview)   # after npm run test-projects
+node scripts/check-ai-fill-consumer.mjs http://localhost:4173/
+```
+
+### Release consumers (`scripts/release-consumers.sh`)
+
+`npm run test-projects` installs into `test-projects/` itself, and its `npm install <tarballs>` form doesn't print npm's `ERESOLVE` peer warnings. For a release, `scripts/release-consumers.sh` installs the three packages the way a user does:
+
+```bash
+scripts/release-consumers.sh --tarballs <dir-with-the-three-tgz> --out <new-dir>
+scripts/release-consumers.sh --registry <version> --expect-integrity <INTEGRITY.txt> --out <new-dir>
+```
+
+It copies `vite-app` and `next-app` into `<out>/` (without `node_modules`, build output, lockfile or `.npmrc`), points their three `@specstory/*` dependencies at the tarballs (`file:`) or at the exact published version, and runs every npm command with an empty userconfig and globalconfig, a fresh cache in `<out>/npm-cache` and `https://registry.npmjs.org/`: no credentials and npm's default peer resolution. For each app it checks that `legacy-peer-deps` is off, runs `npm install` (log in `<out>/<app>-install.log`), fails on any `ERESOLVE` line, requires exactly one `react` and one `react-dom`, both 19.x, checks each `@specstory/*` lockfile entry's version and integrity (against the tarballs' SHA-512, or against the `INTEGRITY.txt` lines and a `resolved` URL on the public registry), and runs `npm run build`. It exits non-zero on any failure, after running the remaining checks. `<out>` must be new or empty. The browser checks above then run against the apps in `<out>/`.
+
 
 ```bash
 (cd test-projects/vite-app && npm run preview)   # Vite's preview server, default port 4173
@@ -293,7 +318,7 @@ Pointed at a consumer of a cells build from before SPST-61 (the Toast UI editor)
 node scripts/check-article-cell-sanitizer.mjs --browser all /path/to/old-worktree/test-projects/vite-app/node_modules
 ```
 
-It needs Playwright's browsers for every browser it runs (`npx playwright install chromium firefox webkit`), and exits 2 if the consumer has no `@specstory/ai-data-grid-cells` or `--browser` isn't one of the four values. It isn't part of CI. Run it when you touch the article cell, the article editor, the Milkdown or `dompurify` versions, or the fixtures. The payloads are synthetic test fixtures: keep them in `packages/cells/test/` (cells' tarball ships only `dist`) and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
+It needs Playwright's browsers for every browser it runs (`npx playwright install chromium firefox webkit`), and exits 2 if the consumer has no `@specstory/ai-data-grid-cells` or `--browser` isn't one of the four values. It isn't part of CI. Run it when you touch the article cell, the article editor, the Milkdown or `dompurify` versions, or the fixtures. The payloads are synthetic test fixtures: keep them in `packages/cells/test/` (cells' tarball doesn't ship `test/`) and out of the READMEs, the CHANGELOG, AS-BUILT and the docs site.
 
 ## Article editor
 
@@ -421,15 +446,105 @@ This fetches the 36 pages listed in https://docs.grid.glideapps.com/llms.txt, do
 ./update-version.sh 7.0.1
 ```
 
-With no argument it copies the current root version to the packages. It is also the root `version` script, so `npm version` runs it. Don't publish to npm; releases need the maintainer's explicit approval. The first publish also removes the pre-release notes: the README's "Not on npm yet" note and "Installing before the npm release" section, and the "Not on npm yet" notes in `docs/content/docs/index.mdx` and `docs/content/docs/extended-quickstart-guide/index.mdx`.
+With no argument it copies the current root version to the packages. It is also the root `version` script, so `npm version` runs it. Publishing to npm needs the maintainer's explicit approval: see [Releasing](#releasing). Until 7.0.0 is published, the README's "Not on npm yet" note and "Installing before the npm release" section and the "Not on npm yet" notes on the docs site (`docs/content/docs/index.mdx`, `extended-quickstart-guide/index.mdx` and `ai-fill/index.mdx`) stay; the docs switch PR removes them after publication.
+
+## Releasing
+
+A release publishes `@specstory/ai-data-grid`, `@specstory/ai-data-grid-cells` and `@specstory/ai-data-grid-source` to https://registry.npmjs.org/ at one version, from the maintainer's or the Orchestrator's own runtime. There is no publish workflow: CI only tests. The procedure below is the one used for 7.0.0 (SPST-50, plan SPST-51); `<version>` is the version being released.
+
+**Approval.** Every release needs the maintainer's explicit approval of the version, the packages, the access and the dist-tag. Merging each release PR needs the maintainer's approval of that PR too. Only the Orchestrator or the maintainer publishes, and only they hold the publishing token (`NPMJS_TOKEN` in their environment). Never publish from another role, from CI or with a token typed on a command line.
+
+### Package contents
+
+Each package's `files` list decides what ships:
+
+- **core:** `dist/`, the library `src/` (without `src/docs/`, `src/stories/` and every other `stories/` folder or `*.stories.tsx`), `API.md`, `CHANGELOG.md` and `THIRD_PARTY_NOTICES.md`;
+- **cells and source:** `dist/`, the library `src/` (without stories) and `THIRD_PARTY_NOTICES.md`;
+- all three: no `*.tsbuildinfo`. npm always adds `package.json`, `README.md` and `LICENSE`.
+
+`src/` ships because the source maps in `dist/` point at it and have no `sourcesContent`. Tests, stories, fixtures and build and lint config don't ship. Each package's `publishConfig` is `{ "access": "public", "registry": "https://registry.npmjs.org/" }`, so a scoped publish can't become restricted or go to another registry, and the root `package.json` is `"private": true`, so the monorepo root can't be published.
+
+**`npm run check-pack`** (`scripts/check-pack.mjs`) checks the contents. With no argument it runs `npm pack --dry-run` for each workspace (run `npm run build` first); with `--tarballs <dir>` it unpacks and checks the three real `.tgz` files and also prints each one's `sha512-…` integrity. It uses Node built-ins and `tar`, with no network. CI runs it after the build. It fails, one line per problem, unless:
+
+- a. there are exactly the three packages, each at the root `version`;
+- b. `package.json`, `README.md`, `LICENSE` and `THIRD_PARTY_NOTICES.md` ship, and for core `API.md` and `CHANGELOG.md`;
+- c. `LICENSE` and `THIRD_PARTY_NOTICES.md` are byte-identical to the root files, and `LICENSE` has the typeguard line directly followed by the ai-data-grid contributors line;
+- d. `main`, `module`, `browser`, `types` and every `exports` target, under every condition, ship;
+- e. every `@import` in each `dist/*.css` resolves inside the tarball;
+- f. every source map's `sources`, and every `//# sourceMappingURL=` in shipped `.js` and `.d.ts` files, resolve inside the tarball;
+- g. every relative import or reference in a shipped `.d.ts` resolves to a shipped declaration;
+- h. no forbidden path ships: tests, specs, stories, `src/docs/`, `*.tsbuildinfo`, `build.sh`, ESLint, vitest or tsconfig files, `.env*`, `.npmrc`, `*.tgz`, `node_modules/`, `coverage/`, logs, keys, `.DS_Store`, or a `vendor/` directory outside `dist/`;
+- i. `publishConfig` is exactly the one above, there is no `private`, no install or publish lifecycle script, cells and source depend on `@specstory/ai-data-grid` at exactly the root version, the `react` and `react-dom` peers are `^19.0.0`, and no dependency is a `file:`, `link:`, `workspace:`, git or URL specifier;
+- j. no shipped file contains a local path (`/home/`, `/Users/`, `multica_workspaces`, `C:\Users`) or a token-shaped string (npm, GitHub or a private key). A legitimate match needs a narrow `CONTENT_ALLOW` entry (one file, one string) with a reason.
+
+Since SPST-61 nothing is vendored, so (h)'s `vendor/` rule, and (g)'s original target (the vendored editor's declarations), have nothing to catch today. Both stay as general guards, and (g) still checks every shipped declaration. When you change `files`, `exports`, the build or a package's layout, run `npm run build && npm run check-pack`, and update the contents in [AS-BUILT.md](AS-BUILT.md#what-ships-in-each-tarball) and the CHANGELOG.
+
+### Preparing a release
+
+1. Set the version with `./update-version.sh <version>` (see [Versioning](#versioning)) and check `npm ci` still passes.
+2. Write the release notes in `packages/core/CHANGELOG.md` (it covers all three packages). Don't add a release date: the file is packed before publication.
+3. The package READMEs, `API.md` and the CHANGELOG ship and become the npm pages, and they can't change after publication. They use no relative links (npm resolves those against the repository's default branch, not the release): link `API.md` and the CHANGELOG as `https://cdn.jsdelivr.net/npm/@specstory/ai-data-grid@<version>/API.md` (jsDelivr serves raw text, so name a chapter in words instead of an `#anchor`), and the docs site, Storybook, npm or GitHub for everything else.
+4. Merge the release PR into `main`. Its merge commit is the release commit, `R`. Nothing else merges into `main` until the release is finished.
+
+### Release verification
+
+An independent Verifier runs this on a clean checkout of `R`, with Node 24, in a new directory outside every agent workdir and `/tmp` (in the dev sandbox, `/work/releases/ai-data-grid/<version>/`; move an earlier attempt aside instead of reusing it):
+
+1. `npm ci`, `npm run build`, the three test suites, `npm run build-storybook`, `npm run smoke-storybook`, `npm run test-projects`, and the [article editor check](#article-cell-editor-check).
+2. `npm run build` once more, then `npm pack --workspace packages/<pkg> --pack-destination <artifacts>` for core, cells and source. Nothing rebuilds `dist/` after this.
+3. `npm test -- --run bundle-budget server-load` (they read the packed build) and `npm run check-pack -- --tarballs <artifacts>`; `git status --porcelain` must show no change.
+4. Record each tarball's integrity the way the registry reports `dist.integrity`, in `INTEGRITY.txt`: `printf '%s  sha512-%s\n' "$f" "$(openssl dgst -sha512 -binary "$f" | base64 -w0)"`. It must equal `npm pack --json`'s `integrity`.
+5. `scripts/release-consumers.sh --tarballs <artifacts> --out <dir>/consumers/tarball` (see [Release consumers](#release-consumers-scriptsrelease-consumerssh)), then serve both apps on free ports and run `check-test-project.mjs` for each, `check-ai-fill-consumer.mjs` on `vite-app`, the [article sanitizer check](#article-sanitizer-check) with `--browser all` on each app's `node_modules`, `/api/jev` on `next-app` (POST 403, GET 405), and `import()` and `require()` of `@specstory/ai-data-grid/server` and `/testing` from Node.
+6. Check the built consumer bundles for the ArticleCell editor's dependencies (no Toast UI code, one DOMPurify at or above the cells floor), and read `npm audit --omit=dev --json` for both consumers: no finding in `dompurify`, `@milkdown/*`, `prosemirror-*` or `@specstory/*`. Report any other high or critical runtime finding to the maintainer before publishing.
+7. Record CI's conclusion for `R`, not just that it started.
+8. Make the artifacts read-only, and post `R`, the checks, the `check-pack` table and the three `INTEGRITY.txt` lines, with the tarballs attached.
+
+A changed source tree or a rebuilt tarball needs this again: builds aren't byte-reproducible (see [AS-BUILT.md](AS-BUILT.md#known-limitations-and-risks)), so the published bytes are always the verified ones.
+
+### Publishing
+
+Run everything in the foreground, from a directory with no `package.json` or `.npmrc`. Never `set -x`, and never print the token.
+
+1. Re-check each tarball's SHA-512 against the three lines in the Verifier's report (not against a file on disk), and that each `package.json` has the right name, version and `publishConfig.access`.
+2. Write a temporary userconfig that holds only a reference to the environment variable, never its value:
+
+    ```bash
+    NPMRC_DIR=$(mktemp -d "$HOME/.npm-publish-XXXXXX"); chmod 700 "$NPMRC_DIR"; NPMRC=$NPMRC_DIR/npmrc
+    printf '%s\n' '//registry.npmjs.org/:_authToken=${NPMJS_TOKEN}' 'registry=https://registry.npmjs.org/' > "$NPMRC"; chmod 600 "$NPMRC"
+    npm whoami --userconfig "$NPMRC" --registry https://registry.npmjs.org/
+    ```
+
+3. Immediately before publishing, `npm view <pkg> versions dist-tags --json` for each name, to see what already exists.
+4. Publish **core, then cells, then source**, each from its verified tarball: `npm publish <tgz> --access public --tag latest --userconfig "$NPMRC" --registry https://registry.npmjs.org/ --ignore-scripts </dev/null`. After each one, confirm with an unauthenticated read (`npm view <pkg>@<version> dist.integrity` and `npm view <pkg> dist-tags --json`, both with `--userconfig /dev/null --prefer-online`; allow a few minutes to propagate) that the integrity equals the verified value and `latest` is `<version>`, and record it before starting the next package.
+5. Always clean up, also after a failure: `rm -rf "$NPMRC_DIR"`, check that there's no `~/.npmrc`, and check that the token isn't in `~/.npm/_logs` or the release directory (`grep -rlF -f <(printenv NPMJS_TOKEN) …`, which keeps the token out of argv).
+
+**If something goes wrong,** never unpublish, overwrite, bump the version, or move or add a dist-tag to work around it, never ask for a one-time password in an issue or PR, and retry only with the same verified tarball. If core isn't published, don't try cells or source.
+
+| Symptom | Action |
+| --- | --- |
+| `E401`, `ENEEDAUTH`, or `whoami` fails | Stop; nothing is published. The token is missing, invalid or expired. |
+| `E403`, or `E404` / "Scope not found" on the publish | Stop and report the exact message: the token can't create or write packages under `@specstory`. Don't change org settings. |
+| `E402 Payment Required` | npm treated it as a private publish. Check `--access public` and `publishConfig`; don't retry blindly. |
+| `EOTP`, a one-time password prompt or an auth URL | Writes need 2FA that the token doesn't bypass. Stop, and ask the maintainer for a granular token that bypasses 2FA, or to publish from their own terminal. |
+| "cannot publish over the previously published versions" | Compare `npm view <pkg>@<version> dist.integrity` with the verified value: equal means it's published, so record it and continue; different means stop and report. |
+| A timeout, `ECONNRESET`, `E429`, a 5xx, or an unclear result | Poll `npm view` for about 5 minutes first. If the version appears with the right integrity it's published; otherwise retry the same command once or twice. |
+| `latest` isn't `<version>` after a publish | Stop and report. Don't move the tag. |
+| A later package fails (partial publication) | Record what's live, report it, fix the cause and publish only the unfinished packages. No tag, GitHub release or docs switch until all three are live. |
+
+### After publication
+
+1. An independent Verifier installs from the registry with no credentials and a fresh cache: `scripts/release-consumers.sh --registry <version> --expect-integrity INTEGRITY.txt --out <dir>/consumers/registry`, then the browser and server checks of step 5 above, the unauthenticated `npm view` of all three, and a look at the three npmjs.com pages.
+2. Merge the docs switch PR, which removes pre-release install notes from the docs site and README, and check that the production docs and Storybook deployments for its merge commit are ready and serve the changed pages.
+3. Tag `R` as `v<version>` (an annotated tag; check that it doesn't exist yet, and never move one) and create the GitHub release from it, with the npm links and integrities, only once all three packages are confirmed.
+4. Remind the maintainer to revoke a token made for the release.
 
 ## Rules that must hold
 
 ### License and attribution
 
 - Never change the MIT text or the line `Copyright (c) 2021 typeguard, Inc.` in any `LICENSE` file (root, `packages/core`, `packages/cells`, `packages/source`). The line `Copyright (c) 2026 ai-data-grid contributors` sits directly below it and adds to it.
-- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`. If you vendor third-party code, keep its `LICENSE` next to it and make sure it ships in the tarball.
-- Every publishable package must ship its `LICENSE`. Check with `npm pack --dry-run` in the package directory.
+- Keep in-code attributions (for example the `dequal` port in `packages/core/src/common/support.ts`). When you copy or adapt third-party code, keep its notice at the use site and add it to `THIRD_PARTY_NOTICES.md`. Edit only the root `THIRD_PARTY_NOTICES.md`, then copy it over `packages/core/`, `packages/cells/` and `packages/source/THIRD_PARTY_NOTICES.md` (`for p in core cells source; do cp THIRD_PARTY_NOTICES.md packages/$p/; done`); `npm run check-pack` fails unless the copies are byte-identical. If you vendor third-party code, keep its `LICENSE` next to it and make sure it ships in the tarball.
+- Every publishable package must ship its `LICENSE` and `THIRD_PARTY_NOTICES.md`. `npm run check-pack` checks both.
 - Don't use Glide trademarks (the Glide product name, logos, the `@glideapps` scope, `glideapps.com` URLs) except in attribution text, the 6.x → 7.0.0 migration mapping, and historical CHANGELOG entries.
 
 ### API compatibility (7.x)
@@ -455,10 +570,10 @@ Each package has a `test/public-api-exports.test.ts`. It reads the package's `sr
 `.github/workflows/ci.yml` (job `test`) runs on every pull request and on pushes to `main`, with Node from `.nvmrc`:
 
 ```
-npm ci → npm run build → npm test -- --run → npm run test-cells -- --run → npm run test-source -- --run
+npm ci → npm run build → npm run check-pack → npm test -- --run → npm run test-cells -- --run → npm run test-source -- --run
 ```
 
-CI only tests. There are no publish, release, Pages or Dependabot workflows. Storybook build, the smoke test, `npm run test-projects` and the three check scripts are not in CI; run them locally when you touch what they cover. Vercel builds Storybook separately on every push (see [Hosted Storybook](#hosted-storybook-vercel)), but it doesn't run the smoke test. CI doesn't install or check `docs/` either; its Vercel build is the only automated check (see [Working on the docs site](#working-on-the-docs-site)).
+CI only tests. There are no publish, release, Pages or Dependabot workflows. Storybook build, the smoke test, `npm run test-projects`, `release-consumers.sh` and the `check-*.mjs` browser checks are not in CI; run them locally when you touch what they cover. Vercel builds Storybook separately on every push (see [Hosted Storybook](#hosted-storybook-vercel)), but it doesn't run the smoke test. CI doesn't install or check `docs/` either; its Vercel build is the only automated check (see [Working on the docs site](#working-on-the-docs-site)).
 
 ## Keeping the docs current
 
