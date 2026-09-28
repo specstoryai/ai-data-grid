@@ -20,6 +20,19 @@ The public API is unchanged. To migrate, change only your import paths to the ne
 
 This release requires React 19 (`react` / `react-dom` `^19.0.0`). Support for React 16, 17 and 18 is dropped.
 
+## Cells: ArticleCell
+
+The article cell's editor and read-only viewer are rebuilt on [Milkdown](https://milkdown.dev) 7.22 (its headless packages, on ProseMirror and remark), a regular dependency of `@specstory/ai-data-grid-cells`. The read-only viewer is the same editor, not editable. Its API, the `ArticleCell` type and the stored Markdown format (`data.markdown`) are unchanged.
+
+- **No separate CSS import.** The editor's styles are part of `@specstory/ai-data-grid-cells/dist/index.css`. Remove your `import "@toast-ui/editor/dist/toastui-editor.css"`; nothing replaces it. The cells package no longer depends on `@toast-ui/editor` or `@toast-ui/react-editor`.
+- **No `@toast-ui/react-editor` peer warning.** That package declared a `react ^17.0.1` peer, so installing the cells package with React 19 printed an `ERESOLVE` warning, and `--strict-peer-deps` installs failed. The new editor has no React peer of its own.
+- **Raw HTML is shown as source.** Inline and block HTML and HTML comments inside article Markdown are no longer rendered. The viewer and the editor show them as their source text, and Save keeps them byte for byte. Articles that used HTML for presentation, such as `<kbd>` or `<details>`, now show the tags.
+- **Security.** Toast UI Editor embedded its own copy of DOMPurify 2.3.3, which is in the affected range of GHSA-gx9m-whjm-85jf, GHSA-p3vf-v8qc-cwcr and GHSA-mmhx-hmjr-r674, and which `npm audit` couldn't see. Toast UI Editor, and that copy with it, is gone from the cells package. Pasted and dropped HTML is sanitized with a private instance of the `dompurify` package (`^3.4.16`), a regular dependency that `npm audit` checks and that you update through your own lockfile, and can't add raw HTML to an article. Link and image URLs that DOMPurify rejects, such as `javascript:` URLs, are rendered empty. No paste or drop is left to the browser's native insertion, and a paste or drop into a code block inserts plain text only. The advisories' published proofs of concept didn't reproduce through the article cell; the change removes the vulnerable code.
+- **Save stores the edited Markdown.** In 6.x, Save stored the text `wysiwyg` instead of the article. Saving without a change now keeps the original Markdown byte for byte. Saving an edited article writes the whole article as GFM, which can normalize parts you didn't touch without changing their meaning (for example padded tables, `*` bullets and fenced code blocks).
+- **Other differences.** Reference links, bare URLs, single-tilde strikethrough and footnotes now render. `$$…$$` custom blocks are shown as ordinary text. Pasting a list from Microsoft Office keeps its text but doesn't make it a list. The toolbar, the link dialog and table editing look different: table rows and columns are added and deleted with toolbar buttons instead of a context menu. Every toolbar feature of 6.x is kept.
+
+See the [cells README](../cells/README.md#note-on-articlecell) for the full list of Save normalizations, and [Article content security](../cells/README.md#article-content-security) for what's allowed and the limitations.
+
 ---
 
 The sections below are the historical Glide Data Grid release notes, kept verbatim.

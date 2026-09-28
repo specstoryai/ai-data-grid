@@ -14,7 +14,6 @@ import type { RangeCell } from "./cells/range-cell.js";
 import type { SpinnerCell } from "./cells/spinner-cell.js";
 import { useResizeDetector } from "react-resize-detector";
 
-import "@toast-ui/editor/dist/toastui-editor.css";
 import "@specstory/ai-data-grid/dist/index.css";
 import type { DatePickerCell } from "./cells/date-picker-cell.js";
 import type { LinksCell } from "./cells/links-cell.js";

@@ -1,0 +1,279 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`L: guards > L01 the schema: nodes, marks, attributes and parse rules (snapshot) 1`] = `
+{
+  "marks": {
+    "emphasis": {
+      "attrs": [
+        "marker",
+      ],
+      "parseDOM": [
+        "i",
+        "em",
+        "style=font-style",
+      ],
+    },
+    "inlineCode": {
+      "attrs": [],
+      "code": true,
+      "parseDOM": [
+        "code",
+      ],
+    },
+    "link": {
+      "attrs": [
+        "href",
+        "title",
+      ],
+      "parseDOM": [
+        "a[href]",
+      ],
+    },
+    "strike_through": {
+      "attrs": [],
+      "parseDOM": [
+        "del",
+        "style=text-decoration",
+      ],
+    },
+    "strong": {
+      "attrs": [
+        "marker",
+      ],
+      "parseDOM": [
+        "b",
+        "strong",
+        "style=font-style",
+        "style=font-weight=400",
+        "style=font-weight",
+      ],
+    },
+  },
+  "nodes": {
+    "blockquote": {
+      "attrs": [],
+      "parseDOM": [
+        "blockquote",
+      ],
+    },
+    "bullet_list": {
+      "attrs": [
+        "spread",
+      ],
+      "parseDOM": [
+        "ul",
+      ],
+    },
+    "code_block": {
+      "attrs": [
+        "language",
+      ],
+      "code": true,
+      "parseDOM": [
+        "pre",
+      ],
+    },
+    "doc": {
+      "attrs": [],
+      "parseDOM": [],
+    },
+    "footnote_definition": {
+      "attrs": [
+        "label",
+      ],
+      "parseDOM": [
+        "dl[data-type=\\"footnote_definition\\"]",
+      ],
+    },
+    "footnote_reference": {
+      "attrs": [
+        "label",
+      ],
+      "parseDOM": [
+        "sup[data-type=\\"footnote_reference\\"]",
+      ],
+    },
+    "hardbreak": {
+      "attrs": [
+        "isInline",
+      ],
+      "parseDOM": [
+        "br",
+        "span[data-type=\\"hardbreak\\"]",
+      ],
+    },
+    "heading": {
+      "attrs": [
+        "id",
+        "level",
+      ],
+      "parseDOM": [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+      ],
+    },
+    "hr": {
+      "attrs": [],
+      "parseDOM": [
+        "hr",
+      ],
+    },
+    "html": {
+      "attrs": [
+        "value",
+      ],
+      "parseDOM": [],
+    },
+    "image": {
+      "attrs": [
+        "alt",
+        "src",
+        "title",
+      ],
+      "parseDOM": [
+        "img[src]",
+      ],
+    },
+    "list_item": {
+      "attrs": [
+        "checked",
+        "label",
+        "listType",
+        "spread",
+      ],
+      "parseDOM": [
+        "li[data-item-type=\\"task\\"]",
+        "li",
+      ],
+    },
+    "ordered_list": {
+      "attrs": [
+        "order",
+        "spread",
+      ],
+      "parseDOM": [
+        "ol",
+      ],
+    },
+    "paragraph": {
+      "attrs": [],
+      "parseDOM": [
+        "p",
+      ],
+    },
+    "table": {
+      "attrs": [],
+      "parseDOM": [
+        "table",
+      ],
+    },
+    "table_cell": {
+      "attrs": [
+        "alignment",
+        "colspan",
+        "colwidth",
+        "rowspan",
+      ],
+      "parseDOM": [
+        "td",
+      ],
+    },
+    "table_header": {
+      "attrs": [
+        "alignment",
+        "colspan",
+        "colwidth",
+        "rowspan",
+      ],
+      "parseDOM": [
+        "th",
+      ],
+    },
+    "table_header_row": {
+      "attrs": [],
+      "parseDOM": [
+        "tr[data-is-header]",
+        "tr",
+      ],
+    },
+    "table_row": {
+      "attrs": [],
+      "parseDOM": [
+        "tr",
+      ],
+    },
+    "text": {
+      "attrs": [],
+      "parseDOM": [],
+    },
+  },
+}
+`;
+
+exports[`L: guards > L02 no node views, and the plugins that see paste, drop or DOM events (snapshot) 1`] = `
+{
+  "plugins": [
+    {
+      "key": "MILKDOWN_INLINE_NODES_CURSOR",
+      "props": [
+        "handleDOMEvents(beforeinput,compositionend,compositionstart)",
+      ],
+    },
+    {
+      "key": "safari-ime-span",
+      "props": [
+        "handleDOMEvents(compositionend,compositionstart)",
+      ],
+    },
+    {
+      "key": "selectingCells",
+      "props": [
+        "handleDOMEvents(mousedown)",
+        "handleKeyDown",
+        "handlePaste",
+        "handleTripleClick",
+      ],
+    },
+    {
+      "key": "history",
+      "props": [
+        "handleDOMEvents(beforeinput)",
+      ],
+    },
+    {
+      "key": "ARTICLE_TASK_CHECKBOX",
+      "props": [
+        "handleDOMEvents(mousedown)",
+      ],
+    },
+    {
+      "key": "MILKDOWN_CUSTOM_INPUTRULES",
+      "props": [
+        "handleDOMEvents(compositionend,keydown)",
+        "handleKeyDown",
+        "handleTextInput",
+      ],
+    },
+    {
+      "key": "(no key)",
+      "props": [
+        "handleKeyDown",
+      ],
+    },
+  ],
+  "view": [
+    "handleDrop",
+    "handlePaste",
+    "markViews",
+    "nodeViews",
+    "transformPasted",
+    "transformPastedHTML",
+  ],
+  "viewMarkViews": [],
+  "viewNodeViews": [],
+}
+`;

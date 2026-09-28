@@ -1,7 +1,7 @@
 # AS-BUILT: AI Data Grid
 
-**Last updated:** 2026-09-26 (SPST-33: AI Fill WP-AI5, PR #20 at `f0942356` (the merge of WP-AI4's verified head `6f86c3e1`, with the applied-count fix, the confirm dialog's re-plan and WP-AI2's `/server` fix) plus this docs commit)
-**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), the AI Fill foundation in core (WP-AI1, SPST-19 / PR #16, not merged), AI Fill's execution layer with the `/server` and `/testing` subpaths (WP-AI2, SPST-23 / PR #17, stacked on PR #16, not merged), AI Fill's grid integration: the `aiFill` prop, rendering, fill, commit and undo (WP-AI3, SPST-26 / PR #18, stacked on PR #17, not merged), AI Fill's built-in UI: menus, confirm dialog, status bar, inspector and keyboard (WP-AI4, SPST-29 / PR #19, stacked on PR #18, not merged), and AI Fill's Storybook stories, docs site guide and live validation (WP-AI5, SPST-32 / PR #20, stacked on PR #19 at `6f86c3e1`, not merged).
+**Last updated:** 2026-09-28 (SPST-63: the docs for SPST-61, PR #23 at the Implementor's head `1fc240d2` plus this docs commit)
+**Covers:** the rebranded library packages, license and attribution files, toolchain, CI and Storybook (work package WP1, PR #12), React 19 only with the `test-projects/` sample apps (WP2, PR #14), Storybook hosting on Vercel (WP3, PR #13), the documentation site in `docs/` (WP4, SPST-3 / PR #11), AI Fill in core (WP-AI1 to WP-AI5, SPST-19, 23, 26, 29 and 32 / PRs #16 to #20, merged 2026-09-27), the article sanitizer fix in cells (SPST-48 / PR #22, merged 2026-09-28), and ArticleCell's Milkdown editor, which replaces SPST-48's vendored Toast UI editor (SPST-61 / PR #23, not merged).
 
 For how to work on these parts, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -14,7 +14,7 @@ The root `package.json` (name `root`, version `7.0.0`) declares three npm worksp
 | Workspace | npm name | Depends on | Peer dependencies |
 | --- | --- | --- | --- |
 | `packages/core` | `@specstory/ai-data-grid` | `@linaria/react`, `canvas-hypertxt`, `react-number-format` | `react`, `react-dom` (`^19.0.0`), `lodash`, `marked`, `react-responsive-carousel` |
-| `packages/cells` | `@specstory/ai-data-grid-cells` | `@specstory/ai-data-grid` `7.0.0` (exact), `@linaria/react`, `@toast-ui/editor`, `@toast-ui/react-editor`, `react-select` | `react`, `react-dom` (same range) |
+| `packages/cells` | `@specstory/ai-data-grid-cells` | `@specstory/ai-data-grid` `7.0.0` (exact), `@linaria/react`, `dompurify` `^3.4.16`, six `@milkdown/*` packages at `~7.22.2` (`core`, `plugin-history`, `preset-commonmark`, `preset-gfm`, `prose`, `utils`), `react-select`. No `prosemirror-*` or `@toast-ui/*` package (see [Article editor and sanitizer](#article-editor-and-sanitizer)). | `react`, `react-dom` (same range) |
 | `packages/source` | `@specstory/ai-data-grid-source` | `@specstory/ai-data-grid` `7.0.0` (exact) | `react`, `react-dom` (same range), `lodash` |
 
 None of them is published to npm yet.
@@ -28,16 +28,18 @@ None of them is published to npm yet.
 3. The tmp directories replace `dist/esm`, `dist/cjs` and `dist/dts` (the esm run moves `dts-tmp`), and the `tsconfig.*.tsbuildinfo` files are deleted.
 4. `generate_index_css` writes `dist/index.css`, which `@import`s every extracted `.css` file.
 
+Cells' `build.sh` does nothing else: since SPST-61 it copies no files (SPST-48's `copy_vendor` step is gone). Cells' three tsconfigs set `module: "ESNext"` and `moduleResolution: "Bundler"` (core and source use `Node16`), because Milkdown's `.d.ts` files use extensionless relative re-exports that `Node16` resolution can't follow. The emitted JavaScript is the same ES modules; apart from the article editor's files, cells' `dist/esm`, `dist/cjs` and `dist/dts` were byte-identical to `main`'s (the Implementor's comparison for PR #23).
+
 **source.** `packages/source/build.sh` doesn't use `compile`. It runs `rm -rf dist`, then `tsc -p tsconfig.esm.json` and `tsc -p tsconfig.cjs.json` in parallel, straight into `dist/esm` and `dist/cjs`. Both configs set `declarationDir` to `dist/dts`, so both runs write declarations there. There is no tmp directory, no `wyw-in-js` step and no CSS. The output is `dist/esm`, `dist/cjs`, `dist/dts` and the two `tsconfig.*.tsbuildinfo` files, which are left in `dist/`.
 
-Because the JS doesn't import any CSS, consumers must import it themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles. `source` has no `dist/index.css` and needs no CSS import. Entry points, the same in all three packages: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`. Since WP-AI2, core's `exports` also has `./server` and `./testing` (see [Entry points](#entry-points-server-and-testing)).
+Because the JS doesn't import any CSS, consumers must import it themselves: `@specstory/ai-data-grid/dist/index.css` for core (also exported as `./index.css`), and `@specstory/ai-data-grid-cells/dist/index.css` for the cells' editor styles, including ArticleCell's (its Linaria styles are extracted to `dist/esm/cells/article-editor/styles.css`, which `dist/index.css` imports). Cells' `exports` are exactly `.` and `./dist/index.css`; SPST-48's `./dist/toastui-editor.css` was removed in SPST-61. `source` has no `dist/index.css` and needs no CSS import. Entry points, the same in all three packages: `main` → `dist/cjs/index.js`, `module`/`browser` → `dist/esm/index.js`, `types` → `dist/dts/index.d.ts`, all mirrored in `exports`. Since WP-AI2, core's `exports` also has `./server` and `./testing` (see [Entry points](#entry-points-server-and-testing)).
 
 ### What ships in each tarball (`npm pack --dry-run`)
 
 | Package | `files` | Contents |
 | --- | --- | --- |
 | core | not set (`.npmignore` excludes only `tsconfig*` and `coverage/*`) | 1,105 files at PR #20 (1,029 at PR #18, 978 at PR #17, 862 at PR #16, 768 before AI Fill): `dist/`, plus `src/` (stories and docs included), `test/`, `API.md`, `CHANGELOG.md`, `build.sh`, ESLint and vitest config, `LICENSE`, `README.md` |
-| cells | `["dist"]` | 120 files: `dist/`, `LICENSE`, `README.md`, `package.json` |
+| cells | `["dist"]` | 162 files at PR #23 (124 at PR #22, 120 before it): `dist/`, `LICENSE`, `README.md`, `package.json`. SPST-61 removed `dist/toastui-editor.css` and `dist/vendor/`, and added the article editor's modules and `styles.css`. |
 | source | `["dist"]` | 41 files: `dist/` (including two `tsconfig.*.tsbuildinfo` files), `LICENSE`, `README.md`, `package.json` |
 
 This is unchanged from upstream apart from the names.
@@ -68,7 +70,7 @@ Since WP-AI1, core's list is `upstreamExports` (the 151 names) plus `aiFillExpor
 ## License and attribution
 
 - Four `LICENSE` files (root, `packages/core`, `packages/cells`, `packages/source`) keep the MIT text and `Copyright (c) 2021 typeguard, Inc.`, with `Copyright (c) 2026 ai-data-grid contributors` on the next line. `npm pack --dry-run` lists `LICENSE` in all three packages.
-- `THIRD_PARTY_NOTICES.md` lists Glide Data Grid (full MIT text), the `dequal` port by Luke Edwards (`packages/core/src/common/support.ts`) and the `use-callback-ref` pattern by Anton Korzunov (`packages/core/src/data-editor/use-initial-scroll-offset.ts`). The in-code attribution comments stay at both sites.
+- `THIRD_PARTY_NOTICES.md` lists Glide Data Grid (full MIT text), the `dequal` port by Luke Edwards (`packages/core/src/common/support.ts`) and the `use-callback-ref` pattern by Anton Korzunov (`packages/core/src/data-editor/use-initial-scroll-offset.ts`). The in-code attribution comments stay at both sites. SPST-48 added a Toast UI Editor section for the vendored editor; SPST-61 removed it with the editor, so the file is back to its pre-SPST-48 text. Milkdown, ProseMirror, remark and DOMPurify are ordinary npm dependencies, not copied or bundled into the tarball, so they need no entries.
 - The READMEs carry "Forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed." The only other uses of the old names in the READMEs are the 6.x → 7.0.0 migration tables and the root README's note that the docs site is converted from the Glide Data Grid GitBook docs.
 
 ## Toolchain and lockfile
@@ -116,18 +118,119 @@ These apply to this repository's install only; they don't reach the published pa
 
 The root `.npmrc` keeps `legacy-peer-deps=true`.
 
-### `@toast-ui/react-editor` (cells article editor)
+### The article editor and React 19 (history)
 
-Kept. It declares a `react ^17.0.1` peer and is unmaintained, but the article cell editor works under React 19: `scripts/check-article-cell-editor.mjs` opens it in the Storybook custom-cells story, types, saves, reopens and cancels with no console errors (5 of 5 runs during WP2; 1 run on 2026-09-25 during SPST-13).
+Until SPST-48, cells used `@toast-ui/react-editor` 3.2.3, which declares a `react ^17.0.1` peer. It worked under React 19 (checked headless during WP2 and SPST-13), but npm printed `npm warn ERESOLVE overriding peer dependency` when installing `-cells`, and `--strict-peer-deps` installs failed; the cells README documented an `overrides` workaround. SPST-48 replaced it with an in-repo wrapper, so the warning and the workaround are gone. SPST-61 rewrote that wrapper for Milkdown, which has no React peer (see below).
 
-Install impact for users, measured with npm 11.19 on 2026-09-25 by installing the packed tarballs next to `react@19` / `react-dom@19` in an empty app with no `.npmrc`:
+## Article editor and sanitizer
 
-- default npm: exit 0, with `npm warn ERESOLVE overriding peer dependency` for `@toast-ui/react-editor@3.2.3`; one `react` (19.x) is installed. `npm ci` from the resulting lockfile also succeeds with the warning.
-- `--strict-peer-deps`: fails with `npm error code ERESOLVE`.
-- an app-level `overrides` entry `"@toast-ui/react-editor": { "react": "$react", "react-dom": "$react-dom" }`: no warning, and `--strict-peer-deps` passes. This is the workaround in the cells README.
-- `legacy-peer-deps=true`: no warning, but npm no longer auto-installs peers (`lodash`, `marked`, `react-responsive-carousel` were missing).
+ArticleCell (cells) draws the first line of its Markdown on the canvas, with no DOM and no sanitizer. Its overlay editor (`src/cells/article-cell-editor.tsx`, loaded with `React.lazy` by `article-cell.tsx`) is a Milkdown 7.22 editor since SPST-61; the read-only viewer is the same editor with `editable: () => false`. `article-cell.tsx`, `article-cell-types.ts` and cells' 27 exports are unchanged. The design is the SPST-62 plan with the Orchestrator's amendments A1–A6.
 
-If a future React breaks it, the fallback is a small wrapper around `@toast-ui/editor`, which is already a cells dependency.
+Threat model (SPST-49's, unchanged): article Markdown and clipboard or drop content are untrusted (they can come from other users, imports or AI Fill). Nothing from them may execute or leave dangerous DOM in the viewer or the editor, no paste or drop is left to the browser's native insertion, and nothing pasted or dropped can put raw HTML into the stored Markdown.
+
+### Engine and dependencies
+
+- Milkdown's headless packages, all `~7.22.2` and released in lockstep: `@milkdown/core`, `preset-commonmark`, `preset-gfm`, `plugin-history`, `prose` and `utils`. Underneath, ProseMirror does the editing and remark (micromark, mdast) parses and serializes Markdown. `@milkdown/ctx`, `transformer` and `exception` come in through `core` and aren't declared, because `src/` doesn't import them.
+- ProseMirror is imported only as `@milkdown/prose/*`, so there's one ProseMirror, the one Milkdown resolves. The eight `prosemirror-*` dependencies, `@toast-ui/editor` and `@types/prosemirror-commands` were removed from cells.
+- No other Milkdown plugin is used (no clipboard, upload, slash, block, tooltip or listener plugin), and neither `@milkdown/kit` nor Crepe. There are no node views.
+- `dompurify` `^3.4.16` stays, as SPST-48 set it, for D1 and D3.
+- Milkdown has no React peer, so the strict-peer consumer installs with no `ERESOLVE` and one React.
+
+### Layout
+
+| File | Contents |
+| --- | --- |
+| `src/cells/article-cell-editor.tsx` | The wrapper (below). |
+| `src/cells/article-editor/create-article-editor.ts` | `createArticleEditor({ root, markdown, readonly, onUpdate })` → `{ view, serialize(), run(), can(), destroy() }`. It configures `editorViewOptionsCtx` with the D3/D4 props, `editable` and the `gdg-article-content` class on the ProseMirror element, uses the presets, history, the D2 schemas and the task-list plugin, and installs D5 on `root` after creation. |
+| `…/article-editor/url-policy.ts` | The private DOMPurify instance (`DOMPurify()`), D1 `safeArticleURL` and D3 `sanitizePastedHTML`. |
+| `…/article-editor/schema.ts` | D2. |
+| `…/article-editor/clipboard.ts` | D4 (`articleClipboardProps`) and D5 (`installPasteDropBackstop`). |
+| `…/article-editor/task-list.ts` | `toggleTaskListCommand`, and a plugin whose `handleDOMEvents.mousedown` toggles a task's `checked` when the click lands on the checkbox area. |
+| `…/article-editor/toolbar.tsx` | The toolbar, the heading menu, the link dialog and the table buttons. |
+| `…/article-editor/styles.ts` | Linaria styles (below). |
+
+### Raw HTML isn't interpreted
+
+Inline HTML (each tag), block HTML and HTML comments in the Markdown become Milkdown `html` atom nodes. They render their source as text (a `span[data-type="html"]`, muted monospace) in the viewer and the editor, and serialize byte for byte. They never reach an HTML parser, live or inert, so no sanitizer is involved. Jake accepted this on 2026-09-28 (plan §13 item 1a, amendment A5); the alternative, a sanitized viewer-only rendering, was rejected. Markdown constructs (links, images, footnotes, code info strings) are parsed by micromark into schema nodes whose attributes are set through DOM APIs, never HTML strings; URLs go through D1.
+
+### Defenses
+
+| ID | Defense | Covers |
+| --- | --- | --- |
+| D1 | **URL policy.** `safeArticleURL(tag, attr, value)` returns the value only if the private instance's `isValidAttribute(tag, attr, value)` accepts it, otherwise `""`. `https:`, `http:`, `mailto:`, `tel:` and relative URLs pass, `data:` only on `img[src]`; `javascript:`, `vbscript:` and obfuscated forms don't. It fails closed: if `isSupported` is false, every URL is rejected. The model keeps the stored URL, so an unchanged Save still returns the stored Markdown. | Every rendered or parsed link `href` and image `src`, and the link dialog. |
+| D2 | **Schema overrides** through `extendSchema`, registered after the presets. The image's `toDOM` and parse rules apply D1 to `src`, and its Markdown runner maps a missing title or alt to `""` (without it Milkdown 7.22.2 throws on `![a](u)` and the image is lost). The link's `toDOM` and parse rules apply D1 to `href`, independently of Milkdown's own `sanitizeLinkHref`. The raw-HTML node has **no parse rule**. Headings render without the `id` Milkdown derives from their text (DOM clobbering). A code block's language parsed from HTML is kept only if it matches `^[\w#+.-]*$`; a language from the Markdown is untouched. | Rendering and copying (ProseMirror's clipboard serializer uses `toDOM`), and HTML parsing for paste, drop and ProseMirror's DOM observer (native mutations). |
+| D3 | **Paste and drop HTML sanitizer.** `transformPastedHTML` runs clipboard and drop HTML through the private instance with `FORBID_ATTR: ["data-type", "data-value"]` (how Milkdown's DOM marks raw-HTML, footnote and hard-break nodes) and `FORBID_TAGS: ["style"]` (ProseMirror copies a pasted stylesheet's rules onto the elements). Configuration is per call; nothing calls `setConfig` on the instance. If `isSupported` is false it returns `""`, so the paste falls back to plain text. | Every HTML paste and drop that ProseMirror parses. Defense in depth: ProseMirror already parses in a detached document. |
+| D4 | **ProseMirror handlers** (`handlePaste`, `handleDrop`). **A1:** a paste or an external drop into a node whose type has `spec.code` inserts only the `text/plain` flavor (`\r\n` normalized), or nothing if there is none, and is prevented; an HTML-only clipboard therefore adds nothing. An image **file** becomes a `data:image/…` image (through D1, alt = file name); any other file is ignored and prevented. An empty parsed slice inserts the plain-text flavor as paragraphs instead of falling back to ProseMirror's native `capturePaste` (this is also where a paste lands when D3 fails closed). Internal drag-moves (`view.dragging`) stay ProseMirror's. | Code-block paste and drop (P6), empty, files-only and unknown-type pastes, image-file paste and drop. |
+| D5 | **Backstop listeners** for `paste` and `drop`, bubble phase, on the editor's frame (the element that contains the ProseMirror element), added after creation and removed on destroy, in the viewer too. They call `preventDefault()` on any event not yet prevented. **A2:** they aren't on an ancestor of the toolbar popovers, so the link dialog's `<input>`s accept an ordinary paste. | Anything ProseMirror leaves to the browser: a paste during composition, a drop it can't place, an event on the frame outside the ProseMirror element. |
+
+The wrapper never uses `innerHTML`, `dangerouslySetInnerHTML` or `insertAdjacentHTML`.
+
+### Entry points
+
+| Path | Handled by | Defenses |
+| --- | --- | --- |
+| Opening a cell (viewer or editor) | micromark → mdast → schema nodes → `toDOM` | D1, D2; raw HTML stays text |
+| HTML paste into text (paragraph, list, table, heading) | D3 → ProseMirror parse in a detached document → schema | D3, D2, D1 |
+| Paste into a code block | D4 inserts `text/plain` only, or nothing | D4 (A1), D5 |
+| Empty, files-only or unknown-type paste | consumed by D4 | D4, D5 |
+| Paste during IME composition | left unhandled by ProseMirror | D5 |
+| Drop of HTML, text or a file on text | same parse as a paste | D3, D4, D5 |
+| Drop on a code block | D4 inserts `text/plain` only, or nothing | D4 (A1), D5 |
+| Drag-moving a selection within the editor | ProseMirror moves the slice | unchanged |
+| Native DOM mutations (autocorrect, extensions) | ProseMirror's DOM observer applies the parse rules | D2 |
+| Link dialog | `safeArticleURL` before the command runs | D1 |
+| Pasting into the link dialog's inputs | the browser (plain-text `<input>`), outside D5's frame | A2 |
+| Copying from the editor | ProseMirror serializes with `toDOM` | D1, D2 |
+
+A library update can't silently bypass these: every defense is our code on public Milkdown and ProseMirror APIs, and the guards below fail when one changes. L01 snapshots the schema and its parse rules' tags and styles, and runs D2's guarded parse rules (image URL, link URL, code-block language) and the raw-HTML exclusion directly; L02 snapshots the node views and event-handling plugins; F25 and F26 snapshot the serializer output and the viewer's DOM.
+
+### Wrapper and toolbar
+
+`article-cell-editor.tsx` keeps the default export (`ProvideEditorComponent<ArticleCell>`) and the DOM contract: `#gdg-markdown-wysiwyg`, `#gdg-markdown-readonly`, `.gdg-footer`, `.gdg-save-button`, `.gdg-close-button`, the `onKeyDown` `stopPropagation`, the read-only padding, and a `75vh` height, with the toolbar fixed above a scrolling content frame (`.gdg-article-frame`).
+
+- **Lifecycle.** A `useEffect` appends a fresh element to the frame and calls `createArticleEditor`, which is async: if the effect is cleaned up before it resolves, the result is destroyed as soon as it arrives. Cleanup destroys the editor and removes the element, so StrictMode's double mount leaves one editor. The editable editor takes focus once created.
+- **Save.** Right after creation the wrapper records `serialize()` as a baseline. If the document still serializes to it, Save returns `p.value.data.markdown` byte for byte; otherwise it returns `{ ...p.value, data: { ...p.value.data, markdown: serialize() } }`. **Close** calls `onFinishedEditing(undefined)`.
+- **Creation failure.** If `createArticleEditor` rejects (for example a Milkdown parse error), the cell shows the stored Markdown as React-escaped plain text in `pre.gdg-article-fallback`, and Save returns the stored Markdown unchanged.
+- **Read-only.** No toolbar and no footer; D5 is installed.
+- **Toolbar.** Five groups as before: headings (a menu with paragraph and H1–H6), bold, italic, strike | rule, quote | bullet, ordered and task list, indent, outdent | table, link | inline code, code block. Each button has `aria-label`, `title`, `type="button"` and an active or disabled state from the editor state, and `mousedown` is prevented so the editor keeps its selection. Commands are the presets' (`wrapInHeadingCommand`, `turnIntoTextCommand`, `toggleStrongCommand`, `toggleEmphasisCommand`, `toggleStrikethroughCommand`, `wrapInBlockquoteCommand`, `wrapInBulletListCommand`, `wrapInOrderedListCommand`, `sinkListItemCommand`, `liftListItemCommand`, `insertTableCommand`, `toggleLinkCommand`, `updateLinkCommand`, `toggleInlineCodeCommand`, `createCodeBlockCommand`), with these of our own:
+  - the rule button runs our `insertRule`, which inserts the rule after the current block and moves the caret to the next block (Milkdown's `insertHrCommand` left an empty paragraph that saves as `<br />`);
+  - the task button runs `toggleTaskListCommand` (items become tasks or plain items again; outside a list it wraps the selection in a bullet list of open tasks);
+  - inside a table, buttons add a row or a column (`addRowAfterCommand`, `addColAfterCommand`) and delete the row, column or table with prosemirror-tables' `deleteRow`, `deleteColumn` and `deleteTable` (through `@milkdown/prose/tables`), which work with a caret in a cell; there's no context menu.
+- **Link dialog.** URL (and text when the selection is empty), Apply, Cancel and Remove. Apply rejects a URL that D1 rejects with an inline error.
+- **Popovers** (the heading menu, the link dialog) render inside the wrapper, not in a portal, so the grid's overlay doesn't treat clicks on them as clicks outside.
+- The presets' keyboard shortcuts and history's undo and redo work as in Milkdown.
+
+### Styles
+
+`styles.ts` holds Linaria styles scoped under the wrapper; there are no global `.ProseMirror` rules. They cover ProseMirror's base rules, every node's typography, task checkboxes (a CSS `::before` box on `li[data-item-type="task"]`), the raw-HTML atom, footnotes, the toolbar and popovers, using `--gdg-*` variables. The build extracts them to `dist/esm/cells/article-editor/styles.css`, which `dist/index.css` imports, so apps have one CSS import (see [Build outputs](#build-outputs)). No `gdg-` class or variable was renamed.
+
+### Markdown fidelity
+
+- **Unchanged save** returns the stored bytes (the baseline above).
+- **Edited save** returns remark's GFM for the whole document. It keeps the meaning of every case in the fidelity corpus and is idempotent, with these normalizations: tables padded and alignment rows `:-`, `:-:`, `-:`; bullets written with `*`, except that a bullet list directly after another bullet list alternates between `*` and `-` (remark's `bulletOther`, so adjacent lists stay separate; F06), `---` and `___` rules `***`; setext headings become ATX; indented and `~~~` code blocks become backtick fences; reference links become inline links and bare URLs `<url>`; two-space hard breaks become `\`; named entities become characters; a trailing newline is added. Raw HTML, HTML comments and `$$…$$` blocks round-trip byte for byte.
+- **Compared with the Toast UI viewer** (plan §4.3; Jake accepted these on 2026-09-28, amendment A6): every toolbar feature renders equivalently; raw HTML and comments show as source (above); reference links, bare URLs, single-tilde strike and footnotes now render; `$$…$$` blocks render as ordinary paragraphs, not a custom widget (no custom renderer was ever configured); `javascript:` links and images render with an empty URL, as before; a pasted Office list keeps its text and paragraphs but isn't converted into a list (that was Toast UI's own `mso-list` code; support is ticketed as SPST-66); and the toolbar, link dialog and table editing look and work differently.
+
+### DOMPurify range and deduplication
+
+- `dompurify` `^3.4.16` is a cells dependency. On 2026-09-28, 3.4.13 was the highest first-patched version of any 3.x advisory, and 3.4.16 was `latest` and tested, so it's the floor (SPST-48).
+- It's used only through the private instance in `url-policy.ts`, so an app's `setConfig` or `addHook` on the default instance can't weaken D1 or D3, even when the module is shared.
+- In a consumer, npm hoists one copy if the app's own range overlaps; otherwise it nests one under `@specstory/ai-data-grid-cells/node_modules`, and bundlers resolve the editor's import from there. Only an app-level `overrides` entry can force a lower version, which isn't supported.
+- `npm audit` sees `dompurify` and Milkdown's tree; nothing is vendored any more.
+
+### Tests
+
+All run in jsdom 26 against the real Milkdown and the real DOMPurify; the only mock is a pass-through `vi.mock("dompurify", importOriginal)` that records instances. `test/article-cell-harness.tsx` holds the shared mount, paste, drop, layout-shim and HTML-sink-spy helpers. The payloads (`test/fixtures/article-sanitizer-payloads.mjs`, shared with the browser check) and the benign corpus (`test/fixtures/article-markdown-corpus.mjs`) are synthetic and don't ship.
+
+- `test/article-cell-sanitizer.test.tsx`, 129 tests: R01–R25 through the viewer and the editor's initial load (50); P01–P13 pasted, P10 dropped, with P13 also checking that the saved code fence has no language (13); D01 (12 drops onto a paragraph) and D13–D17, including an image-file drop, a `text/plain` drop, a drop onto a code block, a drop D5 must prevent and A1's HTML-only drop onto a code block (17); C01 (12 pastes into a code block) and C13–C15, including a no-flavor paste, a paste D5 must prevent and A1's HTML-only paste (15); S01–S10, S11 (15, one per toolbar feature) and S12–S16, safe content and behavior (30); I01–I04, the private instance, isolation from the app's `setConfig`/`addHook`, a prototype-pollution case and failing closed (4).
+- `test/article-cell-fidelity.test.tsx`, 26 tests: F01–F24, one per corpus document (unchanged Save returns the input bytes, serialize∘parse is idempotent, no text is lost), F25 (snapshot of the edited-save output) and F26 (snapshot of the viewer DOM).
+- `test/article-cell-guards.test.ts`, 5 tests: L01 schema lock (a snapshot of nodes, marks, attributes and the parse rules' tags and styles, plus assertions that `html` has no parse rule and that D2's image, link and code-block parse rules, run directly on HTML that hasn't been through D3, clear unsafe values and keep safe ones); L02 node views (none) and the plugins with paste, drop, clipboard or DOM-event props; L03 no markup reaches a live-document HTML sink across the R, P, D and C corpus; L04 no `@toast-ui` in cells' manifest, `src/` or the lockfile, every bare import declared, no `prosemirror-*`, every declared `@milkdown/*` imported and on one `~7.x.y` range, a `dompurify` floor of `^3.4.16`, and exports exactly `.` and `./dist/index.css`; L05 the D1 URL table.
+- Cells went from 142 to **225** (142 − 74 for the old sanitizer file − 3 for the vendor test + 129 + 26 + 5). Core (863), source (9) and every export snapshot are unchanged.
+- With A1's code-block handling disabled, exactly C15 and D17 fail; with D5 disabled, exactly C14 and D16 fail (the Implementor's self-check at PR #23).
+- The browser checks (Chromium, Firefox and WebKit) are described under [Check scripts](#check-scripts).
+
+### The vendored Toast UI editor (history)
+
+From SPST-48 (PR #22, merged 2026-09-28 as `4be24f85`) until SPST-61, cells ran a reproducibly generated, patched copy of Toast UI Editor 3.2.2's ESM build (`packages/cells/vendor/toast-ui/`, from `scripts/vendor-toast-ui.mjs`) with patches P1–P5, which replaced its embedded DOMPurify 2.3.3 with a private `dompurify` 3 instance and hardened paste, drop and URL rendering, and shipped its CSS as `dist/toastui-editor.css`. SPST-61 removed the vendored files, the generator, the vendor test, `build.sh`'s copy step and the CSS export. See the decision log for both.
 
 ## Sample apps (`test-projects/`)
 
@@ -156,10 +259,17 @@ On 2026-09-25 (SPST-13) a run took 14 s with a warm npm cache and left about 400
 
 ### Check scripts
 
-Both need Playwright's Chromium and aren't in CI.
+They need Playwright's Chromium (the article sanitizer check also Firefox and WebKit) and aren't in CI.
 
 - `scripts/check-test-project.mjs <base-url> <sample-node_modules-dir>` scans the given `node_modules` (including nested and scoped `node_modules`) for `react` packages, then loads the URL in headless Chromium, waits for a `<canvas>` (30 s) and 2 s more. It fails if there's no canvas, any console or page error, or the `react` copies don't share exactly one version. Missing arguments print the usage and exit 2.
-- `scripts/check-article-cell-editor.mjs [url]` defaults to `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`. It double-clicks the article cell at fixed canvas coordinates (the Article column, index 8, at x = 1250 + 75 px; row 1, at y = 36 + 34 + 17 px), retrying up to 3 times, then types, saves, reopens and cancels. Console errors fail it, except `Failed to load resource` 404s (the story's image cell with an undefined URL).
+- `scripts/check-article-cell-editor.mjs [url]` defaults to `http://localhost:9009/iframe.html?id=extra-packages-cells--custom-cells`. It double-clicks the article cell at fixed canvas coordinates (the Article column, index 8, at x = 1250 + 75 px; row *r* at y = 36 + 34 *r* + 17 px), retrying up to 3 times. On row 1 it clicks `.gdg-article-content`, presses Ctrl+End and Enter, types a line, types `Bold text` between two clicks on the toolbar's `[aria-label="Bold"]` button, and saves; it fails unless the story's `Edit Cell` log (`onCellEdited`) carries a `data.markdown` containing the typed line and `**Bold text**`. It reopens and cancels, and fails unless there was exactly one edit. On row 0, a read-only article, it fails unless `#gdg-markdown-readonly .gdg-article-content` shows the article's text and there's no `.gdg-article-toolbar`, `[contenteditable="true"]`, Save or Close button (the saved-value and read-only steps were added in SPST-48, the Bold step and the selectors in SPST-61). Console errors fail it, except `Failed to load resource` 404s (the story's image cell with an undefined URL).
+- `scripts/check-article-cell-sanitizer.mjs [--browser chromium|firefox|webkit|all] [consumer-node_modules]` (SPST-48, updated in SPST-61) runs in each browser given (default `all`; any other `--browser` value exits 2). The consumer defaults to `test-projects/vite-app/node_modules`, and the script exits 2 if that has no `@specstory/ai-data-grid-cells`. It bundles an in-memory page with esbuild that uses only the public `ArticleCell.provideEditor(cell).editor`, with React, the cells package and `dompurify` resolved from that consumer, and cells' CSS as a consumer loads it: `dist/index.css` with its `@import`s inlined by esbuild.
+  - **Rows.** For each fixture it runs the viewer, the editor's initial Markdown, a trusted keyboard paste (the page's copy handler puts the payload on the clipboard), a real drag and drop onto a paragraph and onto a code block, and a paste into a code block (P10, the drop case, isn't pasted), plus A1's HTML-only paste and drop onto a code block (the fixture's `htmlOnlyCodePayload`). In Chromium only, it also runs a "native drop": the payload dropped on a plain contenteditable, where Chromium applies its own drop sanitization, then inserted into the editor's DOM for ProseMirror's DOM observer (D2); other browsers don't sanitize that staging drop. That's 115 rows in Chromium and 102 in Firefox and WebKit.
+  - **Native column.** A bubble-phase `paste` and `drop` listener on `document` records whether the event arrived without `defaultPrevented`, meaning the browser's native insertion ran.
+  - **Failures.** A row fails if its `window.__xss` sentinel ran, the dangerous-DOM predicate finds anything, a paste or paragraph drop wasn't applied, Native is yes, or a code-block paste or drop changed anything but the code block's text by its plain-text flavor (the check compares the content's structure before and after; the HTML-only rows must change nothing). Save after typing must return the typed Markdown, dragging a selected word within the editor must move it, and pasting a URL into the link dialog's `.gdg-article-link-url` must fill it in (A2). Console and page errors other than failed resource or image loads fail it.
+  - **Legacy mode.** If the page has no `.gdg-article-content` (a cells build from before SPST-61), it uses Toast UI's selectors and `dist/toastui-editor.css` (or `@toast-ui/editor`'s CSS for an older tarball), skips the link-dialog step, and records the Native and code-block results without failing on them, for a before-and-after record.
+  - **Output.** A result table per browser (ID, case, path, applied, executed, dangerous DOM, Native, result), the bundle's sanitizer-related esbuild inputs, the `dompurify` version resolved from the cells package and bundled, the DOMPurify version literals in the bundle, the number of Toast UI modules in the bundle, and the CSS file used.
+  - **Result at PR #23** (the Implementor's run, reused here): on packed `vite-app` and `next-app` consumers, 0 failing rows, Native 0, and save, drag-move and link-dialog paste passing in all three engines; the same script in legacy mode on `main` `4be24f85` recorded 13 Native rows per engine, exactly the code-block pastes (P6).
 
 ## Storybook
 
@@ -558,7 +668,15 @@ The A7 figures came from a slightly different measurement than the test's (the t
 
 ## Known limitations and risks
 
-- **`@toast-ui/react-editor` is unmaintained and declares a `react ^17.0.1` peer.** npm warns on install of `-cells` (see [above](#toast-uireact-editor-cells-article-editor)). Fallback if React breaks it: a wrapper around `@toast-ui/editor`.
+- **Raw HTML in articles is shown as source, not rendered** (SPST-61, Jake's decision A5). Articles that used HTML for presentation (for example `<kbd>`, `<details>` or an HTML table) show the tags. The HTML is kept byte for byte, so nothing is lost.
+- **A pasted Office list isn't converted into a list.** It keeps its text and paragraphs; Toast UI's `mso-list` conversion is gone (SPST-61, Jake accepted it as A6). Support is the backlog ticket SPST-66.
+- **Milkdown has one main maintainer,** and 7.22.2 shipped the untitled-image crash that D2 works around. Mitigated by the `~` range, the L01, L02, F25 and F26 snapshots and defenses that live in our code; the next candidate engine, if needed, is Tiptap 3 with a Markdown layer we own (SPST-62 §2).
+- **A consumer `overrides` entry can force an older, vulnerable `dompurify`** on cells. That's documented as unsupported in the cells README. With an old DOMPurify, the ProseMirror schema still limits what a paste can create.
+- **Remote images still load** in articles (tracking pixels), as before SPST-61. Apps that need to block them use a CSP.
+- **Stored Markdown isn't rewritten.** A `javascript:` link already in an article's Markdown stays there; only its rendering is blocked (D1). Other renderers of the same Markdown must sanitize it.
+- **Save normalizes edited articles.** An edited article is saved as remark's GFM for the whole document (see [Markdown fidelity](#markdown-fidelity)), which can re-serialize parts that weren't touched without changing their meaning. Only an unchanged article is saved byte for byte.
+- **An app that uses Milkdown itself at another version gets a second copy** nested under cells. It works, but it's bigger.
+- **Cells' `dist/cjs` is ES module syntax** (as before), and the lazy editor imports ESM-only Milkdown; the editor it replaced was ESM-only too.
 - **The article-editor check aims by canvas coordinates.** A layout change to the custom-cells story breaks `scripts/check-article-cell-editor.mjs` until its coordinates are updated.
 - **`check-test-project.mjs` counts React versions, not copies.** Two copies of the same React version would pass.
 - **`@glideapps/ts-helper` is still a core devDependency** (with its dependencies `@glideapps/graphs` and `@glideapps/ts-necessities` in the lockfile). It's the external tool behind `cycle-check`, not shipped code.
@@ -684,6 +802,24 @@ The A7 figures came from a slightly different measurement than the test's (the t
 | 2026-09-26 | SPST-32 / PR #20 | The AI Fill guide is a hand-maintained docs site section (`ai-fill/`, `HAND_MAINTAINED_SECTIONS` in the importer), listed before About. | It has no GitBook source, and a re-import must neither overwrite nor unlist it. |
 | 2026-09-26 | SPST-32 / PR #20 | The live check ran once (2026-09-26 00:26 UTC): 4 calls, `jev-latest` answered by `jev-1.13.0`, answer shapes as documented. It is recorded in `live-validation.mdx` with the answers as returned and no key, accuracy or latency claim. SPST-16 has used 12 of 20 live calls. | Confirms the contract against the real API once, and keeps live calls separate from mocked tests and within the budget. |
 | 2026-09-26 | SPST-32 / PR #20, Orchestrator decision 2026-09-26 01:15 UTC | The applied-count bug (a "Fill and apply" run's summary counts auto-applied results as `suggested`) is documented as a known issue at PR #20's head, not fixed there; WP-AI4's fix round 2 (SPST-29) fixes it. | It's WP-AI3/WP-AI4 code, and WP-AI5 changes no product code. The docs stay true at each head. Closed when PR #20 merged WP-AI4's verified head `6f86c3e1`: the known-issue notes were removed from API.md, the guide and story 7, and story 7 now shows the applied count. |
+| 2026-09-28 | SPST-48, plan SPST-49 (option b), PR #22 | Fix ArticleCell's embedded DOMPurify 2.3.3 by vendoring a reproducibly generated, patched copy of Toast UI Editor 3.2.2's ESM build into cells (`vendor/toast-ui/`, from `scripts/vendor-toast-ui.mjs`), with patches P1–P4, and replace `@toast-ui/react-editor` with an in-repo wrapper. No new npm package. This supersedes the 2026-09-25 SPST-4 decision to keep `@toast-ui/react-editor`. | No Toast UI upgrade exists (archived). `customHTMLSanitizer` (option a) covers only the Viewer and the preview, and both 2.3.3 copies would still ship and run. Cells bundles nothing, so a root `overrides` or patch-package fix can't reach consumers. Replacing the editor (option c) means UI work and a Markdown-normalization decision, too much for a release blocker. Vendoring also fixed three Toast UI issues found in planning, and the wrapper removed the `react ^17` peer and the Save bug. |
+| 2026-09-28 | SPST-48, SPST-49 §1.4 and §2.2 | `dompurify` `^3.4.16` is an ordinary cells dependency, used through a private instance (`DOMPurify()`) that fails closed when unsupported. | 3.4.16 was `latest` and tested, above every 3.x advisory's fix (3.4.13). A plain semver dependency is visible to `npm audit` and updates through consumers' lockfiles. A private instance can't be weakened by an app's `setConfig` or hooks. DOMPurify 3 returns input unchanged when unsupported, so the guard throws instead. |
+| 2026-09-28 | SPST-48 / PR #22 (Implementor deviation 1) | P3 accepts a `data-raw-html` value only if it equals the element's own tag name and is in Toast UI's list, which includes `h1`–`h6`, `blockquote` and the table tags as well as the plan's inline and list tags. | Toast UI's `addRawHTMLAttributeToDOM` writes those tags too; leaving them out would rewrite raw-HTML headings and tables as Markdown on first save. Toast UI only ever writes the element's own name, so the equality check is stricter than a plain allowlist. |
+| 2026-09-28 | SPST-48, SPST-49 §2.1 | Ship Toast UI's CSS as `dist/toastui-editor.css` (export `./dist/toastui-editor.css`), outside `dist/esm`. Apps change `import "@toast-ui/editor/dist/toastui-editor.css"` to the new path. | Apps no longer install `@toast-ui/*`, so the CSS has to come from cells. Keeping it out of `dist/esm` stops `generate_index_css` from adding Toast UI's global `.ProseMirror` rules to `dist/index.css` for every cells user. No 7.0.0 is published, so the path change breaks nobody. |
+| 2026-09-28 | SPST-48 fix round 1 / PR #22 (`b071d59`), Orchestrator amendment to SPST-49 §2.2 | Add patch P5: Toast UI's `dropImage` plugin reports only a handled image drop, and a `drop` listener on the editor root prevents every drop still unprevented. The vendored file now differs from upstream only by P1–P5. The sanitizer browser check runs in Chromium, Firefox and WebKit. | Verification round 1 found that a real HTML drop ran script in Firefox (as on `main`): upstream's plugin claimed every drop but prevented only image files, so Firefox inserted the HTML natively before ProseMirror or P3 saw it. With P5 a drop is either parsed through P2 or prevented. Dragging within the editor works again as a side effect. |
+| 2026-09-28 | SPST-48 fix round 1, Orchestrator | A paste inside a code block or a custom block's inner editor keeps upstream's handling, without P2, for 7.0.0 and is documented as a known limitation, not patched. | The browser sanitizes the paste, ProseMirror keeps only the text, and the full corpus showed no script and no dangerous DOM in any of the three browsers. Closing it fully (P6) is a follow-up option. |
+| 2026-09-28 | SPST-61, Jake on SPST-48 (11:38 UTC) | Replace the vendored Toast UI editor before 7.0.0 and close P6 in the same change, as a release blocker. The Orchestrator folded P6 into SPST-61 instead of patching the vendored editor that SPST-61 removes. | We shouldn't own the security of an archived editor in a first public release, and P6 left code-block paste to the browser. |
+| 2026-09-28 | SPST-61, plan SPST-62 §2 / PR #23 | Use Milkdown 7.22's headless packages (`core`, `preset-commonmark`, `preset-gfm`, `plugin-history`, `prose`, `utils`) for both the editor and the viewer (the same editor with `editable: false`). Rejected: Tiptap 3 with `@tiptap/markdown`, ProseMirror with `prosemirror-markdown`, react-markdown as the viewer, `@milkdown/kit` and Crepe. This supersedes the SPST-48 decisions to vendor Toast UI and to keep `@toast-ui/react-editor`. | Fidelity decided it: remark kept the meaning of every case in the planning corpus, while `@tiptap/markdown` turned escaped text into headings and lists and lost table data on an ordinary edited save. One rendering path means one set of defenses to test. It has no React peer. `@milkdown/kit` and Crepe pull in UI we don't use. |
+| 2026-09-28 | SPST-61, plan SPST-62 §3.2, Jake (12:38 UTC, amendment A5) | Raw HTML inside article Markdown isn't interpreted: the viewer and the editor show it as source text, and Save keeps it byte for byte. Jake agreed ("1. agreed") and rejected the alternative, a sanitized viewer-only rendering. | It removes the raw-HTML attack surface (no HTML parser, so no mXSS), keeps stored content intact, and makes the viewer and the editor show the same thing. The alternative would add an HTML sink and a second rendering path. |
+| 2026-09-28 | SPST-61, plan SPST-62 §4.3, Jake (12:38 UTC, amendment A6) | Accept the other differences from Toast UI: an Office list paste keeps its text but doesn't become a list, `$$…$$` blocks are ordinary text instead of a custom widget, and the toolbar, link dialog and table editing look and work differently (table rows and columns through toolbar buttons). Jake agreed ("2. agreed") and asked for a backlog ticket for Office list support, SPST-66. | Every toolbar feature is kept, nothing is lost, and the differences are cosmetic or come from Toast UI's own code. |
+| 2026-09-28 | SPST-61, plan SPST-62 §3.3 and amendments A1 and A2 / PR #23 | The defenses D1–D5 live in cells' own code on public Milkdown and ProseMirror APIs: a DOMPurify-based URL policy, schema overrides (no raw-HTML parse rule), a private DOMPurify for paste and drop HTML, ProseMirror paste and drop handlers that give code blocks `text/plain` only, and backstop listeners on the editor's frame (not around the toolbar popovers). The guards L01–L05 and snapshots F25–F26 fail on any schema, handler, node-view or serializer change. | A library update can't silently bypass a defense we own, and a review is forced when the library changes. A1: ProseMirror parses an HTML-only paste into a code block as HTML, so D4 handles code blocks itself. A2: the link dialog's inputs must accept a pasted URL. |
+| 2026-09-28 | SPST-61 / PR #23 (Implementor deviation 2) | D2 also strips the text-derived `id` from headings, and keeps a code-block language parsed from HTML only if it looks like a language name. | Article text shouldn't create named `window` or `document` properties (DOM clobbering), and pasted HTML shouldn't carry quotes or handlers into a stored fence's info string. |
+| 2026-09-28 | SPST-61, plan SPST-62 §3.3 / PR #23 (deviation 5) | No node views. Code blocks and every other node render with `toDOM`; the task checkbox is a CSS box toggled by a `handleDOMEvents.mousedown` prop (not `handleClickOn`, which depends on layout). | Node views can stop events and hand a paste or drop to the browser, which is how P6 arose. |
+| 2026-09-28 | SPST-61 / PR #23 (deviations 3 and 4) | Our own `insertRule` for the rule button, and prosemirror-tables' `deleteRow`, `deleteColumn` and `deleteTable` for the table buttons, instead of Milkdown's `insertHrCommand` and `deleteSelectedCellsCommand`. | `insertHrCommand` left an empty paragraph that saves as `<br />`, and `deleteSelectedCellsCommand` only works on a cell selection, not a caret. |
+| 2026-09-28 | SPST-61 / PR #23 (deviation 6) | If the editor can't be created, the cell shows the stored Markdown as plain text, and Save returns it unchanged. | An editor failure mustn't show an empty article or save one. |
+| 2026-09-28 | SPST-61, plan SPST-62 §5.5 / PR #23 | Remove `dist/toastui-editor.css` and its export. The editor's Linaria styles, scoped under the wrapper, are part of `dist/index.css`; cells' exports are exactly `.` and `./dist/index.css`. This supersedes SPST-48's CSS decision. | One CSS import for every cells user, and no global `.ProseMirror` rules. No 7.0.0 has been published, so removing the path breaks nobody. |
+| 2026-09-28 | SPST-61, plan SPST-62 §2 and §5.2 / PR #23 (deviations 7 and 9) | Every `@milkdown/*` dependency is `~7.22.2`, all on one range, and only the packages `src/` imports are declared (not `@milkdown/ctx`). ProseMirror comes only through `@milkdown/prose`. L04 enforces all three. | Milkdown releases in lockstep. `~` lets patch fixes reach consumers while a minor version needs our review and a cells release. One ProseMirror avoids duplicate-instance bugs. |
+| 2026-09-28 | SPST-61 / PR #23 (deviation 1) | Cells' tsconfigs use `module: "ESNext"` and `moduleResolution: "Bundler"`. | Milkdown's `.d.ts` files use extensionless relative re-exports that `Node16` resolution can't follow. The emitted JavaScript of every other cells file is unchanged. |
 
 ## Open follow-ups
 
@@ -700,7 +836,8 @@ The A7 figures came from a slightly different measurement than the test's (the t
 - Replace `@glideapps/ts-helper` for `cycle-check`.
 - Decide whether the core tarball should get a `files` field, and fix or delete `.devcontainer/`.
 - First npm publish under `@specstory` (needs Jake's approval).
-- `@toast-ui/react-editor` is unmaintained with a `react ^17` peer. If a React release breaks it, replace it with a small wrapper around `@toast-ui/editor`.
+- Article editor: support pasting Office lists as lists (SPST-66, backlog).
+- Article editor, optional (SPST-62 §11): remove the root `@types/prosemirror-*` devDependencies, unused since SPST-61, once SPST-50's release-prep PR has merged (it owns the root `package.json` until then); a Storybook story that shows the benign fidelity corpus in read-only cells, for visual review (it changes the smoke count); match Toast UI's unpadded tables through remark-stringify's table options if table diffs after a first edited save prove noisy; and Trusted Types support for apps with a Trusted Types CSP.
 - `scripts/check-article-cell-editor.mjs` aims at the article cell by canvas coordinates; make it find the cell some other way if the story changes often.
 - AI Fill: once the AI Fill PRs reach `main`, check that `https://ai-data-grid-docs.vercel.app/docs/ai-fill` and the Storybook's AI Fill group serve, and drop "(in development)" from this file's AI Fill heading.
 - AI Fill: an optional app signal for "row still exists", so a result or answer for a filtered-out row can be kept instead of dropped as `row-missing` (SPST-17 §5).
