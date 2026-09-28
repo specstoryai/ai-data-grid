@@ -1202,6 +1202,8 @@ trailingRowOptions?: {
 }
 ```
 
+Setting `trailingRowOptions` on `DataEditor` shows the trailing blank row at the bottom of the grid; an empty object (`{}`) is enough. Without it there is no trailing row, even when `onRowAppended` is set. Clicking one of the row's cells calls [`onRowAppended`](#onrowappended), unless that column's `trailingRowOptions.disabled` is set. A column's own `trailingRowOptions` doesn't show the row; it only adjusts that column's cell in it.
+
 ---
 
 ## onRowAppended
@@ -1210,7 +1212,7 @@ trailingRowOptions?: {
 onRowAppended?: () => Promise<"top" | "bottom" | number | undefined> | void;
 ```
 
-`onRowAppended` controls adding new rows at the bottom of the Grid. If `onRowAppended` is defined, an empty row will display at the bottom. When the user clicks on one of its cells, `onRowAppended` is called, which is responsible for appending the new row. The appearance of the blank row can be configured using `trailingRowOptions`.
+`onRowAppended` is called when the user asks for a new row, and is responsible for appending it. The grid calls it when the user clicks a cell of the trailing blank row, and when the user finishes editing a cell in the last row and moves down (for example with Enter) while no trailing row is shown. [`appendRow`](#appendrow) on the ref calls it too. The trailing blank row is shown only when [`trailingRowOptions`](#trailingrowoptions) is set, which also configures its appearance; setting `onRowAppended` alone doesn't show it.
 
 The callback can optionally return (or resolve to) one of the following values to control focus after the row is added:
 

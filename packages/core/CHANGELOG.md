@@ -14,7 +14,15 @@ The packages moved to the `@specstory` npm scope:
 
 ## Porting guide
 
-The public API is unchanged. To migrate, change only your import paths to the new package names. The `DataEditor` component and every exported name and prop, the `--gdg-*` CSS variables, and the `gdg-*` class names are unchanged.
+The public API is unchanged. To migrate, change only your import paths to the new package names. The `DataEditor` component and every exported name and prop, the `--gdg-*` CSS variables, and the `gdg-*` class names are unchanged. If your app was built against 6.0.3, also read [Coming from 6.0.3](#coming-from-603): three upstream changes from the 6.0.4 prereleases can need a small code change.
+
+### Coming from 6.0.3
+
+7.0.0 includes the upstream changes that were only released as 6.0.4 prereleases (see [Based on upstream 6.0.4-alpha25](#based-on-upstream-604-alpha25)). These can need a code change in an app built against 6.0.3:
+
+- **The trailing "add row" row now needs `trailingRowOptions`.** In 6.0.3 the blank row at the bottom of the grid appeared whenever `onRowAppended` was set. It now appears only when `trailingRowOptions` is set, so an app that passes `onRowAppended` without `trailingRowOptions` loses the row. To keep it, also pass `trailingRowOptions`; an empty object (`trailingRowOptions={{}}`) is enough. Clicking the row still calls `onRowAppended`.
+- **The type `CellActiviationBehavior` is now spelled `CellActivationBehavior`.** It's the type of the `cellActivationBehavior` prop and of a column's `activationBehaviorOverride`. It's the only 6.0.3 export that was renamed or removed. If you import it, rename the import. It's a TypeScript type only, so JavaScript is unaffected.
+- **Two callbacks no longer count the row-marker column.** With `rowMarkers` on, the `location` in the event passed to `onKeyDown` and the two column indices passed to `onColumnProposeMove` used to include the row-marker column. They now don't, like the grid's other callbacks. If your app subtracted 1 to compensate, remove that.
 
 ## React support
 
@@ -71,9 +79,10 @@ Entry points, `exports` and CSS paths are unchanged, apart from cells' ArticleCe
 
 7.0.0 is forked from upstream `main` at `0875d78c` (6.0.4-alpha25). The last stable upstream release was 6.0.3, so 7.0.0 also includes the upstream changes that were only released as 6.0.4 prereleases. The user-visible ones:
 
-- **Row grouping** with the `rowGrouping` prop, and `useColumnSort` in the source package sorting by several columns (`sort` takes an array).
+- **Row grouping** with the `rowGrouping` prop, and `useColumnSort` in the source package sorting by several columns (`sort` also accepts an array).
 - **Selection:** an `"additive"` mode for `rangeSelectionBlending`, `columnSelectionBlending` and `rowSelectionBlending`, which keeps other selections without a modifier key; clicking a selected column again deselects it; `CompactSelection` can be built from an array.
-- **New props and ref methods:** `onRowAppended` and `onColumnAppended`, `portalElementRef` for a custom portal element, `renderers` for replacing the internal cell renderers, a configurable fill handle, `scrollToActiveCell`, a `behavior` option for `ref.scrollTo`, `getMouseArgsForPosition` on the ref, the cell location in `provideEditor`, and more information in `onCellActivated`.
+- **Appending rows and columns:** `onColumnAppended` and the ref's `appendColumn` add columns. When the user finishes editing a cell in the last row (with no trailing row shown) or the last column and moves down or right, for example with Enter or Tab, the grid calls `onRowAppended` (already in 6.0.3) or `onColumnAppended`, if set. The trailing row now depends on `trailingRowOptions` (see [Coming from 6.0.3](#coming-from-603)).
+- **New props and ref methods:** `portalElementRef` for a custom portal element, `renderers` for replacing the internal cell renderers, a configurable fill handle, `scrollToActiveCell`, a `behavior` option for `ref.scrollTo`, `getMouseArgsForPosition` on the ref, the cell location in `provideEditor`, and more information in `onCellActivated`.
 - **Headers:** indicator icons (for example to show sorting), a configurable resize indicator, header row marker options, hover styles for group headers, and `drawHeader` receiving the hover position.
 - **Theming:** the maximum checkbox size, bubble dimensions, edit hover indicators, the boolean cell's hover effect, and a `color` for the range cell.
 - **Input:** pointer events instead of separate mouse and touch handling, and events inside a shadow DOM.
