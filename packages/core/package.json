@@ -35,6 +35,18 @@
             "require": "./dist/cjs/ai-fill/testing/index.js"
         }
     },
+    "files": [
+        "dist",
+        "!**/*.tsbuildinfo",
+        "src",
+        "!src/docs",
+        "!src/stories",
+        "!src/**/stories",
+        "!src/**/*.stories.tsx",
+        "API.md",
+        "CHANGELOG.md",
+        "THIRD_PARTY_NOTICES.md"
+    ],
     "scripts": {
         "build": "./build.sh",
         "lint": "concurrently \"npm run cycle-check\" \"eslint src --ext .ts,.tsx\"",
@@ -65,7 +77,11 @@
     "bugs": {
         "url": "https://github.com/specstoryai/ai-data-grid/issues"
     },
-    "homepage": "https://github.com/specstoryai/ai-data-grid",
+    "homepage": "https://ai-data-grid-docs.vercel.app/docs",
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
     "dependencies": {
         "@linaria/react": "^6.3.0",
         "canvas-hypertxt": "^1.0.3",
