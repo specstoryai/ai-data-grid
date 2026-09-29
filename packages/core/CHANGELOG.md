@@ -1,3 +1,11 @@
+# Unreleased
+
+Changes on `main` since 7.0.0. They aren't in a published version yet.
+
+## Fixes
+
+- **The first type-to-edit after a page load no longer opens late or drops keys with React 19** ([#58](https://github.com/specstoryai/ai-data-grid/issues/58)). The overlay editor and the number editor were loaded only when the first edit started, and React 19 can hold a newly loaded component back for up to 300 ms, so the first letters typed went to the grid instead of the editor (typing `edited` saved `dited`). `DataEditor` now loads the overlay editor as soon as it mounts, and the number editor the first time a number cell is drawn, so both are ready before a cell can be edited. Both editors are still loaded separately from the main bundle, and a grid with no number cells still never loads the number editor. An edit started before an editor has finished loading, for example on a very slow network, can still open late. No API change.
+
 # 7.0.0 Release notes
 
 AI Data Grid 7.0.0 is the first release of AI Data Grid, forked from Glide Data Grid by Glide (typeguard, Inc.), MIT licensed. It is API-compatible with `@glideapps/glide-data-grid` 6.x.
