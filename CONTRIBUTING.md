@@ -64,9 +64,11 @@ Run these from the root. CI runs the first six.
 | `npm run build-storybook` | Builds the packages and a static Storybook into `storybook-build/` (git-ignored). |
 | `npm run smoke-storybook` | Opens every story from `storybook-build/` in headless Chromium and fails on unexpected console errors. Run `npm run build-storybook` first. |
 
-At the time of writing the test counts are core 873 (473 of them in `test/ai-fill/`, and 10 for the overlay editors' preload in `test/preloadable-lazy.test.tsx` and `test/data-editor-first-edit.test.tsx`), cells 225 (65 plus 160 for the article editor: 129 security and behavior tests, 26 Markdown fidelity tests and 5 guards) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
+At the time of writing the test counts are core 889 (473 of them in `test/ai-fill/`, 10 for the overlay editors' preload in `test/preloadable-lazy.test.tsx` and `test/data-editor-first-edit.test.tsx`, and 16 for the accessibility tree under StrictMode in `test/use-debounced-memo.test.tsx` and `test/data-editor-strict-mode.test.tsx`), cells 225 (65 plus 160 for the article editor: 129 security and behavior tests, 26 Markdown fidelity tests and 5 guards) and source 9 (8 plus AI Fill's undo round trip). Tests run on React 19 only; there are no per-React-version test scripts.
 
 Hook tests use `renderHook` and `act` from `@testing-library/react`. Don't use `@testing-library/react-hooks`, `react-test-renderer` or `react-dom/test-utils` (removed or deprecated with React 19). RTL's `renderHook` has no `result.all`; to check how often a hook rendered, count renders in the hook callback.
+
+To test behaviour under StrictMode, make `<React.StrictMode>` the root element passed to `render` (or `renderHook`'s `wrapper`), as `createRoot(el).render(<StrictMode>…)` does. If it's nested inside another component that mounts at the same time, React doesn't replay the subtree's effects, and a StrictMode-only bug won't show up. `test/data-editor-strict-mode.test.tsx` shows the pattern.
 
 ### The Storybook smoke test
 
