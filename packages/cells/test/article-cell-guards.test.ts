@@ -1,17 +1,21 @@
 // Guards for the article editor's defenses (SPST-61). They fail when a Milkdown or ProseMirror
 // update, or a change of ours, alters the schema, adds a node view or an event handler, writes
-// markup into the page, reintroduces Toast UI, or loosens the URL policy, so that someone has
-// to review it. See AS-BUILT's article editor section.
+// markup into the page, reintroduces Toast UI, loosens the URL policy, or moves the Office list
+// conversion (SPST-66) after D3 or onto the page's document, so that someone has to review it.
+// See AS-BUILT's article editor section.
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { cleanup } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DOMParser as ProseDOMParser, type Node as ProseNode } from "@milkdown/prose/model";
 import type { EditorView } from "@milkdown/prose/view";
+import { articleClipboardProps } from "../src/cells/article-editor/clipboard.js";
 import { createArticleEditor } from "../src/cells/article-editor/create-article-editor.js";
-import { safeArticleURL } from "../src/cells/article-editor/url-policy.js";
+import { convertOfficeLists } from "../src/cells/article-editor/office-lists.js";
+import { articlePurify, safeArticleURL, sanitizePastedHTML } from "../src/cells/article-editor/url-policy.js";
 import { drop, installLayoutShims, mount, paste, setPointTarget, spyOnHTMLSinks } from "./article-cell-harness.js";
 import { htmlOnlyCodePayload, pastePayloads, renderPayloads } from "./fixtures/article-sanitizer-payloads.mjs";
+import { officeCorpus, officeListItem } from "./fixtures/office-clipboard.mjs";
 
 const CELLS = path.resolve(__dirname, "..");
 const ROOT = path.resolve(CELLS, "../..");
@@ -162,7 +166,7 @@ describe("L: guards", () => {
         expect(handlers).toMatchSnapshot();
     });
 
-    it("L03 no markup reaches a live-document HTML sink across the R, P, D and C corpus", async () => {
+    it("L03 no markup reaches a live-document HTML sink across the R, P, D, C and O corpus", async () => {
         const sinks = spyOnHTMLSinks();
         try {
             for (const p of renderPayloads) {
@@ -171,7 +175,7 @@ describe("L: guards", () => {
                     cleanup();
                 }
             }
-            for (const p of [...pastePayloads, htmlOnlyCodePayload]) {
+            for (const p of [...pastePayloads, htmlOnlyCodePayload, ...officeCorpus]) {
                 for (const where of ["paragraph", "code block"] as const) {
                     const editor = await mount(where === "paragraph" ? "start" : "```\ncode\n```\n\nafter");
                     await paste(editor.content(), { html: p.html, text: "copied" });
@@ -260,6 +264,74 @@ describe("L: guards", () => {
             expect(safeArticleURL(tag, attr, value), `${tag}[${attr}=${JSON.stringify(value)}]`).toBe(
                 allowed ? value : ""
             );
+        }
+    });
+    it("L06 the Office list conversion stays before D3 and off the page's document", () => {
+        const corpus = [...officeCorpus.map(o => o.html), ...pastePayloads.map(p => officeListItem(p.html))];
+        // (a) D3 sanitizes the converter's output, and its result is what ProseMirror parses.
+        const sanitize = vi.spyOn(articlePurify, "sanitize");
+        try {
+            for (const html of corpus) {
+                const converted = convertOfficeLists(html);
+                const result = articleClipboardProps.transformPastedHTML?.(html, undefined as any);
+                expect(result).toBe(sanitizePastedHTML(converted));
+                const call = sanitize.mock.calls.length - 2;
+                expect(sanitize.mock.calls[call][0]).toBe(converted);
+                expect(sanitize.mock.results[call].value).toBe(result);
+            }
+        } finally {
+            sanitize.mockRestore();
+        }
+        // (b) Converting creates nothing with the page's document and writes no markup to any of
+        // its elements, connected or not (L03 only sees connected ones).
+        const calls: string[] = [];
+        const restores: (() => void)[] = [];
+        const spyMethod = (target: any, name: string, owned: (self: any) => boolean) => {
+            const original = target[name];
+            target[name] = function (this: any, ...args: unknown[]) {
+                if (owned(this)) calls.push(name);
+                return original.apply(this, args);
+            };
+            restores.push(() => (target[name] = original));
+        };
+        const live = (self: any) => self === document;
+        const owned = (self: any) => self?.ownerDocument === document;
+        for (const name of ["createElement", "createElementNS", "createDocumentFragment", "importNode", "write"]) {
+            spyMethod(Document.prototype, name, live);
+        }
+        spyMethod(Element.prototype, "insertAdjacentHTML", owned);
+        spyMethod(Range.prototype, "createContextualFragment", self => owned(self.startContainer));
+        for (const prop of ["innerHTML", "outerHTML"] as const) {
+            const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, prop)!;
+            Object.defineProperty(Element.prototype, prop, {
+                ...descriptor,
+                set(this: Element, value: string) {
+                    if (owned(this)) calls.push(prop);
+                    descriptor.set?.call(this, value);
+                },
+            });
+            restores.push(() => Object.defineProperty(Element.prototype, prop, descriptor));
+        }
+        try {
+            for (const html of corpus) convertOfficeLists(html);
+            expect(calls).toEqual([]);
+            // The spy sees a detached element of the page's document.
+            document.createElement("div").innerHTML = "<b>x</b>";
+            expect(calls).toEqual(["createElement", "innerHTML"]);
+        } finally {
+            for (const restore of restores.reverse()) restore();
+        }
+        // (c) The converter's source names none of the page's HTML sinks.
+        const source = readFileSync(path.join(CELLS, "src/cells/article-editor/office-lists.ts"), "utf8");
+        for (const sink of [
+            /\bdocument\./,
+            /innerHTML\s*=(?!=)/,
+            /outerHTML\s*=(?!=)/,
+            /insertAdjacentHTML/,
+            /createContextualFragment/,
+            /document\.write/,
+        ]) {
+            expect(source).not.toMatch(sink);
         }
     });
 });

@@ -430,12 +430,13 @@ describe("S: safe content and editor behavior", () => {
         expect(saved).toMatch(/\| H +\|/);
     });
 
-    it("S10 a benign Office list paste keeps its text", async () => {
+    it("S10 a benign Office list paste becomes an ordered list and keeps its text", async () => {
         const editor = await mount("start");
         await paste(editor.content(), { html: officeListPasteHTML, text: "office one\noffice two" });
-        expect(editor.content().textContent).toContain("office one");
-        expect(editor.content().textContent).toContain("office two");
-        expect(await editor.save()).toMatch(/office one[\s\S]*office two/);
+        // The caret is before "start", so the paragraph's text joins the last pasted item.
+        const items = Array.from(editor.content().querySelectorAll("ol > li")).map(li => li.textContent);
+        expect(items).toEqual(["office one", "office twostart"]);
+        expect(await editor.save()).toBe("1. office one\n2. office twostart\n");
     });
 
     it.each(toolbarCases.map(c => [c.feature, c]))("S11 toolbar: %s", async (_feature, c) => {
