@@ -97,6 +97,7 @@ Pasting or dropping a list from Microsoft Word or classic Outlook on the desktop
 - Lettered and roman-numeral lists become numbered lists, because Markdown has no other kind.
 - A list copied from the middle keeps its numbers: a copy that starts at item 3 saves as `3.`, `4.`, … For a lettered or roman list this needs Word's list formats on the clipboard (Word desktop puts them there): then `c.` or `iii.` becomes 3, and without them the list starts at 1.
 - An extra paragraph inside a list item stays in that item.
+- A numbered sub-list that doesn't start at 1, and a list item with more than one paragraph, are saved with a blank line inside the item, so they reload as the same list. Other Markdown renderers may show a list that has such an item with paragraph spacing.
 - Numbered headings stay headings, with their number as text.
 
 Limitations of Office list paste:
@@ -105,7 +106,7 @@ Limitations of Office list paste:
 - **Word for the web isn't supported.** Its lists may paste as separate one-item lists, without their indentation.
 - Lists inside a Word table stay as they are: each item stays in its table cell as text that starts with its bullet or number. A Markdown table cell can't hold a list.
 - Very large pastes (more than 10,000 list items, or more than 4,000,000 characters of HTML) paste as paragraphs, as before.
-- Ordinary HTML lists, for example from a web page, aren't touched by this conversion and paste as lists, as before.
+- Ordinary HTML lists, for example from a web page, aren't touched by this conversion and paste as lists, as before. A numbered sub-list that starts above 1 inside such a list still loses its nesting after Save, as before: it reloads as text in its parent item.
 
 How articles look compared with 6.x:
 
@@ -120,7 +121,7 @@ Article Markdown, and anything pasted or dropped into the editor, is treated as 
 
 - **Raw HTML in the Markdown is never interpreted.** It's shown as text (see above), so it never reaches an HTML parser in the viewer or the editor.
 - **Pasted and dropped HTML is sanitized** with a private instance of [DOMPurify](https://github.com/cure53/DOMPurify) before the editor parses it, and the editor keeps only what it can store as article Markdown (text, formatting, lists, tables, links, images and code). Pasted or dropped content can't add raw HTML to the stored Markdown. DOMPurify is a regular dependency of this package (`dompurify` `^3.4.16`), so `npm audit` sees it, and you get its patch releases through your own lockfile (for example `npm update dompurify`) without a new release of this package.
-- **Office list conversion doesn't bypass the sanitizer.** It runs on an inert copy of the pasted HTML, where nothing runs or loads, before DOMPurify, and only adds list, list item and paragraph elements. DOMPurify then sanitizes its result like any other pasted HTML.
+- **Office list conversion doesn't bypass the sanitizer.** It runs on an inert copy of the pasted HTML, where nothing runs or loads, before DOMPurify, and only adds list, list item and paragraph elements, a start number, and a flag that keeps a sub-list nested after Save. DOMPurify then sanitizes its result like any other pasted HTML.
 - **The instance is private.** Calls to `DOMPurify.setConfig` or `DOMPurify.addHook` in your app don't change how articles are handled.
 - **Link and image URLs are filtered.** A link or image URL that DOMPurify's URL policy rejects, such as a `javascript:` URL, is rendered empty in the viewer and the editor, and the link dialog doesn't accept it. `https:`, `http:`, `mailto:`, `tel:` and relative URLs are allowed, and `data:` URLs only for images.
 - **No paste or drop is left to the browser.** The editor handles every paste and drop itself or ignores it, so the browser never inserts content on its own. A paste or drop into a code block inserts plain text only.
