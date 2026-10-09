@@ -135,20 +135,26 @@ export function useDebouncedMemo<T>(factory: () => T, deps: React.DependencyList
     const [state, setState] = React.useState(factory);
 
     const mountedRef = React.useRef(true);
-    React.useEffect(
-        () => () => {
-            mountedRef.current = false;
-        },
-        []
-    );
 
-    const debouncedSetState = React.useRef<typeof setState>(
-        debounce(x => {
+    const debouncedSetState = React.useRef(
+        debounce((x: React.SetStateAction<T>) => {
             if (mountedRef.current) {
                 setState(x);
             }
         }, time)
     );
+
+    // Arm in setup, not only at creation: StrictMode runs cleanup then setup again on mount, and a cleanup-only
+    // effect would leave updates blocked for good. This is a layout effect declared before the one below, so it
+    // re-arms before that one runs again. Cleanup drops a pending update so nothing fires after unmount.
+    React.useLayoutEffect(() => {
+        const debounced = debouncedSetState.current;
+        mountedRef.current = true;
+        return () => {
+            mountedRef.current = false;
+            debounced.cancel();
+        };
+    }, []);
 
     React.useLayoutEffect(() => {
         if (mountedRef.current) {
