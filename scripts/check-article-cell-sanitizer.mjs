@@ -24,8 +24,9 @@
 // packages/cells/test/fixtures/office-clipboard.mjs into an empty editor, where "Applied" means
 // the expected lists: the numbers of `ul`, `ol` and `li` elements, the deepest nesting, and no
 // item that still starts with its bullet or number. They also paste each one into a code block,
-// with and without a text/plain flavor, and check that pasting the mixed fixture and saving
-// writes the expected GFM.
+// with and without a text/plain flavor. For each fixture with expected GFM (the mixed lists,
+// and sub-lists that don't start at 1), the "Office save" check pastes it, saves, compares the
+// GFM, and loads the saved GFM again to check that it gives the same lists.
 //
 // The "native drop" path is defense in depth for ProseMirror's DOM observer and parse rules: it
 // really drops the payload on a plain contenteditable, where Chromium applies its own drop
@@ -460,14 +461,30 @@ async function runBrowser(name) {
         }
     }
 
-    // Pasting the mixed Office fixture and saving writes the expected GFM.
-    const mixed = officeCases.find(c => c.saved !== undefined);
-    await mount("", false);
-    await pasteData({ html: mixed.html, text: mixed.text }, `${EDITOR} p`);
-    await page.waitForTimeout(250);
-    await page.locator("#root .gdg-save-button").click();
-    const officeSaved = await page.evaluate(() => window.__saved);
-    const officeSaveOk = officeSaved?.markdown === mixed.saved;
+    // Pasting an Office fixture and saving writes the expected GFM, which loads as the same lists.
+    const officeSaves = [];
+    for (const c of officeCases.filter(o => o.saved !== undefined)) {
+        await mount("", false);
+        await pasteData({ html: c.html, text: c.text }, `${EDITOR} p`);
+        await page.waitForTimeout(250);
+        await page.locator("#root .gdg-save-button").click();
+        const saved = await page.evaluate(() => window.__saved);
+        let reloaded;
+        if (saved?.markdown === c.saved) {
+            await mount(c.saved, false);
+            reloaded = await officeShape();
+        }
+        const { ul, ol, li, depth } = c.expected;
+        const ok =
+            reloaded !== undefined &&
+            reloaded.ul === ul &&
+            reloaded.ol === ol &&
+            reloaded.li === li &&
+            reloaded.depth === depth &&
+            reloaded.marked === 0;
+        officeSaves.push({ id: c.id, saved, reloaded, ok });
+    }
+    const officeSaveOk = officeSaves.length > 0 && officeSaves.every(o => o.ok);
 
     // Save after typing returns the edited Markdown.
     await mount("hello", false);
@@ -531,7 +548,7 @@ async function runBrowser(name) {
         rows,
         saved,
         saveOk,
-        officeSaved,
+        officeSaves,
         officeSaveOk,
         moved,
         moveOk,
@@ -560,9 +577,13 @@ for (const name of browserNames) {
     }
     console.log("");
     console.log(`save after typing "hello" + " world": ${JSON.stringify(r.saved)} -> ${r.saveOk ? "pass" : "FAIL"}`);
-    console.log(
-        `save after pasting the mixed Office lists: ${JSON.stringify(r.officeSaved)} -> ${r.officeSaveOk ? "pass" : "FAIL"}`
-    );
+    for (const o of r.officeSaves) {
+        console.log(
+            `save after pasting ${o.id}, then reload: ${JSON.stringify(o.saved)}, reloaded ${JSON.stringify(o.reloaded)} -> ${
+                o.ok ? "pass" : "FAIL"
+            }`
+        );
+    }
     console.log(
         `drag "alpha" to the end of "alpha beta gamma": ${JSON.stringify(r.moved)} -> ${r.moveOk ? "pass" : "FAIL"}`
     );

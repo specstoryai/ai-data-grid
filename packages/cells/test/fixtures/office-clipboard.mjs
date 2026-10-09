@@ -384,6 +384,64 @@ export const officeStartsDeep = wordDocument(
     ])
 );
 
+/**
+ * O27: ordered sub-lists that don't start at 1, under a numbered parent, a bullet parent and
+ * (lettered) a numbered parent.
+ */
+export const officeNestedStart = wordDocument(
+    [
+        numberRules,
+        mixedRules,
+        `@list l11 {mso-list-id:9011;}`,
+        `@list l11:level1 {mso-level-number-format:decimal; ${ruleTail()}}`,
+        `@list l11:level2 {mso-level-number-format:decimal; ${ruleTail()}}`,
+    ].join("\n"),
+    items([
+        { list: "l11", lfo: 13, level: 1, marker: "1.", text: "Parent one" },
+        { list: "l11", lfo: 13, level: 2, marker: "3.", text: "Sub three" },
+        { list: "l11", lfo: 13, level: 2, marker: "4.", text: "Sub four" },
+        { list: "l11", lfo: 13, level: 1, marker: "2.", text: "Parent two" },
+    ]) +
+        wordParagraph("Under a bullet") +
+        items([
+            { list: "l3", lfo: 4, level: 1, marker: "·", text: "Bullet parent" },
+            { list: "l3", lfo: 4, level: 2, marker: "3.", text: "Numbered three" },
+            { list: "l3", lfo: 4, level: 2, marker: "4.", text: "Numbered four" },
+            { list: "l3", lfo: 4, level: 1, marker: "·", text: "Bullet after" },
+        ]) +
+        wordParagraph("Lettered") +
+        items([
+            { list: "l1", lfo: 2, level: 1, marker: "1.", text: "Lettered parent" },
+            { list: "l1", lfo: 2, level: 2, marker: "c.", text: "Letter c" },
+            { list: "l1", lfo: 2, level: 1, marker: "2.", text: "After letters" },
+        ])
+);
+export const officeNestedStartSaved =
+    "1. Parent one\n\n   3. Sub three\n   4. Sub four\n2. Parent two\n\nUnder a bullet\n\n" +
+    "* Bullet parent\n\n  3. Numbered three\n  4. Numbered four\n* Bullet after\n\nLettered\n\n" +
+    "1. Lettered parent\n\n   3. Letter c\n2. After letters\n";
+
+/** O28: an item with a continuation paragraph and then a sub-list. */
+export const officeContinuationNested = wordDocument(
+    numberRules,
+    wordItem({ list: "l1", lfo: 2, marker: "1.", text: "Numbered one", position: "First" }) +
+        wordContinuation("More about one") +
+        wordItem({ list: "l1", lfo: 2, level: 2, marker: "a.", text: "Sub a" }) +
+        wordItem({ list: "l1", lfo: 2, marker: "2.", text: "Numbered two", position: "Last" })
+);
+
+/**
+ * O15: non-Office HTML that isn't in the form a DOM serializes it to (upper-case tags,
+ * unquoted attributes, `<br/>`, unclosed `<p>`s), with an Office-looking paragraph that has no
+ * `mso-list` style.
+ */
+export const noncanonicalHTML =
+    "<P CLASS=MsoNormal STYLE='margin:0in'>Office-looking paragraph<BR/>second line\n" +
+    "<p class=MsoNormal>Unclosed paragraph<br/><B>bold</B>";
+/** O15: the same, with text that mentions the style, so it's parsed and finds no list paragraph. */
+export const noncanonicalMentionsMsoList =
+    noncanonicalHTML + "\n<P>The style <CODE>mso-list: l0 level1 lfo1</CODE> marks a list paragraph";
+
 /** O24: mismatched list ids, and `@list` rules for level 1 only. */
 export const officeMismatched = wordDocument(
     `@list l0 {mso-list-id:1111;}\n@list l0:level1 {mso-level-number-format:bullet; ${ruleTail()}}`,
@@ -459,6 +517,14 @@ export const officeBrowserCases = [
         saved: officeMixedSaved,
     },
     {
+        id: "O-nested-start",
+        name: "Office sub-lists that don't start at 1",
+        html: officeNestedStart,
+        text: "Parent one",
+        expected: { ul: 1, ol: 5, li: 11, depth: 2 },
+        saved: officeNestedStartSaved,
+    },
+    {
         id: "O-hostile",
         name: "Office list with hostile content",
         html: officeHostile,
@@ -491,5 +557,7 @@ export const officeCorpus = [
     { id: "O23b", html: officeJump },
     { id: "O23c", html: officeStartsDeep },
     { id: "O24", html: officeMismatched },
+    { id: "O27", html: officeNestedStart },
+    { id: "O28", html: officeContinuationNested },
     { id: "O-hostile", html: officeHostile },
 ];

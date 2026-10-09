@@ -6,8 +6,8 @@
 // to converted content. scripts/check-article-cell-sanitizer.mjs runs the Office rows in
 // Chromium, Firefox and WebKit.
 //
-// Groups: conversion (O01–O13), left unchanged (O14–O16), security (O17–O20) and robustness
-// (O21–O26).
+// Groups: conversion (O01–O13, O27, O28), left unchanged (O14–O16), security (O17–O20) and
+// robustness (O21–O26).
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArticleEditor } from "../src/cells/article-editor/create-article-editor.js";
@@ -25,9 +25,12 @@ import {
 import {
     largeOfficeList,
     malformedOffice,
+    noncanonicalHTML,
+    noncanonicalMentionsMsoList,
     officeBullets,
     officeBulletsSaved,
     officeContinuation,
+    officeContinuationNested,
     officeFormats,
     officeFragment,
     officeHeadings,
@@ -37,6 +40,8 @@ import {
     officeMixed,
     officeMixedMalformed,
     officeMixedSaved,
+    officeNestedStart,
+    officeNestedStartSaved,
     officeNoIgnore,
     officeNumbers,
     officeNumbersSaved,
@@ -110,27 +115,30 @@ function outline(root: HTMLElement): string[] {
 // An item that still starts with its marker or Word's spacing after the marker.
 const MARKER_START = /^(?:\s|[·o§•▪Øü*-](?:\s|$)|\(?(?:\d{1,9}|[a-z]{1,8}|[A-Z]{1,8})[.)](?:\s|$))/u;
 
-/** Loads `markdown` into a fresh editor and serializes it again. */
-async function reserialize(markdown: string): Promise<string> {
+/** Loads `markdown` into a fresh editor: the lists it reloads as, and its Markdown saved again. */
+async function reload(markdown: string): Promise<{ outline: string[]; markdown: string }> {
     const root = document.createElement("div");
     document.body.append(root);
     const editor = await createArticleEditor({ root, markdown, readonly: false });
     try {
-        return editor.serialize();
+        return { outline: outline(root), markdown: editor.serialize() };
     } finally {
         await editor.destroy();
         root.remove();
     }
 }
 
-/** The checks every conversion test makes: structure, no markers, the exact saved GFM, stable. */
+/**
+ * The checks every conversion test makes: structure, no markers, the exact saved GFM, and that
+ * the saved GFM reloads as the same lists and saves again unchanged.
+ */
 async function expectConverted(editor: Mounted, lines: readonly string[], saved: string) {
     expect(outline(editor.content())).toEqual(lines);
     const firsts = Array.from(editor.content().querySelectorAll("li")).map(li => li.querySelector("p")?.textContent);
     expect(firsts.filter(text => text === undefined || MARKER_START.test(text))).toEqual([]);
     expect(findDangerousDOM(editor.container)).toEqual([]);
     expect(await editor.save()).toBe(saved);
-    expect(await reserialize(saved)).toBe(saved);
+    expect(await reload(saved)).toEqual({ outline: lines, markdown: saved });
 }
 
 const BULLETS = ["ul Apples", "  ul Green", "    ul Granny Smith", "  ul Red", "ul Pears"];
@@ -266,6 +274,33 @@ describe("O: Office lists become lists", () => {
     it("O13 dropping Office HTML onto an empty paragraph converts it the same way", async () => {
         await expectConverted(await pasteOffice(officeBullets, { how: "drop" }), BULLETS, officeBulletsSaved);
     });
+
+    it("O27 a sub-list that doesn't start at 1 keeps its nesting and start number after Save", async () => {
+        // CommonMark only lets a list that starts at 1 interrupt a paragraph, so the saved GFM
+        // needs a blank line before such a sub-list, or it reloads as the parent item's text.
+        const lines = [
+            "ol Parent one",
+            "  ol@3 Sub three",
+            "  ol Sub four",
+            "ol Parent two",
+            "ul Bullet parent",
+            "  ol@3 Numbered three",
+            "  ol Numbered four",
+            "ul Bullet after",
+            "ol Lettered parent",
+            "  ol@3 Letter c",
+            "ol After letters",
+        ];
+        await expectConverted(await pasteOffice(officeNestedStart), lines, officeNestedStartSaved);
+    });
+
+    it("O28 an item with a continuation paragraph and a sub-list saves stable GFM", async () => {
+        await expectConverted(
+            await pasteOffice(officeContinuationNested),
+            ["ol Numbered one", "  ol Sub a", "ol Numbered two"],
+            "1. Numbered one\n\n   More about one\n\n   1. Sub a\n2. Numbered two\n"
+        );
+    });
 });
 
 describe("O: left unchanged", () => {
@@ -292,8 +327,14 @@ describe("O: left unchanged", () => {
             // Without the signal, nothing is parsed.
             expect(parse).not.toHaveBeenCalled();
             // A page whose text mentions the style is parsed, finds no list paragraph, and is
-            // returned as is.
-            expect(convertOfficeLists(textMentionsMsoList)).toBe(textMentionsMsoList);
+            // returned as is: the input string, not the parsed document serialized again.
+            for (const html of [textMentionsMsoList, noncanonicalHTML, noncanonicalMentionsMsoList]) {
+                expect(convertOfficeLists(html)).toBe(html);
+            }
+            expect(parse).toHaveBeenCalledTimes(2);
+            const serialized = (html: string) => new DOMParser().parseFromString(html, "text/html").body.innerHTML;
+            expect(serialized(noncanonicalHTML)).not.toBe(noncanonicalHTML);
+            expect(serialized(noncanonicalMentionsMsoList)).not.toBe(noncanonicalMentionsMsoList);
         } finally {
             parse.mockRestore();
         }
@@ -399,7 +440,7 @@ describe("O: robustness", () => {
             expect(Math.max(...levels)).toBeLessThanOrEqual(9);
             levels.forEach((depth, i) => expect(depth - (i === 0 ? 0 : levels[i - 1])).toBeLessThanOrEqual(1));
             const saved = (await editor.save())!;
-            expect(await reserialize(saved)).toBe(saved);
+            expect(await reload(saved)).toEqual({ outline: lines, markdown: saved });
             cleanup();
         }
         // A deep staircase repeated: the converter's own output never nests deeper than 9.

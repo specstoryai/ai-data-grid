@@ -196,11 +196,27 @@ function listKind(item: ListItem, rules: Map<string, LevelRule>): { ordered: boo
     return { ordered, start: Math.min(Math.max(start, 0), MAX_START) };
 }
 
+// Whether the item's saved Markdown has a blank line between its blocks: it has more than one
+// paragraph, or an ordered sub-list that doesn't start at 1. CommonMark only lets a list that
+// starts at 1 interrupt a paragraph, so without the blank line such a sub-list would reload as
+// the item's text. Milkdown reads the flag from `data-spread` (D3 keeps it) and saves a blank
+// line between the blocks of a spread item; Markdown with one reloads as a spread item, so the
+// saved Markdown is stable.
+function isSpread(li: Element): boolean {
+    let paragraphs = 0;
+    for (const child of Array.from(li.children)) {
+        if (child.localName === "p") paragraphs++;
+        else if (child.localName === "ol" && child.hasAttribute("start")) return true;
+    }
+    return paragraphs > 1;
+}
+
 // Replaces one run of sibling list paragraphs with lists. Nesting follows the Word levels: a
 // deeper level nests one list deeper however far it jumps, and a shallower one closes the
 // lists nested deeper than it. So a run that starts at level 3 starts at depth 1.
 function buildRun(doc: Document, items: readonly ListItem[], rules: Map<string, LevelRule>) {
     const top: Element[] = [];
+    const created: Element[] = [];
     // The open lists, outermost first, with the lowest Word level each one holds.
     const open: { list: Element; level: number; key: string; ordered: boolean }[] = [];
     for (const item of items) {
@@ -232,6 +248,10 @@ function buildRun(doc: Document, items: readonly ListItem[], rules: Map<string, 
             li.append(p);
         }
         current.list.append(li);
+        created.push(li);
+    }
+    for (const li of created) {
+        if (isSpread(li)) li.setAttribute("data-spread", "true");
     }
     items[0].paragraph.before(...top);
     for (const item of items) {
