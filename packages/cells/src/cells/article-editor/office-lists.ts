@@ -1,10 +1,10 @@
 // Office list paste for the article editor (SPST-66). Word and Outlook desktop don't put real
 // lists on the clipboard: each list item is a `<p>` whose style says `mso-list: lN levelM lfoK`
 // (list N, level M, list-format override K), with the bullet or number in a
-// `<span style="mso-list: Ignore">`. The bullet and number formats are `@list lN:levelM {…}`
-// rules in the clipboard document's `<style>`. `convertOfficeLists` turns those paragraphs into
-// `<ul>`/`<ol>`/`<li>` before D3 sanitizes the HTML, because D3 drops `<style>`, and with it the
-// `@list` rules.
+// `<span style="mso-list: Ignore">`; a paragraph without that element isn't converted. The
+// bullet and number formats are `@list lN:levelM {…}` rules in the clipboard document's
+// `<style>`. `convertOfficeLists` turns those paragraphs into `<ul>`/`<ol>`/`<li>` before D3
+// sanitizes the HTML, because D3 drops `<style>`, and with it the `@list` rules.
 //
 // It only rearranges untrusted HTML; it never decides what's allowed. It parses into an inert
 // `DOMParser` document (no browsing context: no script runs and nothing loads), builds with
@@ -33,8 +33,10 @@ const MAX_STYLE_TEXT = 1_000_000;
 const MAX_START = 999_999_999;
 
 const SIGNAL = /mso-list\s*:/i;
-// Counts candidate list paragraphs (`mso-list: l<digit>`) without parsing. Linear.
-const LIST_STYLE = /mso-list\s*:\s*l\d/gi;
+// Counts candidate list paragraphs without parsing: one per `mso-list` declaration that starts
+// with an `l`, `level` or `lfo` token, the tokens `readListStyle` takes in any order. An
+// `mso-list: Ignore` span doesn't count. Linear.
+const LIST_STYLE = /mso-list\s*:\s*(?:l|level|lfo)\d/gi;
 // `@list l<id>:level<n> {body}`. An override rule (`@list l0:level1 lfo2 {…}`) doesn't match.
 // The body can't contain a brace, so each character is scanned by at most one rule.
 const LIST_RULE = new RegExp(String.raw`@list\s+l(\d{1,5}):level(\d)\s*\{([^{}]{0,${MAX_RULE_LENGTH}})\}`, "gi");
@@ -42,20 +44,12 @@ const NUMBER_FORMAT = /mso-level-number-format\s*:\s*([a-z-]{1,40})/i;
 const START_AT = /mso-level-start-at\s*:\s*(\d{1,9})(?!\d)/i;
 const IGNORE = /mso-list\s*:\s*ignore/i;
 const CONTINUATION = /^MsoListParagraphCxSp(?:Middle|Last)$/i;
-// `\s` includes the no-break spaces Word puts after a marker.
-const SPACE = /^\s*$/;
-// A marker typed into the text (no Ignore span), followed by space: a non-alphanumeric glyph, or
-// a number, letters or a roman numeral followed by `.` or `)`, optionally after `(`. Group 2 holds
-// any further outline parts (`1.3.`), which only a level's rule can confirm.
-const TEXT_MARKER = /^\s*([^\p{L}\p{N}\s]|\(?(?:\d{1,9}|\p{L}{1,8})[.)]((?:(?:\d{1,9}|\p{L}{1,8})[.)]){0,8}))\s+/u;
 // A numbering marker: an optional word and space (`Article 3.`), an optional `(`, up to eight
 // outline parts each followed by `.`, `)` or `-` (`1.3.`), then the final part, a number (`3`,
 // `03`, `2nd`) or letters (`c`, `IV`), with an optional `.`, `)` or `:` after it. Anchored at both
 // ends with every quantifier bounded, so a long marker fails in a bounded number of steps.
 const NUMBER_MARKER =
     /^(\p{L}{1,20}\s{1,3})?\(?((?:(?:\d{1,9}|[a-z]{1,8}|[A-Z]{1,8})[.)-]){0,8})(?:(\d{1,9})(?:st|nd|rd|th)?|([a-z]{1,8}|[A-Z]{1,8}))([.):]?)\)?$/u;
-// A roman numeral in Word's form (`iv`, not `iiii`).
-const ROMAN = /^m{0,4}(?:cm|cd|d?c{0,3})(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3})$/;
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 interface LevelRule {
@@ -142,59 +136,26 @@ function readMarker(marker: string): Marker | undefined {
     };
 }
 
-// Whether `token`, a marker typed into the text, is the marker the level's rule displays, so
-// removing it loses nothing. A level without a number shows no marker; a bullet level, a glyph;
-// an alpha or roman level, letters or a roman numeral in its case; any other numbered level,
-// digits. Without a rule (only the fragment was copied), any one-part marker is taken (O12).
-function isLevelMarker(token: string, hasOutline: boolean, rule: LevelRule | undefined): boolean {
-    if (rule === undefined) return !hasOutline;
-    const format = rule.format;
-    if (format === "none") return false;
-    const glyph = !/[\p{L}\p{N}]/u.test(token);
-    if (format === "bullet" || format === "image") return glyph;
-    const marker = glyph ? undefined : readMarker(token);
-    if (marker === undefined) return false;
-    const { letters } = marker;
-    const alpha = format?.startsWith("alpha") === true;
-    if (!alpha && format?.startsWith("roman") !== true) return marker.digits !== undefined;
-    if (letters === undefined) return false;
-    const cased = format?.endsWith("upper") === true ? letters.toUpperCase() : letters.toLowerCase();
-    if (letters !== cased) return false;
-    return alpha ? letterValue(letters) !== undefined : ROMAN.test(letters.toLowerCase());
-}
-
-// Removes the paragraph's marker and returns its text: the `mso-list: Ignore` elements, or
-// else a marker at the start of its first text that the level's rule displays.
-function takeMarker(p: Element, rule: LevelRule | undefined): string {
+// Removes the paragraph's `mso-list: Ignore` elements and returns their text, the marker. A
+// paragraph without one isn't a list paragraph: it's returned as undefined, unchanged.
+function takeMarker(p: Element, rule: LevelRule | undefined): string | undefined {
+    const ignored = Array.from(p.querySelectorAll("[style]")).filter(el => IGNORE.test(el.getAttribute("style") ?? ""));
+    if (ignored.length === 0) return undefined;
     let marker = "";
-    let found = false;
-    for (const el of Array.from(p.querySelectorAll("[style]"))) {
+    for (const el of ignored) {
         // An Ignore element inside one that was already removed.
-        if (!p.contains(el) || !IGNORE.test(el.getAttribute("style") ?? "")) continue;
+        if (!p.contains(el)) continue;
         marker += el.textContent ?? "";
         el.remove();
-        found = true;
     }
-    if (found) {
-        marker = marker.trim();
-        // A level with no number can still show text (level text such as `Note:`). The bullet
-        // that replaces it can't, so the text stays at the start of the item.
-        if (rule?.format === "none" && marker !== "") {
-            p.prepend(`${marker} `);
-            return "";
-        }
-        return marker;
+    marker = marker.trim();
+    // A level with no number can still show text (level text such as `Note:`). The bullet that
+    // replaces it can't, so the text stays at the start of the item.
+    if (rule?.format === "none" && marker !== "") {
+        p.prepend(`${marker} `);
+        return "";
     }
-    const walker = p.ownerDocument.createTreeWalker(p, 4 /* NodeFilter.SHOW_TEXT */);
-    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-        const text = node.nodeValue ?? "";
-        if (SPACE.test(text)) continue;
-        const match = TEXT_MARKER.exec(text);
-        if (match === null || !isLevelMarker(match[1], (match[2] ?? "") !== "", rule)) return "";
-        node.nodeValue = text.slice(match[0].length);
-        return match[1];
-    }
-    return "";
+    return marker;
 }
 
 // Paragraphs in a table cell stay as they are: a GFM table cell can't hold a list, and
@@ -351,7 +312,10 @@ export function convertOfficeLists(html: string): string {
                 continue;
             }
             const rule = rules.get(`${style.id}:${style.level}`);
-            const item: ListItem = { paragraph: p, ...style, rule, marker: takeMarker(p, rule), continuations: [] };
+            const marker = takeMarker(p, rule);
+            // Left as it is, and not `last`, so it ends the run.
+            if (marker === undefined) continue;
+            const item: ListItem = { paragraph: p, ...style, rule, marker, continuations: [] };
             if (follows) {
                 run.push(item);
             } else {

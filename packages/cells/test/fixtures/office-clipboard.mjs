@@ -290,11 +290,15 @@ export const officeTable = wordDocument(
         `</td><td width=200 valign=top><p class=MsoNormal>Plain cell<o:p></o:p></p></td></tr></table>\n`
 );
 
-/** O12: list paragraphs without an Ignore span: a typed marker is removed, other text is kept. */
+/**
+ * O12: list paragraphs without an Ignore span, with a marker typed into the text (one bold, with
+ * its space in the next text node). They aren't list paragraphs and stay as they are.
+ */
 export const officeNoIgnore = wordDocument(
     numberRules,
     `<p class=MsoListParagraphCxSpFirst style='mso-list:l1 level1 lfo2'>1.&nbsp;&nbsp;Typed number</p>\n` +
         `<p class=MsoListParagraphCxSpMiddle style='mso-list:l1 level1 lfo2'>(2)&nbsp;Bracketed number</p>\n` +
+        `<p class=MsoListParagraphCxSpMiddle style='mso-list:l1 level1 lfo2'><b>3.</b><span lang=EN-US> Bold number</span></p>\n` +
         `<p class=MsoListParagraphCxSpLast style='mso-list:l1 level1 lfo2'>Plain words stay</p>\n`
 );
 
@@ -442,11 +446,10 @@ const level1 = (list, rest) =>
     `@list ${list} {mso-list-id:9${list.slice(1)};}\n@list ${list}:level1 {${rest} ${ruleTail()}}`;
 
 /**
- * O29: text typed at the start of list paragraphs without Ignore spans. Only text that is the
- * marker the level's rule displays is removed: nothing under a level with no number, a glyph
- * under a bullet level, letters or roman numerals in the level's case, digits under a numbered
- * level. The last item of each list is such a marker. Some markers are followed by a no-break
- * space, as Word writes them, and some by a space.
+ * O29: text typed at the start of list paragraphs without Ignore spans, under levels with no
+ * number, numbered, upper-alpha, bullet and roman rules. None is a list paragraph, so all of it
+ * stays as it is, including the last item of each list, which is the marker the level displays.
+ * Some markers are followed by a no-break space, as Word writes them, and some by a space.
  */
 export const officeTypedText = wordDocument(
     [
@@ -469,6 +472,7 @@ export const officeTypedText = wordDocument(
             { list: "l14", lfo: 15, text: "A.&nbsp;Smith", position: "First" },
             { list: "l14", lfo: 15, text: "§&nbsp;12" },
             { list: "l14", lfo: 15, text: "3.&nbsp;Typed three" },
+            { list: "l14", lfo: 15, text: "<b>3.</b> Bold three" },
             { list: "l14", lfo: 15, text: "2.4.&nbsp;Typed outline", position: "Last" },
         ]
             .map(typedItem)
@@ -501,12 +505,27 @@ export const officeTypedText = wordDocument(
             .map(typedItem)
             .join("")
 );
-// `\u00a0` where the fixture has `&nbsp;`.
+// The paragraphs as pasted before SPST-66, saved: `\u00a0` where the fixture has `&nbsp;`.
 export const officeTypedTextSaved =
-    "* A.\u00a0Smith\n* § 12\n* (1) Note\n* 3\\. Ave\n\nNumbered\n\n1. A.\u00a0Smith\n2. §\u00a012\n3. Typed three\n4. Typed outline\n\n" +
-    "Upper letters\n\n1. 3\\. Ave\n2. (1)\u00a0Note\n3. b.\u00a0lower case\n4. §\u00a012\n5. Typed E\n\nBullets\n\n" +
-    "* A.\u00a0Smith\n* (1)\u00a0Note\n* 3\\. Ave\n* Typed glyph\n\nRoman\n\n1. C.\u00a0Upper\n2. iiii.\u00a0Not roman\n" +
-    "3. Typed three\n";
+    "A.\u00a0Smith\n\n§ 12\n\n(1) Note\n\n3\\. Ave\n\nNumbered\n\nA.\u00a0Smith\n\n§\u00a012\n\n3.\u00a0Typed three\n\n" +
+    "**3.** Bold three\n\n2.4.\u00a0Typed outline\n\nUpper letters\n\n3\\. Ave\n\n(1)\u00a0Note\n\nb.\u00a0lower case\n\n" +
+    "§\u00a012\n\nE.\u00a0Typed E\n\nBullets\n\nA.\u00a0Smith\n\n(1)\u00a0Note\n\n3\\. Ave\n\n§\u00a0Typed glyph\n\nRoman\n\n" +
+    "C.\u00a0Upper\n\niiii.\u00a0Not roman\n\niii.\u00a0Typed three\n";
+
+/**
+ * O29 and the browser check: a decimal list whose items have Ignore spans, with two paragraphs
+ * without one in the middle (a bold typed `3.`, and `A. Smith`). They end the run and stay as
+ * they are, so the list resumes at 4.
+ */
+export const officeNoIgnoreMixed = wordDocument(
+    level1("l14", `mso-level-text:"%1\\.";`),
+    wordItem({ list: "l14", lfo: 15, marker: "1.", text: "One", position: "First" }) +
+        wordItem({ list: "l14", lfo: 15, marker: "2.", text: "Two" }) +
+        typedItem({ list: "l14", lfo: 15, text: "<b>3.</b> Bold three" }) +
+        typedItem({ list: "l14", lfo: 15, text: "A.&nbsp;Smith" }) +
+        wordItem({ list: "l14", lfo: 15, marker: "4.", text: "Four", position: "Last" })
+);
+export const officeNoIgnoreMixedSaved = "1. One\n2. Two\n\n**3.** Bold three\n\nA.\u00a0Smith\n\n4. Four\n";
 
 /** O30: outline numbering (`1.3.`): decimal levels, then a lettered second level. */
 export const outlineRules = [
@@ -583,7 +602,10 @@ export const officeMarkerShapes = wordDocument(
             { list: "l25", lfo: 26, marker: "Note:", text: "And this" },
         ])
 );
-/** O31: the same shapes without `@list` rules, and a Courier New `o` bullet. */
+/**
+ * O31: the same shapes without `@list` rules, an outline number with a final letter and nothing
+ * after it (`1.a`), and a Courier New `o` bullet.
+ */
 export const officeMarkerShapesFragment = fragmentDocument(
     items([
         { list: "l20", lfo: 21, marker: "Article 3.", text: "Third article" },
@@ -601,12 +623,17 @@ export const officeMarkerShapesFragment = fragmentDocument(
             { list: "l18", lfo: 19, marker: "1.3.", text: "Outline three" },
             { list: "l18", lfo: 19, marker: "1.4.", text: "Outline four" },
         ]) +
+        items([
+            { list: "l19", lfo: 20, marker: "1.a", text: "Outline a" },
+            { list: "l19", lfo: 20, marker: "1.b", text: "Outline b" },
+        ]) +
         items([{ list: "l0", lfo: 1, marker: "o", text: "Circle bullet" }])
 );
 
 /**
  * O32: list paragraphs whose markers are 4,000 characters long, in Ignore spans and typed into
- * the text, under a numbered level and without rules. `count` paragraphs of each shape.
+ * the text (which aren't list paragraphs), under a numbered level and without rules. `count`
+ * paragraphs in all, half of them with Ignore spans.
  */
 export function longMarkerOfficeList(count) {
     const shapes = [
@@ -641,6 +668,17 @@ export const noncanonicalHTML =
 /** O15: the same, with text that mentions the style, so it's parsed and finds no list paragraph. */
 export const noncanonicalMentionsMsoList =
     noncanonicalHTML + "\n<P>The style <CODE>mso-list: l0 level1 lfo1</CODE> marks a list paragraph";
+
+/**
+ * O33: O01's bullets with the `mso-list` tokens in other orders (`level1 l0 lfo1`,
+ * `lfo1 level2 l0`), which `readListStyle` accepts. No declaration starts with the list id.
+ */
+export const officeReordered = wordDocument(
+    bulletRules,
+    items(bulletItems).replace(/mso-list:(l\d+) (level\d) (lfo\d+)/g, (_, list, level, lfo) =>
+        level === "level2" ? `mso-list: ${lfo} ${level} ${list}` : `mso-list:${level} ${list} ${lfo}`
+    )
+);
 
 /** O24: mismatched list ids, and `@list` rules for level 1 only. */
 export const officeMismatched = wordDocument(
@@ -726,12 +764,11 @@ export const officeBrowserCases = [
     },
     {
         id: "O-typed-text",
-        name: "Office typed text kept unless the level shows it",
-        html: officeTypedText,
-        text: "A. Smith",
-        // Items that keep text such as `A. Smith` or `3. Ave`, which looks like a marker.
-        expected: { ul: 2, ol: 3, li: 20, depth: 1, marked: 15 },
-        saved: officeTypedTextSaved,
+        name: "Office paragraphs without Ignore spans stay as they are",
+        html: officeNoIgnoreMixed,
+        text: "One",
+        expected: { ul: 0, ol: 2, li: 3, depth: 1 },
+        saved: officeNoIgnoreMixedSaved,
     },
     {
         id: "O-outline",
@@ -776,10 +813,12 @@ export const officeCorpus = [
     { id: "O24", html: officeMismatched },
     { id: "O27", html: officeNestedStart },
     { id: "O28", html: officeContinuationNested },
-    { id: "O29", html: officeTypedText },
+    { id: "O29a", html: officeTypedText },
+    { id: "O29b", html: officeNoIgnoreMixed },
     { id: "O30a", html: officeOutline },
     { id: "O30b", html: officeOutlineFragment },
     { id: "O31a", html: officeMarkerShapes },
     { id: "O31b", html: officeMarkerShapesFragment },
+    { id: "O33", html: officeReordered },
     { id: "O-hostile", html: officeHostile },
 ];

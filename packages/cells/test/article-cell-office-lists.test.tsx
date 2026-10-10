@@ -6,7 +6,7 @@
 // to converted content. scripts/check-article-cell-sanitizer.mjs runs the Office rows in
 // Chromium, Firefox and WebKit.
 //
-// Groups: conversion (O01–O13, O27–O31), left unchanged (O14–O16), security (O17–O20) and
+// Groups: conversion (O01–O13, O27–O31, O33), left unchanged (O14–O16), security (O17–O20) and
 // robustness (O21–O26, O32).
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -46,6 +46,8 @@ import {
     officeNestedStart,
     officeNestedStartSaved,
     officeNoIgnore,
+    officeNoIgnoreMixed,
+    officeNoIgnoreMixedSaved,
     officeNumbers,
     officeNumbersSaved,
     officeOutline,
@@ -53,6 +55,7 @@ import {
     officeOutlineSaved,
     officeOutlook,
     officePictureBullets,
+    officeReordered,
     officeRestart,
     officeStaircase,
     officeStartsDeep,
@@ -271,11 +274,16 @@ describe("O: Office lists become lists", () => {
         expect(editor.content().querySelector("ul, ol")).toBeNull();
     });
 
-    it("O12 without an Ignore span, a typed marker is removed and other text is kept", async () => {
-        await expectConverted(
-            await pasteOffice(officeNoIgnore),
-            ["ol Typed number", "ol Bracketed number", "ol Plain words stay"],
-            "1. Typed number\n2. Bracketed number\n3. Plain words stay\n"
+    it("O12 list paragraphs without an Ignore span stay as they are, with their typed markers", async () => {
+        // Word and Outlook desktop write every marker in an Ignore span, so a paragraph without
+        // one isn't a list paragraph (N1). It reaches D3 as the same string, so the paste and
+        // its saved GFM are what they were before SPST-66, a bold `3.` included.
+        expect(convertOfficeLists(officeNoIgnore)).toBe(officeNoIgnore);
+        const editor = await pasteOffice(officeNoIgnore);
+        expect(editor.content().querySelector("ul, ol")).toBeNull();
+        expect(editor.content().querySelector("strong")?.textContent).toBe("3.");
+        expect(await editor.save()).toBe(
+            "1.\u00a0\u00a0Typed number\n\n(2)\u00a0Bracketed number\n\n**3.** Bold number\n\nPlain words stay\n"
         );
     });
 
@@ -310,39 +318,21 @@ describe("O: Office lists become lists", () => {
         );
     });
 
-    it("O29 typed leading text is removed only when it's the marker the level's rule shows", async () => {
-        // Without an Ignore span, text that looks like a marker stays unless the level displays
-        // it: a level with no number shows nothing, a bullet level a glyph, an alpha or roman
-        // level letters in its case, other numbered levels digits. Each list ends with an item
-        // whose typed marker the level does show.
+    it("O29 typed text without an Ignore span is kept, and the paragraph ends the run", async () => {
+        // Typed text that looks like a marker, under every kind of level rule, including the
+        // marker each level displays: none of it is a list paragraph (N1), so it all stays.
+        expect(convertOfficeLists(officeTypedText)).toBe(officeTypedText);
         const editor = await pasteOffice(officeTypedText);
-        const lines = [
-            "ul A. Smith",
-            "ul § 12",
-            "ul (1) Note",
-            "ul 3. Ave",
-            "ol A. Smith",
-            "ol § 12",
-            "ol Typed three",
-            "ol Typed outline",
-            "ol 3. Ave",
-            "ol (1) Note",
-            "ol b. lower case",
-            "ol § 12",
-            "ol Typed E",
-            "ul A. Smith",
-            "ul (1) Note",
-            "ul 3. Ave",
-            "ul Typed glyph",
-            "ol C. Upper",
-            "ol iiii. Not roman",
-            "ol Typed three",
-        ];
-        const found = outline(editor.content());
-        expect(found.map(line => line.replace(/\u00a0/g, " "))).toEqual(lines);
-        expect(findDangerousDOM(editor.container)).toEqual([]);
+        expect(editor.content().querySelector("ul, ol")).toBeNull();
         expect(await editor.save()).toBe(officeTypedTextSaved);
-        expect(await reload(officeTypedTextSaved)).toEqual({ outline: found, markdown: officeTypedTextSaved });
+        cleanup();
+        // Between list items with Ignore spans, such paragraphs end the list and stay as they
+        // are; the list after them resumes at its marker's number.
+        const lines = ["ol One", "ol Two", "ol@4 Four"];
+        const mixed = await pasteOffice(officeNoIgnoreMixed);
+        expect(Array.from(mixed.content().children).map(el => el.localName)).toEqual(["ol", "p", "p", "ol"]);
+        expect(mixed.content().querySelector(":scope > p strong")?.textContent).toBe("3.");
+        await expectConverted(mixed, lines, officeNoIgnoreMixedSaved);
     });
 
     it("O30 outline numbers (`1.3.`) start their sub-list at their final part, with and without @list rules", async () => {
@@ -393,8 +383,8 @@ describe("O: Office lists become lists", () => {
                 "2) Second place\n3) Third place\n\n4. Roman four\n5. Roman five\n\n* Note: Remember this\n* Note: And this\n"
         );
         cleanup();
-        // Without rules, a number in the marker makes it a numbered item; a letter alone (`o`)
-        // is a bullet glyph.
+        // Without rules, a number in the marker, or an outline part before its final letter
+        // (`1.a`), makes it a numbered item; a letter alone (`o`) is a bullet glyph.
         await expectConverted(
             await pasteOffice(officeMarkerShapesFragment),
             [
@@ -406,11 +396,19 @@ describe("O: Office lists become lists", () => {
                 "ol Bare four",
                 "ol@3 Outline three",
                 "ol Outline four",
+                "ol Outline a",
+                "ol Outline b",
                 "ul Circle bullet",
             ],
             "3. Third article\n4. Fourth article\n\n2) Second step\n3) Third step\n\n3. Bare three\n4. Bare four\n\n" +
-                "3) Outline three\n4) Outline four\n\n* Circle bullet\n"
+                "3) Outline three\n4) Outline four\n\n1. Outline a\n2. Outline b\n\n* Circle bullet\n"
         );
+    });
+
+    it("O33 a list style with its tokens in another order (`level1 l0 lfo1`) converts the same", async () => {
+        // No declaration starts with the list id, which the raw pre-scan must still count.
+        expect(officeReordered).not.toMatch(/mso-list\s*:\s*l\d/i);
+        await expectConverted(await pasteOffice(officeReordered), BULLETS, officeBulletsSaved);
     });
 });
 
@@ -603,7 +601,7 @@ describe("O: robustness", () => {
         }
     }, 60_000);
 
-    it("O32 4,000-character markers are read in linear time, and typed ones stay in the text", () => {
+    it("O32 4,000-character markers are read in linear time, and typed ones aren't list paragraphs", () => {
         // Real timers: the config fakes `performance` whenever fake timers are on.
         vi.useRealTimers();
         const html = longMarkerOfficeList(800);
@@ -611,8 +609,11 @@ describe("O: robustness", () => {
         const started = performance.now();
         const converted = convertOfficeLists(html);
         const elapsed = performance.now() - started;
-        expect(converted.match(/<li>/g)).toHaveLength(800);
-        // None of the typed markers is one a level shows, so all 400 stay before their text.
+        expect(converted.match(/<li>/g)).toHaveLength(400);
+        // The 400 paragraphs with typed markers have no Ignore span, so they stay as they are.
+        expect(
+            converted.match(/<p class="MsoListParagraphCxSpMiddle" style="mso-list:l\d+ level1 lfo2">/g)
+        ).toHaveLength(400);
         expect(converted.match(/&nbsp;Long \d+/g)).toHaveLength(400);
         // A guard against superlinear marker parsing, not a speed test (well under 1 s each way).
         expect(elapsed).toBeLessThan(10_000);

@@ -23,12 +23,11 @@
 // The Office rows (SPST-66) paste and drop the synthetic Word clipboards in
 // packages/cells/test/fixtures/office-clipboard.mjs into an empty editor, where "Applied" means
 // the expected lists: the numbers of `ul`, `ol` and `li` elements, the deepest nesting, and the
-// number of items that start with something that looks like a bullet or number (none, except
-// typed text the converter must keep). They also paste each one into a code block, with and
-// without a text/plain flavor. For each fixture with expected GFM (the mixed lists, sub-lists
-// that don't start at 1, kept typed text and outline numbers), the "Office save" check pastes
-// it, saves, compares the GFM, and loads the saved GFM again to check that it gives the same
-// lists.
+// number of items that start with something that looks like a bullet or number (none). They
+// also paste each one into a code block, with and without a text/plain flavor. For each fixture
+// with expected GFM (the mixed lists, sub-lists that don't start at 1, paragraphs without Ignore
+// spans between list items, and outline numbers), the "Office save" check pastes it, saves,
+// compares the GFM, and loads the saved GFM again to check that it gives the same lists.
 //
 // The "native drop" path is defense in depth for ProseMirror's DOM observer and parse rules: it
 // really drops the payload on a plain contenteditable, where Chromium applies its own drop
