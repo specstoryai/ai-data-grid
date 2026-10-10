@@ -20,6 +20,15 @@
 // checks that Save after typing returns the typed Markdown, that dragging a selection within
 // the editor moves it, and that the link dialog's URL field accepts a paste (A2).
 //
+// The Office rows (SPST-66) paste and drop the synthetic Word clipboards in
+// packages/cells/test/fixtures/office-clipboard.mjs into an empty editor, where "Applied" means
+// the expected lists: the numbers of `ul`, `ol` and `li` elements, the deepest nesting, and the
+// number of items that start with something that looks like a bullet or number (none). They
+// also paste each one into a code block, with and without a text/plain flavor. For each fixture
+// with expected GFM (the mixed lists, sub-lists that don't start at 1, paragraphs without Ignore
+// spans between list items, and outline numbers), the "Office save" check pastes it, saves,
+// compares the GFM, and loads the saved GFM again to check that it gives the same lists.
+//
 // The "native drop" path is defense in depth for ProseMirror's DOM observer and parse rules: it
 // really drops the payload on a plain contenteditable, where Chromium applies its own drop
 // sanitization, and inserts the resulting markup into the editor's DOM. Other browsers don't
@@ -40,6 +49,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURES = join(ROOT, "packages/cells/test/fixtures/article-sanitizer-payloads.mjs");
+const OFFICE_FIXTURES = join(ROOT, "packages/cells/test/fixtures/office-clipboard.mjs");
 const BROWSERS = { chromium, firefox, webkit };
 const args = process.argv.slice(2);
 const browserFlag = args.indexOf("--browser");
@@ -99,7 +109,9 @@ import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
 import { ArticleCell } from "@specstory/ai-data-grid-cells";
 import * as fixtures from ${JSON.stringify(FIXTURES)};
+import * as officeFixtures from ${JSON.stringify(OFFICE_FIXTURES)};
 window.fixtures = fixtures;
+window.officeFixtures = officeFixtures;
 let root;
 window.mountArticle = (markdown, readonly) => {
     const el = document.getElementById("root");
@@ -386,6 +398,95 @@ async function runBrowser(name) {
         });
     }
 
+    // The Office list rows: the lists a paste or drop into an empty editor produced.
+    const officeShape = () =>
+        page.evaluate(selector => {
+            const root = document.querySelector(selector);
+            const depth = el => {
+                let n = 0;
+                for (let e = el; e !== null && e !== root; e = e.parentElement) {
+                    if (e.localName === "ul" || e.localName === "ol") n++;
+                }
+                return n;
+            };
+            const items = Array.from(root.querySelectorAll("li"));
+            const marked = /^(?:\s|[·o§•▪Øü*-](?:\s|$)|\(?(?:\d{1,9}|[a-z]{1,8}|[A-Z]{1,8})[.)](?:\s|$))/u;
+            return {
+                ul: root.querySelectorAll("ul").length,
+                ol: root.querySelectorAll("ol").length,
+                li: items.length,
+                depth: Math.max(0, ...items.map(depth)),
+                marked: items.filter(li => marked.test(li.querySelector("p")?.textContent ?? li.textContent)).length,
+            };
+        }, EDITOR);
+    const officeCases = await page.evaluate(() => window.officeFixtures.officeBrowserCases);
+    for (const c of officeCases) {
+        for (const path of [
+            "Office paste",
+            "Office drop",
+            "Office code block paste",
+            "Office code block paste, HTML only",
+        ]) {
+            const codeBlock = path.includes("code block");
+            await mount(codeBlock ? "start\n\n```\ncode\n```" : "", false);
+            const before = codeBlock ? await snapshot() : undefined;
+            if (path === "Office paste") await pasteData({ html: c.html, text: c.text }, `${EDITOR} p`);
+            else if (path === "Office drop") await dragAndDropData({ html: c.html, text: c.text }, `${EDITOR} p`);
+            else if (path === "Office code block paste") await pasteData({ html: c.html, text: "copied" }, CODE_BLOCK);
+            else await pasteData({ html: c.html }, CODE_BLOCK);
+            const result = await observe();
+            if (path === "Office code block paste") {
+                const failure = legacy ? undefined : codeBlockCheck(before, result, "copied");
+                record(c.id, c.name, path, result, failure === undefined, {
+                    mustApply: true,
+                    eventPath: true,
+                    failure,
+                });
+            } else if (codeBlock) {
+                const unchanged = result.html === before.html;
+                record(c.id, c.name, path, result, !unchanged, {
+                    eventPath: true,
+                    failure: unchanged ? undefined : "the code block or document changed",
+                });
+            } else {
+                const shape = await officeShape();
+                const { ul, ol, li, depth, marked = 0 } = c.expected;
+                const applied =
+                    shape.ul === ul &&
+                    shape.ol === ol &&
+                    shape.li === li &&
+                    shape.depth === depth &&
+                    shape.marked === marked;
+                record(c.id, c.name, path, result, applied, { mustApply: true, eventPath: true });
+            }
+        }
+    }
+
+    // Pasting an Office fixture and saving writes the expected GFM, which loads as the same lists.
+    const officeSaves = [];
+    for (const c of officeCases.filter(o => o.saved !== undefined)) {
+        await mount("", false);
+        await pasteData({ html: c.html, text: c.text }, `${EDITOR} p`);
+        await page.waitForTimeout(250);
+        await page.locator("#root .gdg-save-button").click();
+        const saved = await page.evaluate(() => window.__saved);
+        let reloaded;
+        if (saved?.markdown === c.saved) {
+            await mount(c.saved, false);
+            reloaded = await officeShape();
+        }
+        const { ul, ol, li, depth, marked = 0 } = c.expected;
+        const ok =
+            reloaded !== undefined &&
+            reloaded.ul === ul &&
+            reloaded.ol === ol &&
+            reloaded.li === li &&
+            reloaded.depth === depth &&
+            reloaded.marked === marked;
+        officeSaves.push({ id: c.id, saved, reloaded, ok });
+    }
+    const officeSaveOk = officeSaves.length > 0 && officeSaves.every(o => o.ok);
+
     // Save after typing returns the edited Markdown.
     await mount("hello", false);
     await page.locator(EDITOR).click();
@@ -441,7 +542,20 @@ async function runBrowser(name) {
     }
 
     await browser.close();
-    return { name, version: browser.version(), legacy, rows, saved, saveOk, moved, moveOk, linkPaste, pageErrors };
+    return {
+        name,
+        version: browser.version(),
+        legacy,
+        rows,
+        saved,
+        saveOk,
+        officeSaves,
+        officeSaveOk,
+        moved,
+        moveOk,
+        linkPaste,
+        pageErrors,
+    };
 }
 
 let failures = 0;
@@ -464,6 +578,13 @@ for (const name of browserNames) {
     }
     console.log("");
     console.log(`save after typing "hello" + " world": ${JSON.stringify(r.saved)} -> ${r.saveOk ? "pass" : "FAIL"}`);
+    for (const o of r.officeSaves) {
+        console.log(
+            `save after pasting ${o.id}, then reload: ${JSON.stringify(o.saved)}, reloaded ${JSON.stringify(o.reloaded)} -> ${
+                o.ok ? "pass" : "FAIL"
+            }`
+        );
+    }
     console.log(
         `drag "alpha" to the end of "alpha beta gamma": ${JSON.stringify(r.moved)} -> ${r.moveOk ? "pass" : "FAIL"}`
     );
@@ -478,16 +599,18 @@ for (const name of browserNames) {
     const failed = r.rows.filter(row => !row.ok).length;
     const nativeRows = r.rows.filter(row => row.eventPath && row.native).length;
     const linkOk = r.linkPaste === undefined || r.linkPaste.ok;
-    if (failed > 0 || !r.saveOk || !r.moveOk || !linkOk || r.pageErrors.length > 0) {
+    if (failed > 0 || !r.saveOk || !r.officeSaveOk || !r.moveOk || !linkOk || r.pageErrors.length > 0) {
         failures++;
         console.error(
             `${r.name} FAILED: ${failed} of ${r.rows.length} case(s)${r.saveOk ? "" : ", save"}${
+                r.officeSaveOk ? "" : ", Office save"
+            }${
                 r.moveOk ? "" : ", drag move"
             }${linkOk ? "" : ", link dialog paste"}${r.pageErrors.length > 0 ? ", page errors" : ""}; native: ${nativeRows}`
         );
     } else {
         console.log(
-            `${r.name} PASSED: ${r.rows.length} cases, native: ${nativeRows}, save, drag move${
+            `${r.name} PASSED: ${r.rows.length} cases, native: ${nativeRows}, save, Office save, drag move${
                 r.linkPaste === undefined ? "" : ", link dialog paste"
             }, no page errors`
         );

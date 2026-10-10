@@ -4,6 +4,7 @@
 import { Fragment, type ResolvedPos, type Schema, Slice } from "@milkdown/prose/model";
 import { dropPoint } from "@milkdown/prose/transform";
 import type { EditorProps, EditorView } from "@milkdown/prose/view";
+import { convertOfficeLists } from "./office-lists.js";
 import { safeArticleURL, sanitizePastedHTML } from "./url-policy.js";
 
 const isCode = ($pos: ResolvedPos) => $pos.parent.type.spec.code === true;
@@ -52,7 +53,9 @@ function insertImageFiles(view: EditorView, files: readonly File[], pos: number 
 /** D3 and D4, as ProseMirror editor props. */
 export const articleClipboardProps: Pick<EditorProps, "transformPastedHTML" | "handlePaste" | "handleDrop"> = {
     // D3: every HTML paste and drop that ProseMirror parses goes through the private DOMPurify.
-    transformPastedHTML: html => sanitizePastedHTML(html),
+    // Office list conversion (SPST-66) must stay before D3: it needs the `@list` rules that D3
+    // drops with `<style>`, and D3 must stay the last transform of the clipboard HTML.
+    transformPastedHTML: html => sanitizePastedHTML(convertOfficeLists(html)),
 
     handlePaste: (view, event, slice) => {
         const data = event.clipboardData;
