@@ -15,7 +15,14 @@ export interface OfficeFixture {
 export interface OfficeBrowserCase extends OfficeFixture {
     readonly name: string;
     readonly text: string;
-    readonly expected: { readonly ul: number; readonly ol: number; readonly li: number; readonly depth: number };
+    readonly expected: {
+        readonly ul: number;
+        readonly ol: number;
+        readonly li: number;
+        readonly depth: number;
+        /** Items whose text still looks like a marker (default 0). */
+        readonly marked?: number;
+    };
     readonly saved?: string;
 }
 export declare function wordDocument(listRules: string, body: string): string;
@@ -55,6 +62,15 @@ export declare const officeStartsDeep: string;
 export declare const officeNestedStart: string;
 export declare const officeNestedStartSaved: string;
 export declare const officeContinuationNested: string;
+export declare const officeTypedText: string;
+export declare const officeTypedTextSaved: string;
+export declare const outlineRules: string;
+export declare const officeOutline: string;
+export declare const officeOutlineSaved: string;
+export declare const officeOutlineFragment: string;
+export declare const officeMarkerShapes: string;
+export declare const officeMarkerShapesFragment: string;
+export declare function longMarkerOfficeList(count: number): string;
 export declare const noncanonicalHTML: string;
 export declare const noncanonicalMentionsMsoList: string;
 export declare const officeMismatched: string;

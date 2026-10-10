@@ -430,6 +430,205 @@ export const officeContinuationNested = wordDocument(
         wordItem({ list: "l1", lfo: 2, marker: "2.", text: "Numbered two", position: "Last" })
 );
 
+/** A list paragraph whose marker is typed into its text: it has no Ignore span. */
+function typedItem({ list, level = 1, lfo, text, position = "Middle" }) {
+    return (
+        `<p class=MsoListParagraphCxSp${position} style='margin-left:${0.5 * level}in;mso-add-space:auto;` +
+        `mso-list:${list} level${level} lfo${lfo}'><span lang=EN-US>${text}<o:p></o:p></span></p>\n`
+    );
+}
+
+const level1 = (list, rest) =>
+    `@list ${list} {mso-list-id:9${list.slice(1)};}\n@list ${list}:level1 {${rest} ${ruleTail()}}`;
+
+/**
+ * O29: text typed at the start of list paragraphs without Ignore spans. Only text that is the
+ * marker the level's rule displays is removed: nothing under a level with no number, a glyph
+ * under a bullet level, letters or roman numerals in the level's case, digits under a numbered
+ * level. The last item of each list is such a marker. Some markers are followed by a no-break
+ * space, as Word writes them, and some by a space.
+ */
+export const officeTypedText = wordDocument(
+    [
+        level1("l13", `mso-level-number-format:none; mso-level-text:"";`),
+        level1("l14", `mso-level-text:"%1\\.";`),
+        level1("l15", `mso-level-number-format:alpha-upper; mso-level-text:"%1\\.";`),
+        level1("l16", `mso-level-number-format:bullet; mso-level-text:\\F0A7;`),
+        level1("l17", `mso-level-number-format:roman-lower; mso-level-text:"%1\\.";`),
+    ].join("\n"),
+    [
+        { list: "l13", lfo: 14, text: "A.&nbsp;Smith", position: "First" },
+        { list: "l13", lfo: 14, text: "§ 12" },
+        { list: "l13", lfo: 14, text: "(1) Note" },
+        { list: "l13", lfo: 14, text: "3. Ave", position: "Last" },
+    ]
+        .map(typedItem)
+        .join("") +
+        wordParagraph("Numbered") +
+        [
+            { list: "l14", lfo: 15, text: "A.&nbsp;Smith", position: "First" },
+            { list: "l14", lfo: 15, text: "§&nbsp;12" },
+            { list: "l14", lfo: 15, text: "3.&nbsp;Typed three", position: "Last" },
+        ]
+            .map(typedItem)
+            .join("") +
+        wordParagraph("Upper letters") +
+        [
+            { list: "l15", lfo: 16, text: "3. Ave", position: "First" },
+            { list: "l15", lfo: 16, text: "(1)&nbsp;Note" },
+            { list: "l15", lfo: 16, text: "b.&nbsp;lower case" },
+            { list: "l15", lfo: 16, text: "§&nbsp;12" },
+            { list: "l15", lfo: 16, text: "E.&nbsp;Typed E", position: "Last" },
+        ]
+            .map(typedItem)
+            .join("") +
+        wordParagraph("Bullets") +
+        [
+            { list: "l16", lfo: 17, text: "A.&nbsp;Smith", position: "First" },
+            { list: "l16", lfo: 17, text: "(1)&nbsp;Note" },
+            { list: "l16", lfo: 17, text: "3. Ave" },
+            { list: "l16", lfo: 17, text: "§&nbsp;Typed glyph", position: "Last" },
+        ]
+            .map(typedItem)
+            .join("") +
+        wordParagraph("Roman") +
+        [
+            { list: "l17", lfo: 18, text: "C.&nbsp;Upper", position: "First" },
+            { list: "l17", lfo: 18, text: "iiii.&nbsp;Not roman" },
+            { list: "l17", lfo: 18, text: "iii.&nbsp;Typed three", position: "Last" },
+        ]
+            .map(typedItem)
+            .join("")
+);
+// `\u00a0` where the fixture has `&nbsp;`.
+export const officeTypedTextSaved =
+    "* A.\u00a0Smith\n* § 12\n* (1) Note\n* 3\\. Ave\n\nNumbered\n\n1. A.\u00a0Smith\n2. §\u00a012\n3. Typed three\n\n" +
+    "Upper letters\n\n1. 3\\. Ave\n2. (1)\u00a0Note\n3. b.\u00a0lower case\n4. §\u00a012\n5. Typed E\n\nBullets\n\n" +
+    "* A.\u00a0Smith\n* (1)\u00a0Note\n* 3\\. Ave\n* Typed glyph\n\nRoman\n\n1. C.\u00a0Upper\n2. iiii.\u00a0Not roman\n" +
+    "3. Typed three\n";
+
+/** O30: outline numbering (`1.3.`): decimal levels, then a lettered second level. */
+export const outlineRules = [
+    `@list l18 {mso-list-id:9018; mso-list-template-ids:9118;}`,
+    `@list l18:level1 {mso-level-text:"%1\\."; ${ruleTail()}}`,
+    `@list l18:level2 {mso-level-text:"%1\\.%2\\."; ${ruleTail()}}`,
+    `@list l19 {mso-list-id:9019;}`,
+    `@list l19:level1 {mso-level-text:"%1\\."; ${ruleTail()}}`,
+    `@list l19:level2 {mso-level-number-format:alpha-lower; mso-level-text:"%1\\.%2"; ${ruleTail()}}`,
+].join("\n");
+const outlineItems = [
+    { list: "l18", lfo: 19, level: 1, marker: "1.", text: "Chapter one" },
+    { list: "l18", lfo: 19, level: 2, marker: "1.3.", text: "Section three" },
+    { list: "l18", lfo: 19, level: 2, marker: "1.4.", text: "Section four" },
+    { list: "l18", lfo: 19, level: 1, marker: "2.", text: "Chapter two" },
+    { list: "l18", lfo: 19, level: 2, marker: "2.1)", text: "Section two one" },
+    { list: "l18", lfo: 19, level: 2, marker: "2.2)", text: "Section two two" },
+    { list: "l18", lfo: 19, level: 1, marker: "3.", text: "Chapter three" },
+    { list: "l18", lfo: 19, level: 2, marker: "3.5", text: "Section five" },
+    { list: "l18", lfo: 19, level: 2, marker: "3.6", text: "Section six" },
+];
+export const officeOutline = wordDocument(
+    outlineRules,
+    items(outlineItems) +
+        wordParagraph("Lettered") +
+        items([
+            { list: "l19", lfo: 20, level: 1, marker: "1.", text: "Lettered parent" },
+            { list: "l19", lfo: 20, level: 2, marker: "1.c", text: "Letter c" },
+            { list: "l19", lfo: 20, level: 2, marker: "1.d", text: "Letter d" },
+        ])
+);
+export const officeOutlineSaved =
+    "1. Chapter one\n\n   3. Section three\n   4. Section four\n2. Chapter two\n   1. Section two one\n" +
+    "   2. Section two two\n3. Chapter three\n\n   5. Section five\n   6. Section six\n\nLettered\n\n" +
+    "1. Lettered parent\n\n   3. Letter c\n   4. Letter d\n";
+/** O30: the decimal outline without its `@list` rules. */
+export const officeOutlineFragment = fragmentDocument(items(outlineItems));
+
+/**
+ * O31: Word level texts around the number (`Article 3.`, `Step 2:`, `(iv)`), a bare number, an
+ * ordinal, and text on a level with no number.
+ */
+export const officeMarkerShapes = wordDocument(
+    [
+        level1("l20", `mso-level-text:"Article %1\\.";`),
+        level1("l21", `mso-level-text:"Step %1:";`),
+        level1("l22", `mso-level-text:"%1";`),
+        level1("l23", `mso-level-number-format:ordinal; mso-level-text:"%1";`),
+        level1("l24", `mso-level-number-format:roman-lower; mso-level-text:"\\(%1\\)";`),
+        level1("l25", `mso-level-number-format:none; mso-level-text:"Note:";`),
+    ].join("\n"),
+    items([
+        { list: "l20", lfo: 21, marker: "Article 3.", text: "Third article" },
+        { list: "l20", lfo: 21, marker: "Article 4.", text: "Fourth article" },
+    ]) +
+        items([
+            { list: "l21", lfo: 22, marker: "Step 2:", text: "Second step" },
+            { list: "l21", lfo: 22, marker: "Step 3:", text: "Third step" },
+        ]) +
+        items([
+            { list: "l22", lfo: 23, marker: "3", text: "Bare three" },
+            { list: "l22", lfo: 23, marker: "4", text: "Bare four" },
+        ]) +
+        items([
+            { list: "l23", lfo: 24, marker: "2nd", text: "Second place" },
+            { list: "l23", lfo: 24, marker: "3rd", text: "Third place" },
+        ]) +
+        items([
+            { list: "l24", lfo: 25, marker: "(iv)", text: "Roman four" },
+            { list: "l24", lfo: 25, marker: "(v)", text: "Roman five" },
+        ]) +
+        items([
+            { list: "l25", lfo: 26, marker: "Note:", text: "Remember this" },
+            { list: "l25", lfo: 26, marker: "Note:", text: "And this" },
+        ])
+);
+/** O31: the same shapes without `@list` rules, and a Courier New `o` bullet. */
+export const officeMarkerShapesFragment = fragmentDocument(
+    items([
+        { list: "l20", lfo: 21, marker: "Article 3.", text: "Third article" },
+        { list: "l20", lfo: 21, marker: "Article 4.", text: "Fourth article" },
+    ]) +
+        items([
+            { list: "l21", lfo: 22, marker: "Step 2:", text: "Second step" },
+            { list: "l21", lfo: 22, marker: "Step 3:", text: "Third step" },
+        ]) +
+        items([
+            { list: "l22", lfo: 23, marker: "3", text: "Bare three" },
+            { list: "l22", lfo: 23, marker: "4", text: "Bare four" },
+        ]) +
+        items([
+            { list: "l18", lfo: 19, marker: "1.3.", text: "Outline three" },
+            { list: "l18", lfo: 19, marker: "1.4.", text: "Outline four" },
+        ]) +
+        items([{ list: "l0", lfo: 1, marker: "o", text: "Circle bullet" }])
+);
+
+/**
+ * O32: list paragraphs whose markers are 4,000 characters long, in Ignore spans and typed into
+ * the text, under a numbered level and without rules. `count` paragraphs of each shape.
+ */
+export function longMarkerOfficeList(count) {
+    const shapes = [
+        "1.".repeat(2000),
+        "a".repeat(4000),
+        "Article ".repeat(500),
+        `${"9".repeat(3999)}.`,
+        "(".repeat(4000),
+    ];
+    const body = [];
+    for (let i = 0; i < count; i++) {
+        const marker = shapes[i % shapes.length];
+        const list = i % 2 === 0 ? "l1" : "l30";
+        body.push(
+            i % 4 < 2
+                ? `<p class=MsoListParagraphCxSpMiddle style='mso-list:${list} level1 lfo2'>` +
+                      `<span style='mso-list:Ignore'>${marker}&nbsp; </span>Long ${i}</p>\n`
+                : `<p class=MsoListParagraphCxSpMiddle style='mso-list:${list} level1 lfo2'>${marker}&nbsp;Long ${i}</p>\n`
+        );
+    }
+    return wordDocument(numberRules, body.join(""));
+}
+
 /**
  * O15: non-Office HTML that isn't in the form a DOM serializes it to (upper-case tags,
  * unquoted attributes, `<br/>`, unclosed `<p>`s), with an Office-looking paragraph that has no
@@ -525,6 +724,23 @@ export const officeBrowserCases = [
         saved: officeNestedStartSaved,
     },
     {
+        id: "O-typed-text",
+        name: "Office typed text kept unless the level shows it",
+        html: officeTypedText,
+        text: "A. Smith",
+        // Items that keep text such as `A. Smith` or `3. Ave`, which looks like a marker.
+        expected: { ul: 2, ol: 3, li: 19, depth: 1, marked: 15 },
+        saved: officeTypedTextSaved,
+    },
+    {
+        id: "O-outline",
+        name: "Office outline numbering (1.3.)",
+        html: officeOutline,
+        text: "Chapter one",
+        expected: { ul: 0, ol: 6, li: 12, depth: 2 },
+        saved: officeOutlineSaved,
+    },
+    {
         id: "O-hostile",
         name: "Office list with hostile content",
         html: officeHostile,
@@ -559,5 +775,10 @@ export const officeCorpus = [
     { id: "O24", html: officeMismatched },
     { id: "O27", html: officeNestedStart },
     { id: "O28", html: officeContinuationNested },
+    { id: "O29", html: officeTypedText },
+    { id: "O30a", html: officeOutline },
+    { id: "O30b", html: officeOutlineFragment },
+    { id: "O31a", html: officeMarkerShapes },
+    { id: "O31b", html: officeMarkerShapesFragment },
     { id: "O-hostile", html: officeHostile },
 ];

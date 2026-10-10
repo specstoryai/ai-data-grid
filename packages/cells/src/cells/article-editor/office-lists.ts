@@ -44,11 +44,18 @@ const IGNORE = /mso-list\s*:\s*ignore/i;
 const CONTINUATION = /^MsoListParagraphCxSp(?:Middle|Last)$/i;
 // `\s` includes the no-break spaces Word puts after a marker.
 const SPACE = /^\s*$/;
-// A marker typed into the text (no Ignore span): a non-alphanumeric glyph, or a number, letters
-// or a roman numeral followed by `.` or `)`, optionally after `(`. It must be followed by space.
-const TEXT_MARKER = /^\s*([^\p{L}\p{N}\s]|\(?(?:\d{1,9}|\p{L}{1,8})[.)])\s+/u;
-// A marker that numbers an item: `3.`, `b)`, `(iv)`.
-const ORDERED_MARKER = /^\(?(\d{1,9}|[a-z]{1,8}|[A-Z]{1,8})[.)]$/;
+// A marker typed into the text (no Ignore span), followed by space: a non-alphanumeric glyph, or
+// a number, letters or a roman numeral followed by `.` or `)`, optionally after `(`. Group 2 holds
+// any further outline parts (`1.3.`), which only a level's rule can confirm.
+const TEXT_MARKER = /^\s*([^\p{L}\p{N}\s]|\(?(?:\d{1,9}|\p{L}{1,8})[.)]((?:(?:\d{1,9}|\p{L}{1,8})[.)]){0,8}))\s+/u;
+// A numbering marker: an optional word and space (`Article 3.`), an optional `(`, up to eight
+// outline parts each followed by `.`, `)` or `-` (`1.3.`), then the final part, a number (`3`,
+// `03`, `2nd`) or letters (`c`, `IV`), with an optional `.`, `)` or `:` after it. Anchored at both
+// ends with every quantifier bounded, so a long marker fails in a bounded number of steps.
+const NUMBER_MARKER =
+    /^(\p{L}{1,20}\s{1,3})?\(?((?:(?:\d{1,9}|[a-z]{1,8}|[A-Z]{1,8})[.)-]){0,8})(?:(\d{1,9})(?:st|nd|rd|th)?|([a-z]{1,8}|[A-Z]{1,8}))([.):]?)\)?$/u;
+// A roman numeral in Word's form (`iv`, not `iiii`).
+const ROMAN = /^m{0,4}(?:cm|cd|d?c{0,3})(?:xc|xl|l?x{0,3})(?:ix|iv|v?i{0,3})$/;
 const HTML_NS = "http://www.w3.org/1999/xhtml";
 
 interface LevelRule {
@@ -61,6 +68,7 @@ interface ListItem {
     readonly id: number;
     readonly lfo: number;
     readonly level: number;
+    readonly rule: LevelRule | undefined;
     readonly marker: string;
     readonly continuations: Element[];
 }
@@ -114,9 +122,50 @@ function readListStyle(p: Element): { id: number; level: number; lfo: number } |
     return { id, level, lfo: lfo ?? 0 };
 }
 
+interface Marker {
+    /** The final part's number, `3` in `1.3.`. */
+    readonly digits: string | undefined;
+    /** The final part's letters, `c` in `1.c`. */
+    readonly letters: string | undefined;
+    /** Whether it numbers an item without a level rule to say so: a bullet glyph such as `o` doesn't. */
+    readonly numbered: boolean;
+}
+
+function readMarker(marker: string): Marker | undefined {
+    const match = NUMBER_MARKER.exec(marker);
+    if (match === null) return undefined;
+    const [, , outline, digits, letters, suffix] = match;
+    return {
+        digits,
+        letters,
+        numbered: digits !== undefined || outline !== "" || suffix === "." || suffix === ")",
+    };
+}
+
+// Whether `token`, a marker typed into the text, is the marker the level's rule displays, so
+// removing it loses nothing. A level without a number shows no marker; a bullet level, a glyph;
+// an alpha or roman level, letters or a roman numeral in its case; any other numbered level,
+// digits. Without a rule (only the fragment was copied), any one-part marker is taken (O12).
+function isLevelMarker(token: string, hasOutline: boolean, rule: LevelRule | undefined): boolean {
+    if (rule === undefined) return !hasOutline;
+    const format = rule.format;
+    if (format === "none") return false;
+    const glyph = !/[\p{L}\p{N}]/u.test(token);
+    if (format === "bullet" || format === "image") return glyph;
+    const marker = glyph ? undefined : readMarker(token);
+    if (marker === undefined) return false;
+    const { letters } = marker;
+    const alpha = format?.startsWith("alpha") === true;
+    if (!alpha && format?.startsWith("roman") !== true) return marker.digits !== undefined;
+    if (letters === undefined) return false;
+    const cased = format?.endsWith("upper") === true ? letters.toUpperCase() : letters.toLowerCase();
+    if (letters !== cased) return false;
+    return alpha ? letterValue(letters) !== undefined : ROMAN.test(letters.toLowerCase());
+}
+
 // Removes the paragraph's marker and returns its text: the `mso-list: Ignore` elements, or
-// else a marker at the start of its first text.
-function takeMarker(p: Element): string {
+// else a marker at the start of its first text that the level's rule displays.
+function takeMarker(p: Element, rule: LevelRule | undefined): string {
     let marker = "";
     let found = false;
     for (const el of Array.from(p.querySelectorAll("[style]"))) {
@@ -126,13 +175,22 @@ function takeMarker(p: Element): string {
         el.remove();
         found = true;
     }
-    if (found) return marker.trim();
+    if (found) {
+        marker = marker.trim();
+        // A level with no number can still show text (level text such as `Note:`). The bullet
+        // that replaces it can't, so the text stays at the start of the item.
+        if (rule?.format === "none" && marker !== "") {
+            p.prepend(`${marker} `);
+            return "";
+        }
+        return marker;
+    }
     const walker = p.ownerDocument.createTreeWalker(p, 4 /* NodeFilter.SHOW_TEXT */);
     for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
         const text = node.nodeValue ?? "";
         if (SPACE.test(text)) continue;
         const match = TEXT_MARKER.exec(text);
-        if (match === null) return "";
+        if (match === null || !isLevelMarker(match[1], (match[2] ?? "") !== "", rule)) return "";
         node.nodeValue = text.slice(match[0].length);
         return match[1];
     }
@@ -176,21 +234,22 @@ function romanValue(token: string): number | undefined {
     return total > 0 ? total : undefined;
 }
 
-// Bullet or ordered, and the start number an ordered list would have if `item` started it.
-// GFM has no lettered or roman lists, so they become numbers that keep the item's position.
-function listKind(item: ListItem, rules: Map<string, LevelRule>): { ordered: boolean; start: number } {
-    const rule = rules.get(`${item.id}:${item.level}`);
-    const token = ORDERED_MARKER.exec(item.marker)?.[1];
+// Bullet or ordered, and the start number an ordered list would have if `item` started it: the
+// final part of its marker (`1.3.` starts at 3). GFM has no lettered or roman lists, so they
+// become numbers that keep the item's position.
+function listKind(item: ListItem): { ordered: boolean; start: number } {
+    const { rule } = item;
+    const marker = readMarker(item.marker);
     const ordered =
         rule === undefined
-            ? token !== undefined
+            ? marker?.numbered === true
             : rule.format !== "bullet" && rule.format !== "image" && rule.format !== "none";
     if (!ordered) return { ordered, start: 1 };
     let fromMarker: number | undefined;
-    if (token !== undefined) {
-        if (/^\d+$/.test(token)) fromMarker = Number(token);
-        else if (rule?.format?.startsWith("alpha") === true) fromMarker = letterValue(token);
-        else if (rule?.format?.startsWith("roman") === true) fromMarker = romanValue(token);
+    if (marker?.digits !== undefined) fromMarker = Number(marker.digits);
+    else if (marker?.letters !== undefined) {
+        if (rule?.format?.startsWith("alpha") === true) fromMarker = letterValue(marker.letters);
+        else if (rule?.format?.startsWith("roman") === true) fromMarker = romanValue(marker.letters);
     }
     const start = fromMarker ?? rule?.startAt ?? 1;
     return { ordered, start: Math.min(Math.max(start, 0), MAX_START) };
@@ -214,14 +273,14 @@ function isSpread(li: Element): boolean {
 // Replaces one run of sibling list paragraphs with lists. Nesting follows the Word levels: a
 // deeper level nests one list deeper however far it jumps, and a shallower one closes the
 // lists nested deeper than it. So a run that starts at level 3 starts at depth 1.
-function buildRun(doc: Document, items: readonly ListItem[], rules: Map<string, LevelRule>) {
+function buildRun(doc: Document, items: readonly ListItem[]) {
     const top: Element[] = [];
     const created: Element[] = [];
     // The open lists, outermost first, with the lowest Word level each one holds.
     const open: { list: Element; level: number; key: string; ordered: boolean }[] = [];
     for (const item of items) {
         while (open.length > 1 && open[open.length - 2].level >= item.level) open.pop();
-        const { ordered, start } = listKind(item, rules);
+        const { ordered, start } = listKind(item);
         const key = `${item.id}/${item.lfo}`;
         let current: (typeof open)[number] | undefined = open[open.length - 1];
         const deeper = current !== undefined && item.level > current.level && open.length < MAX_DEPTH;
@@ -291,7 +350,8 @@ export function convertOfficeLists(html: string): string {
                 }
                 continue;
             }
-            const item: ListItem = { paragraph: p, ...style, marker: takeMarker(p), continuations: [] };
+            const rule = rules.get(`${style.id}:${style.level}`);
+            const item: ListItem = { paragraph: p, ...style, rule, marker: takeMarker(p, rule), continuations: [] };
             if (follows) {
                 run.push(item);
             } else {
@@ -302,7 +362,7 @@ export function convertOfficeLists(html: string): string {
         }
         if (run.length > 0) runs.push(run);
         if (runs.length === 0) return html;
-        for (const items of runs) buildRun(doc, items, rules);
+        for (const items of runs) buildRun(doc, items);
         return doc.body.innerHTML;
     } catch {
         return html;

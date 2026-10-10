@@ -6,8 +6,8 @@
 // to converted content. scripts/check-article-cell-sanitizer.mjs runs the Office rows in
 // Chromium, Firefox and WebKit.
 //
-// Groups: conversion (O01–O13, O27, O28), left unchanged (O14–O16), security (O17–O20) and
-// robustness (O21–O26).
+// Groups: conversion (O01–O13, O27–O31), left unchanged (O14–O16), security (O17–O20) and
+// robustness (O21–O26, O32).
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArticleEditor } from "../src/cells/article-editor/create-article-editor.js";
@@ -24,6 +24,7 @@ import {
 } from "./article-cell-harness.js";
 import {
     largeOfficeList,
+    longMarkerOfficeList,
     malformedOffice,
     noncanonicalHTML,
     noncanonicalMentionsMsoList,
@@ -36,6 +37,8 @@ import {
     officeHeadings,
     officeJump,
     officeListItem,
+    officeMarkerShapes,
+    officeMarkerShapesFragment,
     officeMismatched,
     officeMixed,
     officeMixedMalformed,
@@ -45,12 +48,17 @@ import {
     officeNoIgnore,
     officeNumbers,
     officeNumbersSaved,
+    officeOutline,
+    officeOutlineFragment,
+    officeOutlineSaved,
     officeOutlook,
     officePictureBullets,
     officeRestart,
     officeStaircase,
     officeStartsDeep,
     officeTable,
+    officeTypedText,
+    officeTypedTextSaved,
     officeWebKitBullets,
     officeWebKitNumbers,
     outlookWebLists,
@@ -301,6 +309,108 @@ describe("O: Office lists become lists", () => {
             "1. Numbered one\n\n   More about one\n\n   1. Sub a\n2. Numbered two\n"
         );
     });
+
+    it("O29 typed leading text is removed only when it's the marker the level's rule shows", async () => {
+        // Without an Ignore span, text that looks like a marker stays unless the level displays
+        // it: a level with no number shows nothing, a bullet level a glyph, an alpha or roman
+        // level letters in its case, other numbered levels digits. Each list ends with an item
+        // whose typed marker the level does show.
+        const editor = await pasteOffice(officeTypedText);
+        const lines = [
+            "ul A. Smith",
+            "ul § 12",
+            "ul (1) Note",
+            "ul 3. Ave",
+            "ol A. Smith",
+            "ol § 12",
+            "ol Typed three",
+            "ol 3. Ave",
+            "ol (1) Note",
+            "ol b. lower case",
+            "ol § 12",
+            "ol Typed E",
+            "ul A. Smith",
+            "ul (1) Note",
+            "ul 3. Ave",
+            "ul Typed glyph",
+            "ol C. Upper",
+            "ol iiii. Not roman",
+            "ol Typed three",
+        ];
+        const found = outline(editor.content());
+        expect(found.map(line => line.replace(/\u00a0/g, " "))).toEqual(lines);
+        expect(findDangerousDOM(editor.container)).toEqual([]);
+        expect(await editor.save()).toBe(officeTypedTextSaved);
+        expect(await reload(officeTypedTextSaved)).toEqual({ outline: found, markdown: officeTypedTextSaved });
+    });
+
+    it("O30 outline numbers (`1.3.`) start their sub-list at their final part, with and without @list rules", async () => {
+        const decimal = [
+            "ol Chapter one",
+            "  ol@3 Section three",
+            "  ol Section four",
+            "ol Chapter two",
+            "  ol Section two one",
+            "  ol Section two two",
+            "ol Chapter three",
+            "  ol@5 Section five",
+            "  ol Section six",
+        ];
+        await expectConverted(
+            await pasteOffice(officeOutline),
+            [...decimal, "ol Lettered parent", "  ol@3 Letter c", "  ol Letter d"],
+            officeOutlineSaved
+        );
+        cleanup();
+        await expectConverted(
+            await pasteOffice(officeOutlineFragment),
+            decimal,
+            officeOutlineSaved.slice(0, officeOutlineSaved.indexOf("\nLettered"))
+        );
+    });
+
+    it("O31 level texts around the number, bare numbers, ordinals and text on a level with no number", async () => {
+        // `Article 3.` and `Step 2:` keep their numbers (not their words: a GFM marker is only a
+        // number). Text on a level with no number stays in the item.
+        await expectConverted(
+            await pasteOffice(officeMarkerShapes),
+            [
+                "ol@3 Third article",
+                "ol Fourth article",
+                "ol@2 Second step",
+                "ol Third step",
+                "ol@3 Bare three",
+                "ol Bare four",
+                "ol@2 Second place",
+                "ol Third place",
+                "ol@4 Roman four",
+                "ol Roman five",
+                "ul Note: Remember this",
+                "ul Note: And this",
+            ],
+            "3. Third article\n4. Fourth article\n\n2) Second step\n3) Third step\n\n3. Bare three\n4. Bare four\n\n" +
+                "2) Second place\n3) Third place\n\n4. Roman four\n5. Roman five\n\n* Note: Remember this\n* Note: And this\n"
+        );
+        cleanup();
+        // Without rules, a number in the marker makes it a numbered item; a letter alone (`o`)
+        // is a bullet glyph.
+        await expectConverted(
+            await pasteOffice(officeMarkerShapesFragment),
+            [
+                "ol@3 Third article",
+                "ol Fourth article",
+                "ol@2 Second step",
+                "ol Third step",
+                "ol@3 Bare three",
+                "ol Bare four",
+                "ol@3 Outline three",
+                "ol Outline four",
+                "ul Circle bullet",
+            ],
+            "3. Third article\n4. Fourth article\n\n2) Second step\n3) Third step\n\n3. Bare three\n4. Bare four\n\n" +
+                "3) Outline three\n4) Outline four\n\n* Circle bullet\n"
+        );
+    });
 });
 
 describe("O: left unchanged", () => {
@@ -490,6 +600,21 @@ describe("O: robustness", () => {
         } finally {
             parse.mockRestore();
         }
+    }, 60_000);
+
+    it("O32 4,000-character markers are read in linear time, and typed ones stay in the text", () => {
+        // Real timers: the config fakes `performance` whenever fake timers are on.
+        vi.useRealTimers();
+        const html = longMarkerOfficeList(800);
+        expect(html.length).toBeLessThan(4_000_000);
+        const started = performance.now();
+        const converted = convertOfficeLists(html);
+        const elapsed = performance.now() - started;
+        expect(converted.match(/<li>/g)).toHaveLength(800);
+        // None of the typed markers is one a level shows, so all 400 stay before their text.
+        expect(converted.match(/&nbsp;Long \d+/g)).toHaveLength(400);
+        // A guard against superlinear marker parsing, not a speed test (well under 1 s each way).
+        expect(elapsed).toBeLessThan(10_000);
     }, 60_000);
 
     it("O26 when parsing throws, the input is returned unchanged and the paste lands as paragraphs", async () => {
