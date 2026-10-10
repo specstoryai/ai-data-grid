@@ -324,6 +324,7 @@ describe("O: Office lists become lists", () => {
             "ol A. Smith",
             "ol § 12",
             "ol Typed three",
+            "ol Typed outline",
             "ol 3. Ave",
             "ol (1) Note",
             "ol b. lower case",

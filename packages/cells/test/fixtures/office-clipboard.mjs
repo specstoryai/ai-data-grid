@@ -468,7 +468,8 @@ export const officeTypedText = wordDocument(
         [
             { list: "l14", lfo: 15, text: "A.&nbsp;Smith", position: "First" },
             { list: "l14", lfo: 15, text: "§&nbsp;12" },
-            { list: "l14", lfo: 15, text: "3.&nbsp;Typed three", position: "Last" },
+            { list: "l14", lfo: 15, text: "3.&nbsp;Typed three" },
+            { list: "l14", lfo: 15, text: "2.4.&nbsp;Typed outline", position: "Last" },
         ]
             .map(typedItem)
             .join("") +
@@ -502,7 +503,7 @@ export const officeTypedText = wordDocument(
 );
 // `\u00a0` where the fixture has `&nbsp;`.
 export const officeTypedTextSaved =
-    "* A.\u00a0Smith\n* § 12\n* (1) Note\n* 3\\. Ave\n\nNumbered\n\n1. A.\u00a0Smith\n2. §\u00a012\n3. Typed three\n\n" +
+    "* A.\u00a0Smith\n* § 12\n* (1) Note\n* 3\\. Ave\n\nNumbered\n\n1. A.\u00a0Smith\n2. §\u00a012\n3. Typed three\n4. Typed outline\n\n" +
     "Upper letters\n\n1. 3\\. Ave\n2. (1)\u00a0Note\n3. b.\u00a0lower case\n4. §\u00a012\n5. Typed E\n\nBullets\n\n" +
     "* A.\u00a0Smith\n* (1)\u00a0Note\n* 3\\. Ave\n* Typed glyph\n\nRoman\n\n1. C.\u00a0Upper\n2. iiii.\u00a0Not roman\n" +
     "3. Typed three\n";
@@ -729,7 +730,7 @@ export const officeBrowserCases = [
         html: officeTypedText,
         text: "A. Smith",
         // Items that keep text such as `A. Smith` or `3. Ave`, which looks like a marker.
-        expected: { ul: 2, ol: 3, li: 19, depth: 1, marked: 15 },
+        expected: { ul: 2, ol: 3, li: 20, depth: 1, marked: 15 },
         saved: officeTypedTextSaved,
     },
     {
