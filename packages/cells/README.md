@@ -97,7 +97,6 @@ Pasting or dropping a list from Microsoft Word or classic Outlook on the desktop
 - Lettered and roman-numeral lists become numbered lists, because Markdown has no other kind.
 - A list copied from the middle keeps its numbers: a copy that starts at item 3 saves as `3.`, `4.`, … For a lettered or roman list this needs Word's list formats on the clipboard (Word desktop puts them there): then `c.` or `iii.` becomes 3, and without them the list starts at 1.
 - Outline numbers keep their last part: a sub-list numbered `1.3.`, `1.4.` saves as `3.`, `4.`. Level text around the number keeps the number but not the word: `Article 3.` saves as `3.`.
-- Text you typed at the start of an item that looks like a bullet or number (`A. Smith`, `§ 12`) stays in the item, unless it's the kind of marker that list level shows.
 - An extra paragraph inside a list item stays in that item.
 - A numbered sub-list that doesn't start at 1, and a list item with more than one paragraph, are saved with a blank line inside the item, so they reload as the same list. Other Markdown renderers may show a list that has such an item with paragraph spacing.
 - Numbered headings stay headings, with their number as text.
@@ -108,7 +107,7 @@ Limitations of Office list paste:
 - **Word for the web isn't supported.** Its lists may paste as separate one-item lists, without their indentation.
 - Lists inside a Word table stay as they are: each item stays in its table cell as text that starts with its bullet or number. A Markdown table cell can't hold a list.
 - Numbering written as words (`Three`, `Third`), symbol numbering (`*`, `†`) and non-Latin numbering become numbered lists that start at the level's start number in Word, or at 1, not at the number shown.
-- Without Word's list formats on the clipboard, a bullet or a one-part number such as `3.` typed at the start of an item is taken as its marker and removed.
+- A list item that Word puts on the clipboard without its bullet or number marker element stays a paragraph, as before. Word and Outlook desktop normally write that element, so this is rare.
 - Very large pastes (more than 10,000 list items, or more than 4,000,000 characters of HTML) paste as paragraphs, as before.
 - Ordinary HTML lists, for example from a web page, aren't touched by this conversion and paste as lists, as before. A numbered sub-list that starts above 1 inside such a list still loses its nesting after Save, as before: it reloads as text in its parent item.
 
