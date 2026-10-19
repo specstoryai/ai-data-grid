@@ -67,8 +67,12 @@ export const articleClipboardProps: Pick<EditorProps, "transformPastedHTML" | "h
             if (text !== "") view.dispatch(state.tr.insertText(text).scrollIntoView().setMeta("uiEvent", "paste"));
             return true;
         }
+        // Word (notably on macOS) puts an image representation on the clipboard alongside
+        // the HTML/text flavors. Treat the paste as an image paste only when there is no
+        // text or HTML to parse, so a copied list/paragraph doesn't become an image.
+        const hasText = Boolean((data?.getData("text/html") ?? "").trim() || (data?.getData("text/plain") ?? "").trim());
         const images = imageFiles(data);
-        if (images !== undefined) {
+        if (!hasText && images !== undefined) {
             // Any other file is ignored.
             insertImageFiles(view, images, undefined);
             return true;
@@ -104,8 +108,9 @@ export const articleClipboardProps: Pick<EditorProps, "transformPastedHTML" | "h
             if (text !== "") view.dispatch(state.tr.insertText(text, target.pos).setMeta("uiEvent", "drop"));
             return true;
         }
+        const hasText = Boolean((data?.getData("text/html") ?? "").trim() || (data?.getData("text/plain") ?? "").trim());
         const images = imageFiles(data);
-        if (images !== undefined) {
+        if (!hasText && images !== undefined) {
             insertImageFiles(view, images, target.pos);
             return true;
         }
