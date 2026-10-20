@@ -2,6 +2,10 @@
 
 Changes on `main` since 7.0.0. They aren't in a published version yet.
 
+## Changes
+
+- **Pasting a list from Microsoft Word or Outlook into ArticleCell's editor now creates a bullet or numbered list with its nesting** (`@specstory/ai-data-grid-cells`), instead of paragraphs that start with the bullet or number. This covers Word and classic Outlook on the desktop. Lettered and roman-numeral lists become numbered lists, and a list copied from the middle keeps its numbers. Word for the web isn't supported, and lists inside a Word table stay as text in their cells. A list copied from Word on macOS no longer pastes as a picture of the list (Word also puts an image of it on the clipboard), and a copied picture still pastes as an image. See "Note on ArticleCell" in the cells README for the details and limitations. No API change.
+
 ## Fixes
 
 - **The first type-to-edit after a page load no longer opens late or drops keys with React 19** ([#58](https://github.com/specstoryai/ai-data-grid/issues/58)). The overlay editor and the number editor were loaded only when the first edit started, and React 19 can hold a newly loaded component back for up to 300 ms, so the first letters typed went to the grid instead of the editor (typing `edited` saved `dited`). `DataEditor` now loads the overlay editor as soon as it mounts, and the number editor the first time a number cell is drawn, so both are ready before a cell can be edited. Both editors are still loaded separately from the main bundle, and a grid with no number cells still never loads the number editor. An edit started before an editor has finished loading, for example on a very slow network, can still open late. No API change.
