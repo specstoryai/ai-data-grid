@@ -4,7 +4,7 @@ Changes on `main` since 7.0.0. They aren't in a published version yet.
 
 ## Changes
 
-- **Pasting a list from Microsoft Word or Outlook into ArticleCell's editor now creates a bullet or numbered list with its nesting** (`@specstory/ai-data-grid-cells`), instead of paragraphs that start with the bullet or number. This covers Word and classic Outlook on the desktop. Lettered and roman-numeral lists become numbered lists, and a list copied from the middle keeps its numbers. Word for the web isn't supported, and lists inside a Word table stay as text in their cells. See "Note on ArticleCell" in the cells README for the details and limitations. No API change.
+- **Pasting a list from Microsoft Word or Outlook into ArticleCell's editor now creates a bullet or numbered list with its nesting** (`@specstory/ai-data-grid-cells`), instead of paragraphs that start with the bullet or number. This covers Word and classic Outlook on the desktop. Lettered and roman-numeral lists become numbered lists, and a list copied from the middle keeps its numbers. Word for the web isn't supported, and lists inside a Word table stay as text in their cells. A list copied from Word on macOS no longer pastes as a picture of the list (Word also puts an image of it on the clipboard), and a copied picture still pastes as an image. See "Note on ArticleCell" in the cells README for the details and limitations. No API change.
 
 ## Fixes
 

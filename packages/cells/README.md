@@ -100,6 +100,7 @@ Pasting or dropping a list from Microsoft Word or classic Outlook on the desktop
 - An extra paragraph inside a list item stays in that item.
 - A numbered sub-list that doesn't start at 1, and a list item with more than one paragraph, are saved with a blank line inside the item, so they reload as the same list. Other Markdown renderers may show a list that has such an item with paragraph spacing.
 - Numbered headings stay headings, with their number as text.
+- The list pastes as a list even though Word also puts a picture of it on the clipboard (Word on macOS does). A copied picture, from Word or a browser, still pastes as an image.
 
 Limitations of Office list paste:
 
