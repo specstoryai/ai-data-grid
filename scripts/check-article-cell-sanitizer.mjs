@@ -32,9 +32,10 @@
 // The image-file rows (SPST-66 fix round 4) paste and drop clipboards that carry a PNG file next
 // to their HTML, as Word on macOS does: an Office list with text/plain text must become the list
 // with no `data:image` image, and a picture copied in a browser (a remote `<img>` and no
-// text/plain) must become the file's `data:image` image. No engine puts a file on a real copy,
-// and only Firefox on a real drag, so these rows dispatch synthetic paste and drop events with a
-// constructed DataTransfer. "Native" still records whether the event reached `document` without
+// text/plain) or from Word (a `file:` `<img>` and a U+FFFC placeholder in text/plain) must
+// become the file's `data:image` image. No engine puts a file on a real copy, and only Firefox
+// on a real drag, so these rows dispatch synthetic paste and drop events with a constructed
+// DataTransfer. "Native" still records whether the event reached `document` without
 // `defaultPrevented`, but an untrusted event never runs the browser's native insertion.
 //
 // The "native drop" path is defense in depth for ProseMirror's DOM observer and parse rules: it
@@ -527,23 +528,22 @@ async function runBrowser(name) {
                 });
             }
         }
-        const picture = await page.evaluate(() => window.officeFixtures.browserPictureHTML);
-        for (const type of ["paste", "drop"]) {
-            await mount("", false);
-            await dispatchWithImageFile(type, { html: picture, text: "" });
-            const result = await observe();
-            const { dataImage, remoteImage } = await imageShape();
-            record(
-                "I-picture",
-                "Picture copied in a browser",
-                `${type}, image file`,
-                result,
-                dataImage && !remoteImage,
-                {
+        const pictures = await page.evaluate(() => [
+            ["I-picture", "Picture copied in a browser", window.officeFixtures.browserPictureHTML, ""],
+            // Word's `file:` `<img>`, with the U+FFFC placeholder macOS writes into text/plain.
+            ["I-word-picture", "Picture copied from Word", window.officeFixtures.wordPictureHTML, "\uFFFC"],
+        ]);
+        for (const [id, title, html, text] of pictures) {
+            for (const type of ["paste", "drop"]) {
+                await mount("", false);
+                await dispatchWithImageFile(type, { html, text });
+                const result = await observe();
+                const { dataImage, remoteImage } = await imageShape();
+                record(id, title, `${type}, image file`, result, dataImage && !remoteImage, {
                     mustApply: true,
                     eventPath: true,
-                }
-            );
+                });
+            }
         }
     }
 

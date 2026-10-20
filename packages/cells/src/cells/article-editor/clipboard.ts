@@ -24,8 +24,10 @@ function imageFiles(data: DataTransfer | null): File[] | undefined {
     // Word (notably on macOS) puts an image file next to the HTML and text of a copied list or
     // paragraph, so a clipboard with text/plain text is parsed as text. A copied picture has
     // no text/plain text, whether its HTML is a browser's remote `<img>` or Word's `file:`
-    // `<img>` that D1 rejects, so it stays an image file.
-    if ((data.getData("text/plain") ?? "").trim() !== "") return undefined;
+    // `<img>` that D1 rejects, so it stays an image file. Its text/plain may still hold U+FFFC
+    // (OBJECT REPLACEMENT CHARACTER), the placeholder macOS writes for an embedded object, so
+    // that counts as no text too.
+    if ((data.getData("text/plain") ?? "").replace(/\uFFFC/g, "").trim() !== "") return undefined;
     return Array.from(data.files).filter(file => file.type.startsWith("image/"));
 }
 

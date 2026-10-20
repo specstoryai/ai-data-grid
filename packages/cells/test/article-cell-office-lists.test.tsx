@@ -659,10 +659,14 @@ describe("O: image flavor", () => {
     }
 
     it.each(["paste", "drop"])("O34 an Office list with an image file %s becomes the list", async how => {
-        const editor = await pasteOffice(officeBullets, { text: "Apples", how, files: [pngFile("pic.png")] });
-        await settle();
-        expect(editor.content().querySelector("img")).toBeNull();
-        await expectConverted(editor, BULLETS, officeBulletsSaved);
+        // Text next to an object placeholder (U+FFFC) is still text.
+        for (const text of ["Apples", "Apples \uFFFC"]) {
+            const editor = await pasteOffice(officeBullets, { text, how, files: [pngFile("pic.png")] });
+            await settle();
+            expect(editor.content().querySelector("img")).toBeNull();
+            await expectConverted(editor, BULLETS, officeBulletsSaved);
+            cleanup();
+        }
     });
 
     it.each(["paste", "drop"])(
@@ -689,9 +693,10 @@ describe("O: image flavor", () => {
     );
 
     it.each(["paste", "drop"])(
-        "O37 a picture copied from Word (file: <img>, empty or whitespace text/plain) %s becomes the image file",
+        "O37 a picture copied from Word (file: <img>, empty, whitespace or U+FFFC text/plain) %s becomes the image file",
         async how => {
-            for (const text of ["", "\r\n"]) {
+            // macOS writes U+FFFC (OBJECT REPLACEMENT CHARACTER) into plain text for an embedded picture.
+            for (const text of ["", "\r\n", "\uFFFC", "\uFFFC\r\n"]) {
                 await expectImage(await pasteOffice(wordPictureHTML, { text, how, files: [pngFile("pic.png")] }));
                 cleanup();
             }
