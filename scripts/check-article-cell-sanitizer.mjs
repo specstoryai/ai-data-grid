@@ -33,7 +33,8 @@
 // to their HTML, as Word on macOS does: an Office list with text/plain text must become the list
 // with no `data:image` image, and a picture copied in a browser (a remote `<img>` and no
 // text/plain) or from Word (a `file:` `<img>` and a U+FFFC placeholder in text/plain) must
-// become the file's `data:image` image. No engine puts a file on a real copy, and only Firefox
+// become the file's `data:image` image, and so must an image file copied in a file manager (its
+// name as text/plain and no HTML). No engine lets a page put a file on a real copy, and only Firefox
 // on a real drag, so these rows dispatch synthetic paste and drop events with a constructed
 // DataTransfer. "Native" still records whether the event reached `document` without
 // `defaultPrevented`, but an untrusted event never runs the browser's native insertion.
@@ -533,6 +534,8 @@ async function runBrowser(name) {
             // Word's `file:` `<img>`, with the U+FFFC placeholder macOS writes into text/plain.
             ["I-word-picture", "Picture copied from Word", window.officeFixtures.wordPictureHTML, "\uFFFC"],
         ]);
+        // An image file copied in a file manager: its name as text/plain, and no HTML.
+        pictures.push(["I-file-manager", "Image file copied in a file manager", undefined, "pic.png"]);
         for (const [id, title, html, text] of pictures) {
             for (const type of ["paste", "drop"]) {
                 await mount("", false);

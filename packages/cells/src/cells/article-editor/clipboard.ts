@@ -21,14 +21,20 @@ function plainTextSlice(schema: Schema, text: string): Slice {
 
 function imageFiles(data: DataTransfer | null): File[] | undefined {
     if (data === null || data.files.length === 0) return undefined;
+    const images = Array.from(data.files).filter(file => file.type.startsWith("image/"));
+    // With no image file, text/plain text next to another file is pasted as text.
+    if (images.length === 0) return undefined;
     // Word (notably on macOS) puts an image file next to the HTML and text of a copied list or
-    // paragraph, so a clipboard with text/plain text is parsed as text. A copied picture has
-    // no text/plain text, whether its HTML is a browser's remote `<img>` or Word's `file:`
-    // `<img>` that D1 rejects, so it stays an image file. Its text/plain may still hold U+FFFC
-    // (OBJECT REPLACEMENT CHARACTER), the placeholder macOS writes for an embedded object, so
-    // that counts as no text too.
-    if ((data.getData("text/plain") ?? "").replace(/\uFFFC/g, "").trim() !== "") return undefined;
-    return Array.from(data.files).filter(file => file.type.startsWith("image/"));
+    // paragraph, so a clipboard with both HTML and text/plain text is parsed as HTML. Any other
+    // clipboard with an image file stays an image, as in 7.0.0: a copied picture has HTML (a
+    // browser's remote `<img>`, or Word's `file:` `<img>` that D1 rejects) but no text/plain
+    // text, and a file copied in a file manager has its name or path as text but no HTML. A
+    // picture's text/plain may still hold U+FFFC (OBJECT REPLACEMENT CHARACTER), the
+    // placeholder macOS writes for an embedded object, so that counts as no text too.
+    const html = (data.getData("text/html") ?? "").trim();
+    const text = (data.getData("text/plain") ?? "").replace(/\uFFFC/g, "").trim();
+    if (html !== "" && text !== "") return undefined;
+    return images;
 }
 
 // An image file becomes a `data:image/…` image, as Toast UI's image hook did (SPST-48's D02).

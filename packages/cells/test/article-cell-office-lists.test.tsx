@@ -7,7 +7,7 @@
 // Chromium, Firefox and WebKit.
 //
 // Groups: conversion (O01–O13, O27–O31, O33), left unchanged (O14–O16), security (O17–O20),
-// robustness (O21–O26, O32) and the image flavor next to a copied list or picture (O34–O39).
+// robustness (O21–O26, O32) and the image flavor next to a copied list, picture or file (O34–O42).
 import { cleanup, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArticleEditor } from "../src/cells/article-editor/create-article-editor.js";
@@ -648,7 +648,8 @@ describe("O: robustness", () => {
 });
 
 // Word, notably on macOS, puts an image file on the clipboard next to the HTML and text of a
-// copied list. A clipboard with text/plain text is parsed as text; one without stays an image.
+// copied list. A clipboard with both HTML and text/plain text is parsed as HTML; any other
+// clipboard with an image file stays an image.
 describe("O: image flavor", () => {
     const DATA_IMAGE = 'img[src^="data:image/png;base64,"]';
     const settle = () => new Promise(resolve => setTimeout(resolve, 50));
@@ -739,6 +740,48 @@ describe("O: image flavor", () => {
             expect(editor.content().querySelector('span[data-type="html"]')).toBeNull();
             expect(await editor.save()).not.toMatch(UNSAFE_SAVED);
             expect((window as any).__xss).toBeUndefined();
+        }
+    );
+    it.each(["paste", "drop"])(
+        "O40 an image file copied in a file manager (its name or path as text/plain, no HTML) %s becomes the image",
+        async how => {
+            for (const text of ["pic.png", "/home/user/Pictures/pic.png", "pic.png\r\n"]) {
+                await expectImage(await pasteOffice(undefined, { text, how, files: [pngFile("pic.png")] }));
+                cleanup();
+            }
+            for (const text of ["pic.png\rphoto.png", "pic.png\nphoto.png"]) {
+                const editor = await pasteOffice(undefined, {
+                    text,
+                    how,
+                    files: [pngFile("pic.png"), pngFile("photo.png")],
+                });
+                await waitFor(() => expect(editor.content().querySelectorAll(DATA_IMAGE)).toHaveLength(2));
+                const alts = Array.from(editor.content().querySelectorAll(DATA_IMAGE), img => img.getAttribute("alt"));
+                expect(alts.sort()).toEqual(["photo.png", "pic.png"]);
+                expect(editor.content().textContent).not.toContain("pic.png");
+                cleanup();
+            }
+        }
+    );
+
+    it.each(["paste", "drop"])(
+        "O41 a picture's URL as text/plain with its image file and no HTML %s becomes the image file",
+        async how => {
+            const text = "https://example.com/synthetic-picture.png";
+            const editor = await pasteOffice(undefined, { text, how, files: [pngFile("pic.png")] });
+            await expectImage(editor);
+            expect(editor.content().textContent).not.toContain("example.com");
+        }
+    );
+
+    it.each(["paste", "drop"])(
+        "O42 text/plain with a file that isn't an image and no HTML %s inserts the text",
+        async how => {
+            const file = new File(["x"], "notes.bin", { type: "application/octet-stream" });
+            const editor = await pasteOffice(undefined, { text: "plain-O42", how, files: [file] });
+            await settle();
+            expect(editor.content().querySelector("img")).toBeNull();
+            expect(await editor.save()).toBe("plain-O42\n");
         }
     );
 });
