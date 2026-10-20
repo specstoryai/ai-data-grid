@@ -21,6 +21,11 @@ function plainTextSlice(schema: Schema, text: string): Slice {
 
 function imageFiles(data: DataTransfer | null): File[] | undefined {
     if (data === null || data.files.length === 0) return undefined;
+    // Word (notably on macOS) puts an image file next to the HTML and text of a copied list or
+    // paragraph, so a clipboard with text/plain text is parsed as text. A copied picture has
+    // no text/plain text, whether its HTML is a browser's remote `<img>` or Word's `file:`
+    // `<img>` that D1 rejects, so it stays an image file.
+    if ((data.getData("text/plain") ?? "").trim() !== "") return undefined;
     return Array.from(data.files).filter(file => file.type.startsWith("image/"));
 }
 
@@ -67,12 +72,8 @@ export const articleClipboardProps: Pick<EditorProps, "transformPastedHTML" | "h
             if (text !== "") view.dispatch(state.tr.insertText(text).scrollIntoView().setMeta("uiEvent", "paste"));
             return true;
         }
-        // Word (notably on macOS) puts an image representation on the clipboard alongside
-        // the HTML/text flavors. Treat the paste as an image paste only when there is no
-        // text or HTML to parse, so a copied list/paragraph doesn't become an image.
-        const hasText = Boolean((data?.getData("text/html") ?? "").trim() || (data?.getData("text/plain") ?? "").trim());
         const images = imageFiles(data);
-        if (!hasText && images !== undefined) {
+        if (images !== undefined) {
             // Any other file is ignored.
             insertImageFiles(view, images, undefined);
             return true;
@@ -108,9 +109,8 @@ export const articleClipboardProps: Pick<EditorProps, "transformPastedHTML" | "h
             if (text !== "") view.dispatch(state.tr.insertText(text, target.pos).setMeta("uiEvent", "drop"));
             return true;
         }
-        const hasText = Boolean((data?.getData("text/html") ?? "").trim() || (data?.getData("text/plain") ?? "").trim());
         const images = imageFiles(data);
-        if (!hasText && images !== undefined) {
+        if (images !== undefined) {
             insertImageFiles(view, images, target.pos);
             return true;
         }

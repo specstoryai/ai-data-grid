@@ -713,6 +713,25 @@ export function oversizedOfficeList() {
     return wordDocument(bulletRules, wordItem({ marker: "·", text: "x".repeat(4_000_001) }));
 }
 
+/**
+ * A picture copied in a browser ("Copy image"): an `<img>` with a remote URL next to the image
+ * file, and no text/plain flavor. The URL is made up.
+ */
+export const browserPictureHTML = '<meta charset="utf-8"><img src="https://example.com/synthetic-picture.png" alt="">';
+
+/**
+ * A picture copied from Word desktop: the VML shape for old Office and an `<img>` pointing at
+ * Word's temporary copy of the picture (a `file:` URL, which D1 rejects), next to the image
+ * file. The path is made up, with no real user name.
+ */
+export const wordPictureHTML = wordDocument(
+    bulletRules,
+    `<p class=MsoNormal><!--[if gte vml 1]><v:shape id="Picture_x0020_1" type="#_x0000_t75" style='width:72pt;height:72pt'>` +
+        `<v:imagedata src="file:///C:/Users/example/AppData/Local/Temp/msohtmlclip1/01/clip_image001.png" o:title=""/>` +
+        `</v:shape><![endif]--><![if !vml]><img width=96 height=96 ` +
+        `src="file:///C:/Users/example/AppData/Local/Temp/msohtmlclip1/01/clip_image002.png" v:shapes="Picture_x0020_1"><![endif]><o:p></o:p></p>\n`
+);
+
 const xss = id => `window.__xss='${id}'`;
 
 /** Hostile content inside Office list items, for the browser check. */

@@ -6,9 +6,9 @@
 // to converted content. scripts/check-article-cell-sanitizer.mjs runs the Office rows in
 // Chromium, Firefox and WebKit.
 //
-// Groups: conversion (O01–O13, O27–O31, O33), left unchanged (O14–O16), security (O17–O20) and
-// robustness (O21–O26, O32).
-import { cleanup } from "@testing-library/react";
+// Groups: conversion (O01–O13, O27–O31, O33), left unchanged (O14–O16), security (O17–O20),
+// robustness (O21–O26, O32) and the image flavor next to a copied list or picture (O34–O39).
+import { cleanup, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArticleEditor } from "../src/cells/article-editor/create-article-editor.js";
 import { convertOfficeLists } from "../src/cells/article-editor/office-lists.js";
@@ -18,11 +18,13 @@ import {
     mount,
     type Mounted,
     paste,
+    pngFile,
     setPointTarget,
     spyOnHTMLSinks,
     UNSAFE_SAVED,
 } from "./article-cell-harness.js";
 import {
+    browserPictureHTML,
     largeOfficeList,
     longMarkerOfficeList,
     malformedOffice,
@@ -35,6 +37,7 @@ import {
     officeFormats,
     officeFragment,
     officeHeadings,
+    officeHostile,
     officeJump,
     officeListItem,
     officeMarkerShapes,
@@ -67,6 +70,7 @@ import {
     outlookWebLists,
     oversizedOfficeList,
     textMentionsMsoList,
+    wordPictureHTML,
     wordWebLists,
 } from "./fixtures/office-clipboard.mjs";
 import {
@@ -86,16 +90,19 @@ afterEach(() => {
 const CODE_DOC = "```\ncode\n```\n\nafter";
 
 /** Pastes (or drops) `html` into an empty editor with the L03 sink spy on. */
-async function pasteOffice(html: string, { text = "plain", how = "paste" }: { text?: string; how?: string } = {}) {
+async function pasteOffice(
+    html: string | undefined,
+    { text = "plain", how = "paste", files }: { text?: string; how?: string; files?: readonly File[] } = {}
+) {
     const editor = await mount("");
     const sinks = spyOnHTMLSinks();
     try {
         if (how === "drop") {
             setPointTarget(() => editor.content().querySelector("p"));
-            const event = await drop(editor.content(), { html, text });
+            const event = await drop(editor.content(), { html, text, files });
             expect(event.defaultPrevented).toBe(true);
         } else {
-            const event = await paste(editor.content(), { html, text });
+            const event = await paste(editor.content(), { html, text, files });
             expect(event.defaultPrevented).toBe(true);
         }
         expect(sinks.writes()).toEqual([]);
@@ -638,4 +645,95 @@ describe("O: robustness", () => {
             parse.mockRestore();
         }
     });
+});
+
+// Word, notably on macOS, puts an image file on the clipboard next to the HTML and text of a
+// copied list. A clipboard with text/plain text is parsed as text; one without stays an image.
+describe("O: image flavor", () => {
+    const DATA_IMAGE = 'img[src^="data:image/png;base64,"]';
+    const settle = () => new Promise(resolve => setTimeout(resolve, 50));
+
+    async function expectImage(editor: Mounted) {
+        await waitFor(() => expect(editor.content().querySelector(DATA_IMAGE)).not.toBeNull());
+        expect(await editor.save()).toMatch(/^!\[pic\.png\]\(data:image\/png;base64,[^)]*\)\n$/);
+    }
+
+    it.each(["paste", "drop"])("O34 an Office list with an image file %s becomes the list", async how => {
+        const editor = await pasteOffice(officeBullets, { text: "Apples", how, files: [pngFile("pic.png")] });
+        await settle();
+        expect(editor.content().querySelector("img")).toBeNull();
+        await expectConverted(editor, BULLETS, officeBulletsSaved);
+    });
+
+    it.each(["paste", "drop"])(
+        "O35 whitespace-only HTML or text/plain with an image file %s becomes the image",
+        async how => {
+            for (const [html, text] of [
+                [" \n", ""],
+                ["", " \r\n"],
+                [" ", "\t"],
+            ]) {
+                await expectImage(await pasteOffice(html, { text, how, files: [pngFile("pic.png")] }));
+                cleanup();
+            }
+        }
+    );
+
+    it.each(["paste", "drop"])(
+        "O36 a picture copied in a browser (remote <img>, no text/plain) %s becomes the image file",
+        async how => {
+            const editor = await pasteOffice(browserPictureHTML, { text: "", how, files: [pngFile("pic.png")] });
+            await expectImage(editor);
+            expect(editor.content().querySelector('img[src^="https:"]')).toBeNull();
+        }
+    );
+
+    it.each(["paste", "drop"])(
+        "O37 a picture copied from Word (file: <img>, empty or whitespace text/plain) %s becomes the image file",
+        async how => {
+            for (const text of ["", "\r\n"]) {
+                await expectImage(await pasteOffice(wordPictureHTML, { text, how, files: [pngFile("pic.png")] }));
+                cleanup();
+            }
+        }
+    );
+
+    it.each(["paste", "drop"])(
+        "O38 an Office list with an image file %s into a code block inserts only its text/plain (A1)",
+        async how => {
+            const editor = await mount(CODE_DOC);
+            const before = editor.content().querySelectorAll("p, li, ul, ol").length;
+            const data = { html: officeBullets, text: "plain-O38", files: [pngFile("pic.png")] };
+            if (how === "drop") {
+                setPointTarget(() => editor.content().querySelector("pre code"));
+                await drop(editor.content().querySelector("pre code")!, data);
+            } else {
+                await paste(editor.content(), data);
+            }
+            await settle();
+            expect(editor.content().querySelector("pre code")?.textContent).toBe("plain-O38code");
+            expect(editor.content().querySelectorAll("p, li, ul, ol")).toHaveLength(before);
+            expect(editor.content().querySelector("img")).toBeNull();
+            expect(await editor.save()).toBe("```\nplain-O38code\n```\n\nafter\n");
+        }
+    );
+
+    it.each(["paste", "drop"])(
+        "O39 hostile Office HTML with an image file %s is still neutralized (D1–D3)",
+        async how => {
+            const editor = await pasteOffice(officeHostile, {
+                text: "office-hostile",
+                how,
+                files: [pngFile("pic.png")],
+            });
+            await settle();
+            expect(editor.content().querySelector("ul > li")).not.toBeNull();
+            expect(editor.content().textContent).toContain("office-hostile-end");
+            expect(editor.content().querySelector(DATA_IMAGE)).toBeNull();
+            expect(findDangerousDOM(editor.container)).toEqual([]);
+            expect(editor.content().querySelector('span[data-type="html"]')).toBeNull();
+            expect(await editor.save()).not.toMatch(UNSAFE_SAVED);
+            expect((window as any).__xss).toBeUndefined();
+        }
+    );
 });

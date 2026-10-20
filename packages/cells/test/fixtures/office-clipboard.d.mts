@@ -79,6 +79,8 @@ export declare const officeReordered: string;
 export declare const officeMismatched: string;
 export declare function largeOfficeList(count: number, options?: { deep?: boolean }): string;
 export declare function oversizedOfficeList(): string;
+export declare const browserPictureHTML: string;
+export declare const wordPictureHTML: string;
 export declare const officeHostile: string;
 export declare const officeBrowserCases: readonly OfficeBrowserCase[];
 export declare const officeCorpus: readonly OfficeFixture[];

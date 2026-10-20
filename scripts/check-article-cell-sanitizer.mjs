@@ -29,6 +29,14 @@
 // spans between list items, and outline numbers), the "Office save" check pastes it, saves,
 // compares the GFM, and loads the saved GFM again to check that it gives the same lists.
 //
+// The image-file rows (SPST-66 fix round 4) paste and drop clipboards that carry a PNG file next
+// to their HTML, as Word on macOS does: an Office list with text/plain text must become the list
+// with no `data:image` image, and a picture copied in a browser (a remote `<img>` and no
+// text/plain) must become the file's `data:image` image. No engine puts a file on a real copy,
+// and only Firefox on a real drag, so these rows dispatch synthetic paste and drop events with a
+// constructed DataTransfer. "Native" still records whether the event reached `document` without
+// `defaultPrevented`, but an untrusted event never runs the browser's native insertion.
+//
 // The "native drop" path is defense in depth for ProseMirror's DOM observer and parse rules: it
 // really drops the payload on a plain contenteditable, where Chromium applies its own drop
 // sanitization, and inserts the resulting markup into the editor's DOM. Other browsers don't
@@ -459,6 +467,83 @@ async function runBrowser(name) {
                     shape.marked === marked;
                 record(c.id, c.name, path, result, applied, { mustApply: true, eventPath: true });
             }
+        }
+    }
+
+    // The image-file rows: a synthetic paste or drop on the editor's paragraph whose DataTransfer
+    // holds the flavors given and a 1×1 PNG file.
+    async function dispatchWithImageFile(type, data) {
+        await page.locator(EDITOR).click();
+        await page.evaluate(
+            ([t, d, selector]) => {
+                const png = Uint8Array.from(
+                    atob(
+                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+                    ),
+                    c => c.charCodeAt(0)
+                );
+                const dt = new DataTransfer();
+                if (d.html !== undefined) dt.setData("text/html", d.html);
+                if (d.text !== undefined) dt.setData("text/plain", d.text);
+                dt.items.add(new File([png], "pic.png", { type: "image/png" }));
+                const target = document.querySelector(`${selector} p`);
+                const box = target.getBoundingClientRect();
+                const init = { bubbles: true, cancelable: true, clientX: box.x + 2, clientY: box.y + box.height / 2 };
+                // Firefox ignores a ClipboardEvent's clipboardData init, so define it on the event.
+                const event = t === "paste" ? new ClipboardEvent("paste", init) : new DragEvent("drop", init);
+                Object.defineProperty(event, t === "paste" ? "clipboardData" : "dataTransfer", { value: dt });
+                target.dispatchEvent(event);
+            },
+            [type, data, EDITOR]
+        );
+    }
+    const imageShape = () =>
+        page.evaluate(
+            selector => ({
+                dataImage: document.querySelector(`${selector} img[src^="data:image/png;base64,"]`) !== null,
+                remoteImage: document.querySelector(`${selector} img[src^="https:"]`) !== null,
+            }),
+            EDITOR
+        );
+    if (!legacy) {
+        for (const c of officeCases.filter(o => o.id === "O-mixed" || o.id === "O-hostile")) {
+            for (const type of ["paste", "drop"]) {
+                await mount("", false);
+                await dispatchWithImageFile(type, { html: c.html, text: c.text });
+                const result = await observe();
+                const shape = await officeShape();
+                const { dataImage } = await imageShape();
+                const { ul, ol, li, depth, marked = 0 } = c.expected;
+                const applied =
+                    !dataImage &&
+                    shape.ul === ul &&
+                    shape.ol === ol &&
+                    shape.li === li &&
+                    shape.depth === depth &&
+                    shape.marked === marked;
+                record(c.id, c.name, `Office ${type}, image file`, result, applied, {
+                    mustApply: true,
+                    eventPath: true,
+                });
+            }
+        }
+        const picture = await page.evaluate(() => window.officeFixtures.browserPictureHTML);
+        for (const type of ["paste", "drop"]) {
+            await mount("", false);
+            await dispatchWithImageFile(type, { html: picture, text: "" });
+            const result = await observe();
+            const { dataImage, remoteImage } = await imageShape();
+            record(
+                "I-picture",
+                "Picture copied in a browser",
+                `${type}, image file`,
+                result,
+                dataImage && !remoteImage,
+                {
+                    mustApply: true,
+                    eventPath: true,
+                }
+            );
         }
     }
 
